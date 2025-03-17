@@ -5,6 +5,7 @@
  * @format
  */
 
+import {Camera} from 'lucide-react-native';
 import React from 'react';
 import type {PropsWithChildren} from 'react';
 import {
@@ -69,7 +70,8 @@ function App(): React.JSX.Element {
         backgroundColor={backgroundStyle.backgroundColor}
       />
 
-      <Text className={'text-lg font-bold text-red-600'}>Hello</Text>
+      <Camera color="red" size={16} />
+      <Text className={'text-lg font-bold text-red-600 ml-2'}>Hello</Text>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>

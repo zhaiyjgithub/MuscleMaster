@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MuscleMaster - Device Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .design-container {
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        h1, h2, h3 {
+            color: #222;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        
+        h1 {
+            font-size: 28px;
+        }
+        
+        h2 {
+            font-size: 22px;
+        }
+        
+        h3 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            font-size: 15px;
+            color: #555;
+        }
+        
+        .app-mockups {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .phone-mockup {
+            width: 300px;
+            height: 640px;
+            background-color: #000;
+            border-radius: 40px;
+            padding: 12px;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .phone-screen {
+            background-color: #fff;
+            height: 100%;
+            width: 100%;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .status-bar {
+            height: 44px;
+            width: 100%;
+            background-color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .app-content {
+            padding: 10px 16px;
+            height: calc(100% - 44px);
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        
+        .scan-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 0;
+            text-align: center;
+            background-color: white;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .scan-animation {
+            width: 120px;
+            height: 120px;
+            border-radius: 60px;
+            border: 2px solid #1e88e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            background-color: rgba(30, 136, 229, 0.05);
+        }
+        
+        .scan-animation:before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(30, 136, 229, 0.2);
+            animation: radar-pulse 2s linear infinite;
+        }
+        
+        .scan-animation:after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(30, 136, 229, 0) 0%, rgba(30, 136, 229, 0.8) 100%);
+            transform-origin: left center;
+            animation: radar-sweep 3s linear infinite;
+        }
+        
+        .radar-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: rgba(30, 136, 229, 0.8);
+            border-radius: 50%;
+            opacity: 0;
+        }
+        
+        .radar-dot:nth-child(1) {
+            top: 30%;
+            left: 70%;
+            animation: blip 3s 0.6s infinite;
+        }
+        
+        .radar-dot:nth-child(2) {
+            top: 60%;
+            left: 40%;
+            animation: blip 3s 1.7s infinite;
+        }
+        
+        .radar-dot:nth-child(3) {
+            top: 45%;
+            left: 75%;
+            animation: blip 3s 0.9s infinite;
+        }
+        
+        @keyframes radar-sweep {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        @keyframes radar-pulse {
+            0% {
+                transform: scale(0.3);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes blip {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            30% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            70% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.5);
+            }
+        }
+        
+        .scan-animation i {
+            font-size: 28px;
+            color: #1e88e5;
+            z-index: 1;
+        }
+        
+        .scan-text {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .scan-subtext {
+            font-size: 13px;
+            color: #777;
+            margin-bottom: 15px;
+        }
+        
+        .cancel-btn {
+            padding: 8px 20px;
+            background-color: transparent;
+            color: #1e88e5;
+            border: 1px solid #1e88e5;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        
+        .device-section {
+            background-color: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-header {
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .device-count {
+            font-size: 13px;
+            color: #777;
+            font-weight: 400;
+        }
+        
+        .device-list {
+            padding: 8px 16px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        .device-item {
+            display: flex;
+            flex-direction: column;
+            padding: 14px;
+            border-radius: 12px;
+            background-color: #f8f8f8;
+            position: relative;
+        }
+        
+        .device-info {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .device-icon {
+            width: 42px;
+            height: 42px;
+            background-color: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        
+        .device-details {
+            flex: 1;
+        }
+        
+        .device-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .device-name {
+            font-weight: 500;
+            margin-bottom: 3px;
+            font-size: 15px;
+        }
+        
+        .device-id {
+            font-size: 13px;
+            color: #888;
+            display: flex;
+            align-items: center;
+        }
+        
+        .connect-btn {
+            padding: 8px 0;
+            background-color: #1e88e5;
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            width: 100%;
+        }
+        
+        .connect-btn.connected {
+            background-color: #43a047;
+        }
+        
+        .signal-icon {
+            color: #43a047;
+            font-size: 16px;
+            margin-right: 4px;
+        }
+        
+        .signal-strength {
+            display: flex;
+            align-items: center;
+            margin-right: 16px;
+        }
+        
+        .signal-bar {
+            width: 3px;
+            background-color: #43a047;
+            margin-right: 2px;
+            border-radius: 1px;
+        }
+        
+        .signal-bar:nth-child(1) {
+            height: 6px;
+        }
+        
+        .signal-bar:nth-child(2) {
+            height: 10px;
+        }
+        
+        .signal-bar:nth-child(3) {
+            height: 14px;
+        }
+        
+        .signal-bar:nth-child(4) {
+            height: 18px;
+        }
+        
+        .signal-bar.inactive {
+            background-color: #e0e0e0;
+        }
+        
+        .signal-text {
+            font-size: 12px;
+            color: #777;
+            margin-left: 6px;
+        }
+        
+        .refresh-btn {
+            color: #1e88e5;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            margin: 0 auto;
+            width: fit-content;
+            justify-content: center;
+        }
+        
+        .refresh-icon {
+            margin-right: 6px;
+            font-size: 16px;
+        }
+        
+        .training-btn {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            text-align: center;
+            padding: 14px 0;
+            margin: 10px 16px 16px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .training-btn:hover {
+            background-color: #43A047;
+        }
+        
+        .description {
+            margin-top: 30px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .features-list {
+            margin-top: 15px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            background-color: #e3f2fd;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 12px;
+            color: #1e88e5;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .feature-text {
+            flex: 1;
+        }
+        
+        .feature-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+        
+        .feature-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="design-container">
+        <h1>MuscleMaster - Bluetooth Scanner App</h1>
+        <p>A clean, modern mobile app design for scanning and connecting to Bluetooth devices.</p>
+        
+        <div class="app-mockups">
+            <!-- First page: Bluetooth device scanning -->
+            <div class="phone-mockup">
+                <div class="phone-screen">
+                    <div class="status-bar">
+                        <span>9:41</span>
+                        <span style="font-weight: 600;">MuscleMaster</span>
+                        <span>🔋 85%</span>
+                    </div>
+                    <div class="app-content">
+                        <div class="scan-section">
+                            <div class="scan-animation">
+                                <div class="radar-dot"></div>
+                                <div class="radar-dot"></div>
+                                <div class="radar-dot"></div>
+                            </div>
+                            <div class="scan-text">Scanning for devices...</div>
+                            <div class="scan-subtext">Looking for nearby Bluetooth devices</div>
+                            <div class="cancel-btn">Cancel</div>
+                        </div>
+                        
+                        <div class="device-section">
+                            <div class="section-header">
+                                <h3>Found Devices</h3>
+                                <div class="device-count">3 devices</div>
+                            </div>
+                            
+                            <div class="device-list">
+                                <div class="device-item">
+                                    <div class="device-info">
+                                        <div class="device-icon" style="color: #1e88e5;">💪</div>
+                                        <div class="device-details">
+                                            <div class="device-name">Smart Dumbbell Pro</div>
+                                            <div class="device-id">
+                                                <span class="signal-icon">•</span>
+                                                <span>MM-DB-2024</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="device-status">
+                                        <div class="signal-strength">
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar"></div>
+                                            <span class="signal-text">Excellent signal</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="connect-btn connected">Connected</div>
+                                </div>
+                                
+                                <div class="device-item">
+                                    <div class="device-info">
+                                        <div class="device-icon" style="color: #ff9800;">⚡</div>
+                                        <div class="device-details">
+                                            <div class="device-name">Muscle Stimulator X1</div>
+                                            <div class="device-id">
+                                                <span class="signal-icon" style="color: #ff9800;">•</span>
+                                                <span>MM-EMS-1001</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="device-status">
+                                        <div class="signal-strength">
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar inactive"></div>
+                                            <div class="signal-bar inactive"></div>
+                                            <span class="signal-text">Good signal</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="connect-btn">Connect</div>
+                                </div>
+                                
+                                <div class="device-item">
+                                    <div class="device-info">
+                                        <div class="device-icon" style="color: #9c27b0;">🏋️</div>
+                                        <div class="device-details">
+                                            <div class="device-name">Ab Trainer 3000</div>
+                                            <div class="device-id">
+                                                <span class="signal-icon" style="color: #9c27b0;">•</span>
+                                                <span>MM-AB-3030</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="device-status">
+                                        <div class="signal-strength">
+                                            <div class="signal-bar"></div>
+                                            <div class="signal-bar inactive"></div>
+                                            <div class="signal-bar inactive"></div>
+                                            <div class="signal-bar inactive"></div>
+                                            <span class="signal-text">Weak signal</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="connect-btn">Connect</div>
+                                </div>
+                            </div>
+                            
+                            <div class="refresh-btn">
+                                <span class="refresh-icon">↻</span>
+                                <span>Refresh Device List</span>
+                            </div>
+                            
+                            <div class="training-btn">Start Training</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="description">
+                <h2>Design Features</h2>
+                <p>This design focuses on the first page of a Bluetooth device scanning app with emphasis on simplicity and user experience.</p>
+                
+                <div class="features-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔍</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Active Scanning Visualization</div>
+                            <div class="feature-description">Pulsing animation provides clear visual feedback that the app is actively scanning for nearby devices.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📋</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Organized Device List</div>
+                            <div class="feature-description">Clean layout showing device name, ID, connection status, and signal strength for each found device.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📶</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Signal Strength Indicator</div>
+                            <div class="feature-description">Visual representation of Bluetooth signal strength helps users understand connection quality.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">🔄</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Manual Refresh Option</div>
+                            <div class="feature-description">Allows users to refresh the device list if they don't see their device or want to update signal strengths.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

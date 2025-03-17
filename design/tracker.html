@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MuscleMaster - Device Controller</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .design-container {
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        h1, h2, h3 {
+            color: #222;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        
+        h1 {
+            font-size: 28px;
+        }
+        
+        h2 {
+            font-size: 22px;
+        }
+        
+        h3 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            font-size: 15px;
+            color: #555;
+        }
+        
+        .app-mockups {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .phone-mockup {
+            width: 300px;
+            height: 640px;
+            background-color: #000;
+            border-radius: 40px;
+            padding: 12px;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .phone-screen {
+            background-color: #fff;
+            height: 100%;
+            width: 100%;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .status-bar {
+            height: 44px;
+            width: 100%;
+            background-color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .ios-navbar {
+            height: 44px;
+            width: 100%;
+            background-color: rgba(247, 247, 247, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .ios-navbar-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #000;
+            text-align: center;
+            position: relative;
+            padding: 3px 12px;
+            line-height: 1.2;
+        }
+        
+        .connection-status {
+            position: absolute;
+            right: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 400;
+            color: #43a047;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #43a047;
+            margin-right: 6px;
+            display: inline-block;
+            position: relative;
+            top: 0;
+        }
+        
+        .connection-status i, .connection-status svg {
+            width: 18px;
+            height: 18px;
+            stroke: #43a047;
+            stroke-width: 2;
+        }
+        
+        .settings-btn {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        
+        .settings-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .settings-btn:active {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        .settings-btn i, .settings-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: #333;
+            stroke-width: 2;
+        }
+        
+        .back-btn {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #007AFF;
+            font-size: 17px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+        }
+        
+        .back-btn i, .back-btn svg {
+            width: 13px;
+            height: 21px;
+            margin-right: 5px;
+            stroke: #007AFF;
+            stroke-width: 2;
+        }
+        
+        .app-content {
+            padding: 10px 16px;
+            height: calc(100% - 88px); /* Account for status bar and navbar */
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        
+        .navbar {
+            display: none; /* Hide the old navbar */
+        }
+        
+        .device-section {
+            background-color: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 16px;
+        }
+        
+        .section-header {
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .device-status-container {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .device-info-card {
+            width: 100%;
+    
+        }
+        
+        .device-name {
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        
+        .device-name i {
+            margin-right: 8px;
+            color: #1e88e5;
+        }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            position: relative;
+        }
+        
+        .status-label {
+            color: #666;
+        }
+        
+        .status-value {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .status-value.active {
+            color: #43a047;
+        }
+        
+        .status-value.inactive {
+            color: #e53935;
+        }
+        
+        .level-row {
+            justify-content: center;
+            margin: 14px 0;
+        }
+        
+        .level-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e88e5;
+        }
+        
+        .status-battery {
+            display: flex;
+            align-items: center;
+        }
+        
+        .battery-level {
+            width: 40px;
+            height: 12px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            margin-left: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .battery-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 75%;
+            background-color: #43a047;
+            border-radius: 2px;
+        }
+        
+        .level-controls {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0 15px;
+            padding: 0;
+            position: relative;
+            height: 48px;
+        }
+        
+        .level-controls .control-button {
+            width: 90px;
+            height: 40px;
+            padding: 8px 0;
+            font-size: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #f5f5f5;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .level-controls .control-button:hover {
+            background-color: #e8e8e8;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+        
+        .level-controls .control-button span {
+            margin-top: 3px;
+            font-weight: 600;
+        }
+        
+        .level-controls .control-button i,
+        .level-controls .control-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: #1e88e5;
+            stroke-width: 2.5;
+            margin-bottom: 2px;
+        }
+        
+        .level-controls .control-button.up {
+            position: absolute;
+            left: 0;
+            top: 5px;
+        }
+        
+        .level-controls .control-button.down {
+            position: absolute;
+            right: 0;
+            top: 5px;
+        }
+        
+        .control-button.up i,
+        .control-button.up svg {
+            transform: rotate(0deg); /* 取消旋转，因为我们已经使用了正确的图标 */
+        }
+        
+        .control-button.down i,
+        .control-button.down svg {
+            transform: rotate(0deg); /* 取消旋转，因为我们已经使用了正确的图标 */
+        }
+        
+        .start-pause {
+            grid-column: span 2;
+            background-color: #1e88e5;
+            color: white;
+        }
+        
+        .start-pause i,
+        .start-pause svg {
+            color: white;
+            stroke: white;
+        }
+        
+        .timer-section {
+            background-color: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 16px;
+        }
+        
+        .timer-display {
+            padding: 16px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .timer-value {
+            font-size: 48px;
+            font-weight: 300;
+            color: #333;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+        
+        .timer-controls {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .timer-btn {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .timer-btn svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+        }
+        
+        .timer-start {
+            background-color: #1e88e5;
+            color: white;
+        }
+        
+        .timer-start svg {
+            stroke: white;
+        }
+        
+        .timer-reset {
+            background-color: transparent;
+            color: #1e88e5;
+            border: 1px solid #1e88e5;
+        }
+        
+        .timer-reset svg {
+            stroke: #1e88e5;
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 22px;
+            color: #333;
+            z-index: 10;
+        }
+        
+        .description {
+            margin-top: 30px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .features-list {
+            margin-top: 15px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            background-color: #e3f2fd;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 12px;
+            color: #1e88e5;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .feature-text {
+            flex: 1;
+        }
+        
+        .feature-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+        
+        .feature-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        /* Bottom Sheet Styles */
+        .bottom-sheet {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            transform: translateY(100%);
+            background-color: white;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: transform 0.3s ease-out;
+            padding: 20px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        
+        .phone-screen .bottom-sheet.active {
+            transform: translateY(0);
+        }
+        
+        .phone-screen .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            z-index: 999;
+            display: none;
+            border-radius: 30px;
+        }
+        
+        .phone-screen .overlay.active {
+            display: block;
+        }
+        
+        .bottom-sheet-header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .bottom-sheet-title {
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .bottom-sheet-close {
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .mode-list {
+            display: flex;
+            flex-direction: row;
+            gap: 25px;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 5px 0;
+        }
+        
+        .mode-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: #062e62;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border: 2px solid transparent;
+            color: #09a4ff;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .mode-item.selected {
+            background-color: #1e88e5;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .mode-item:hover {
+            background-color: #0c3d7a;
+            transform: translateY(-2px);
+        }
+        
+        .mode-item.selected:hover {
+            background-color: #1976d2;
+        }
+        
+        .mode-item i, .mode-item svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+        }
+        
+        .mode-item.selected i, .mode-item.selected svg {
+            stroke: white;
+        }
+        
+        .mode-name {
+            display: block; /* Show the text labels */
+            font-size: 10px;
+            text-align: center;
+            position: absolute;
+            bottom: -18px;
+            color: #333;
+            font-weight: 500;
+            width: 100%;
+        }
+        
+        .bottom-sheet-button {
+            display: block;
+            width: 100%;
+            padding: 14px 0;
+            background-color: #1e88e5;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .bottom-sheet-button:hover {
+            background-color: #1976d2;
+        }
+        
+        /* 设备列表样式 */
+        .device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .device-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-radius: 12px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .device-item.selected {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .device-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .device-item i, .device-item svg {
+            width: 32px;
+            height: 32px;
+            stroke: #1e88e5;
+            stroke-width: 2;
+            margin-right: 12px;
+        }
+        
+        .device-details {
+            flex: 1;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .device-status {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .device-battery {
+            font-size: 14px;
+            color: #43a047;
+            font-weight: 500;
+        }
+        
+        .device-item.selected .device-name {
+            color: #1565c0;
+        }
+        
+        /* Current Device Section Styles */
+        .current-device-section {
+            background-color: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 16px;
+        }
+        
+        .current-device-section .device-info {
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .current-device-section .device-info:active {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .current-device-section .title-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .current-device-section .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #43a047;
+            margin-right: 6px;
+        }
+        
+        .current-device-section span {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-arrow {
+            width: 20px;
+            height: 20px;
+            stroke: #777;
+            stroke-width: 2;
+        }
+        
+        .controls-section {
+            background-color: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 16px;
+        }
+        
+        .control-buttons {
+            padding: 16px 16px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        /* 控制部分中的标题样式 */
+        .control-buttons .level-row {
+            margin: 0 0 12px;
+            justify-content: center;
+        }
+        
+        .control-button {
+            padding: 16px;
+            border-radius: 12px;
+            background-color: #f0f0f0;
+            text-align: center;
+            font-weight: 500;
+            font-size: 15px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        .control-button:active {
+            transform: scale(0.98);
+        }
+        
+        .control-button i {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #1e88e5;
+        }
+        
+        .control-button svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 8px;
+            stroke: #1e88e5;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="design-container">
+        <h1>MuscleMaster - Device Controller</h1>
+        <p>A clean, modern interface for controlling connected muscle training devices via Bluetooth.</p>
+        
+        <div class="app-mockups">
+            <!-- Controller page for connected devices -->
+            <div class="phone-mockup">
+                <div class="phone-screen">
+                    
+                    <div class="status-bar">
+                        <div>9:41</div>
+                        <div>
+                            <span style="margin-right: 6px;">
+                            </span>
+                            <span style="margin-right: 6px;">
+                            </span>
+                            <span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="ios-navbar">
+                        <div class="back-btn">
+                        </div>
+                        <div class="ios-navbar-title">
+                            <span>MuscleMaster</span>
+                        </div>
+                        <div class="connection-status">
+                        </div>
+                        <div class="settings-btn">
+                            <i data-lucide="settings"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="app-content">
+                        
+                        <div class="current-device-section">
+                            <div class="device-info" id="current-device-info">
+                                <div class="title-container">
+                                    <div class="status-dot"></div>
+                                    <span>MuscleMaster Pro</span>
+                                </div>
+                                <i data-lucide="chevron-right" class="device-arrow"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="timer-section">
+                            
+                            <div class="timer-display">
+                                <div class="timer-value">00:05:32</div>
+                                
+                                <div class="timer-controls">
+                                    <div class="timer-btn timer-start">
+                                        <span>Start</span>
+                                    </div>
+                                    <div class="timer-btn timer-reset">
+                                        <span>Reset</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="device-section">
+                            
+                            <div class="device-status-container">
+                                <div class="device-info-card">
+                                
+                                    <div class="status-row level-row">
+                                        <span class="status-value level-value">7 / 10</span>
+                                    </div>
+                                    
+                                    <div class="level-controls">
+                                        <div class="control-button up">
+                                            <i data-lucide="chevron-up"></i>
+                                            <span>Up</span>
+                                        </div>
+                                        
+                                        <div class="control-button down">
+                                            <i data-lucide="chevron-down"></i>
+                                            <span>Down</span>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="controls-section">
+                            
+                            <div class="control-buttons">
+                                <div class="status-row level-row">
+                                    <span class="status-value level-value">Strength Training</span>
+                                </div>
+                                <div class="control-button">
+                                    <span>Mode</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bottom Sheet and Overlay inside the phone screen -->
+                    <div class="overlay" id="modeOverlay"></div>
+                    <div class="bottom-sheet" id="modeBottomSheet">
+                        <div class="bottom-sheet-header">
+                            <div class="bottom-sheet-title">Select Mode</div>
+                            <div class="bottom-sheet-close" id="closeBottomSheet">×</div>
+                        </div>
+                        <div class="mode-list">
+                            <!-- Row 1 -->
+                            <div class="mode-item selected">
+                                <i class="mode-icon" data-lucide="dumbbell"></i>
+                                <div class="mode-name">Fitness</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="flame"></i>
+                                <div class="mode-name">Warm up</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="heart"></i>
+                                <div class="mode-name">Cardio</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="smile"></i>
+                                <div class="mode-name">Relax</div>
+                            </div>
+                            
+                            <!-- Row 2 -->
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="circle-user"></i>
+                                <div class="mode-name">Dermal</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="droplet"></i>
+                                <div class="mode-name">Drainage</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="scan"></i>
+                                <div class="mode-name">Cellulite</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="activity"></i>
+                                <div class="mode-name">Metabolic</div>
+                            </div>
+                            
+                            <!-- Row 3 -->
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="scissors"></i>
+                                <div class="mode-name">Slim</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="shield"></i>
+                                <div class="mode-name">Resistance</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="zap"></i>
+                                <div class="mode-name">Contractures</div>
+                            </div>
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="heart-pulse"></i>
+                                <div class="mode-name">Capillary</div>
+                            </div>
+                            
+                            <!-- Row 4 -->
+                            <div class="mode-item">
+                                <i class="mode-icon" data-lucide="crown"></i>
+                                <div class="mode-name">Vip</div>
+                            </div>
+                        </div>
+                        
+                        <button class="bottom-sheet-button" id="confirmModeButton">Confirm</button>
+                    </div>
+                    
+                    <!-- New Device List Bottom Sheet -->
+                    <div class="bottom-sheet" id="deviceBottomSheet">
+                        <div class="bottom-sheet-header">
+                            <div class="bottom-sheet-title">Select Device</div>
+                            <div class="bottom-sheet-close" id="closeDeviceBottomSheet">×</div>
+                        </div>
+                        <div class="device-list">
+                            <div class="device-item selected">
+                                <i data-lucide="smartphone"></i>
+                                <div class="device-details">
+                                    <div class="device-name">MuscleMaster Pro</div>
+                                    <div class="device-status">Connected</div>
+                                </div>
+                                <div class="device-battery">75%</div>
+                            </div>
+                            
+                            <div class="device-item">
+                                <i data-lucide="smartphone"></i>
+                                <div class="device-details">
+                                    <div class="device-name">MuscleMaster Mini</div>
+                                    <div class="device-status">Available</div>
+                                </div>
+                                <div class="device-battery">92%</div>
+                            </div>
+                            
+                            <div class="device-item">
+                                <i data-lucide="smartphone"></i>
+                                <div class="device-details">
+                                    <div class="device-name">MuscleMaster Lite</div>
+                                    <div class="device-status">Available</div>
+                                </div>
+                                <div class="device-battery">64%</div>
+                            </div>
+                        </div>
+                        
+                        <button class="bottom-sheet-button" id="confirmDeviceButton">Connect</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="description">
+                <h2>Controller Features</h2>
+                <p>This page provides a control interface for interacting with connected Bluetooth training devices.</p>
+                
+                <div class="features-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">📊</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Real-time Device Status</div>
+                            <div class="feature-description">Monitor the current state of your connected device including connection status, mode, intensity level, and battery life.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">🎮</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Intuitive Control Panel</div>
+                            <div class="feature-description">Easy-to-use controls for adjusting intensity (Up/Down), changing modes, and starting or pausing your training session.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">⏱️</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Training Timer</div>
+                            <div class="feature-description">Built-in timer functionality helps you track your workout duration and maintain consistent training intervals.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📲</div>
+                        <div class="feature-text">
+                            <div class="feature-title">Responsive Design</div>
+                            <div class="feature-description">Clean, touch-friendly interface optimized for one-handed use during workout sessions.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+    
+    // Mode Bottom Sheet Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        // 获取元素引用
+        const modeButton = document.querySelector('.phone-screen .control-buttons .control-button:nth-child(2)');
+        const navbarTitle = document.querySelector('.phone-screen .ios-navbar-title');
+        const settingsButton = document.querySelector('.phone-screen .settings-btn');
+        const currentDeviceInfo = document.getElementById('current-device-info');
+        const modeBottomSheet = document.getElementById('modeBottomSheet');
+        const deviceBottomSheet = document.getElementById('deviceBottomSheet');
+        const modeOverlay = document.getElementById('modeOverlay');
+        const closeBottomSheet = document.getElementById('closeBottomSheet');
+        const closeDeviceBottomSheet = document.getElementById('closeDeviceBottomSheet');
+        const confirmModeButton = document.getElementById('confirmModeButton');
+        const confirmDeviceButton = document.getElementById('confirmDeviceButton');
+        const modeItems = document.querySelectorAll('.phone-screen .mode-item');
+        const deviceItems = document.querySelectorAll('.phone-screen .device-item');
+        const modeValueDisplay = document.querySelector('.phone-screen .control-buttons .status-row .level-value');
+        
+        console.log("Title element:", navbarTitle); // 调试日志
+        
+        let selectedMode = 'Strength Training';
+        let selectedDevice = 'MuscleMaster Pro';
+        
+        // 点击 Mode 按钮时打开模式底部 sheet
+        if (modeButton) {
+            modeButton.addEventListener('click', function() {
+                console.log("Mode button clicked");
+                modeBottomSheet.classList.add('active');
+                modeOverlay.classList.add('active');
+            });
+        }
+        
+        // 点击当前设备信息时打开设备列表底部 sheet
+        if (currentDeviceInfo) {
+            currentDeviceInfo.addEventListener('click', function() {
+                console.log("Current device info clicked");
+                deviceBottomSheet.classList.add('active');
+                modeOverlay.classList.add('active');
+            });
+        }
+        
+        // 点击设置按钮的处理
+        if (settingsButton) {
+            settingsButton.addEventListener('click', function() {
+                console.log("Settings button clicked");
+                // 这里可以添加设置按钮点击后的功能
+                alert("Settings functionality will be implemented soon!");
+            });
+        }
+        
+        // 关闭底部 sheet
+        function closeSheet() {
+            modeBottomSheet.classList.remove('active');
+            deviceBottomSheet.classList.remove('active');
+            modeOverlay.classList.remove('active');
+        }
+        
+        if (closeBottomSheet) {
+            closeBottomSheet.addEventListener('click', closeSheet);
+        }
+        
+        if (closeDeviceBottomSheet) {
+            closeDeviceBottomSheet.addEventListener('click', closeSheet);
+        }
+        
+        if (modeOverlay) {
+            modeOverlay.addEventListener('click', closeSheet);
+        }
+        
+        // 处理模式选择
+        modeItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // 移除所有项目的选中类
+                modeItems.forEach(i => i.classList.remove('selected'));
+                
+                // 将选中类添加到点击的项目上
+                this.classList.add('selected');
+                
+                // 更新选中的模式
+                selectedMode = this.querySelector('.mode-name').textContent;
+            });
+        });
+        
+        // 处理设备选择
+        deviceItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // 移除所有项目的选中类
+                deviceItems.forEach(i => i.classList.remove('selected'));
+                
+                // 将选中类添加到点击的项目上
+                this.classList.add('selected');
+                
+                // 更新选中的设备
+                selectedDevice = this.querySelector('.device-name').textContent;
+            });
+        });
+        
+        // 确认选中的模式
+        if (confirmModeButton) {
+            confirmModeButton.addEventListener('click', function() {
+                modeValueDisplay.textContent = selectedMode;
+                closeSheet();
+            });
+        }
+        
+        // 确认选中的设备
+        if (confirmDeviceButton) {
+            confirmDeviceButton.addEventListener('click', function() {
+                // 不再更新导航栏标题，保持固定为"MuscleMaster"
+                // navbarTitle.textContent = selectedDevice;
+                
+                // 只更新current-device-section中的设备名称
+                if (currentDeviceInfo) {
+                    currentDeviceInfo.querySelector('.title-container span').textContent = selectedDevice;
+                }
+                closeSheet();
+            });
+        }
+    });
+</script>
+</html>
+

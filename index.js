@@ -3,10 +3,38 @@
  */
 
 import {Navigation} from 'react-native-navigation';
-import App from './app/App';
 import './global.css';
+import ScanDeviceController from './app/controller/scanDeviceController';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {NavigationProvider} from 'react-native-navigation-hooks';
 
-Navigation.registerComponent('com.myApp.WelcomeScreen', () => App);
+Navigation.registerComponent(
+  'ScanDeviceController',
+  () => props => {
+    return (
+      <NavigationProvider value={{componentId: props.componentId}}>
+        <SafeAreaProvider>
+          <ScanDeviceController {...props} />
+        </SafeAreaProvider>
+      </NavigationProvider>
+    );
+  },
+  () => ScanDeviceController,
+);
+
+Navigation.setDefaultOptions({
+  topBar: {
+    title: {
+      color: 'white',
+    },
+    backButton: {
+      color: 'white',
+    },
+    background: {
+      color: '#1e88e5',
+    },
+  },
+});
 
 Navigation.events().registerAppLaunchedListener(() => {
   Navigation.setRoot({
@@ -15,7 +43,16 @@ Navigation.events().registerAppLaunchedListener(() => {
         children: [
           {
             component: {
-              name: 'com.myApp.WelcomeScreen',
+              name: 'ScanDeviceController',
+            },
+            options: {
+              topBar: {
+                title: {
+                  // text: 'Muscle Master',
+                  // color: 'white',
+                  // fontSize: 18,
+                },
+              },
             },
           },
         ],
