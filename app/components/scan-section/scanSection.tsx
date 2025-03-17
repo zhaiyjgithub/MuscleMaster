@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   Animated,
   Easing,
 } from 'react-native';
@@ -185,42 +184,37 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
   });
 
   return (
-    <View style={styles.scanSection}>
-      <View style={styles.scanAnimation}>
+    <View className='px-4 pt-4'>
+      <View className="flex flex-col items-center justify-center p-4 text-center bg-white rounded-2xl">
+      <View className="w-[120px] h-[120px] rounded-full border-2 border-blue-600 items-center justify-center relative overflow-hidden bg-blue-50/20">
         {/* Multiple pulsing circles */}
         <Animated.View
-          style={[
-            styles.pulseCircle,
-            {
-              transform: [{ scale: pulseScale }],
-              opacity: pulseOpacity,
-            },
-          ]}
+          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
+          style={{
+            transform: [{ scale: pulseScale }],
+            opacity: pulseOpacity,
+          }}
         />
         <Animated.View
-          style={[
-            styles.pulseCircle,
-            {
-              transform: [{ scale: pulseScale2 }],
-              opacity: pulseOpacity2,
-            },
-          ]}
+          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
+          style={{
+            transform: [{ scale: pulseScale2 }],
+            opacity: pulseOpacity2,
+          }}
         />
         <Animated.View
-          style={[
-            styles.pulseCircle,
-            {
-              transform: [{ scale: pulseScale3 }],
-              opacity: pulseOpacity3,
-            },
-          ]}
+          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
+          style={{
+            transform: [{ scale: pulseScale3 }],
+            opacity: pulseOpacity3,
+          }}
         />
 
         {/* Center point */}
-        <View style={styles.centerPoint} />
+        <View className="absolute w-1 h-1 rounded-full bg-blue-500/80 z-30" />
         
         {/* Final radar sweep implementation */}
-        <View style={styles.radarContainer}>
+        <View className="absolute w-[120px] h-[120px] z-20">
           <Animated.View 
             style={{
               position: 'absolute',
@@ -248,143 +242,37 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
 
         {/* Radar dots */}
         <Animated.View
-          style={[
-            styles.radarDot,
-            styles.radarDot1,
-            {
-              transform: [{ scale: blip1Scale }],
-              opacity: blip1Opacity,
-            },
-          ]}
+          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[30%] left-[70%]"
+          style={{
+            transform: [{ scale: blip1Scale }],
+            opacity: blip1Opacity,
+          }}
         />
         <Animated.View
-          style={[
-            styles.radarDot,
-            styles.radarDot2,
-            {
-              transform: [{ scale: blip2Scale }],
-              opacity: blip2Opacity,
-            },
-          ]}
+          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[60%] left-[40%]"
+          style={{
+            transform: [{ scale: blip2Scale }],
+            opacity: blip2Opacity,
+          }}
         />
         <Animated.View
-          style={[
-            styles.radarDot,
-            styles.radarDot3,
-            {
-              transform: [{ scale: blip3Scale }],
-              opacity: blip3Opacity,
-            },
-          ]}
+          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[45%] left-[75%]"
+          style={{
+            transform: [{ scale: blip3Scale }],
+            opacity: blip3Opacity,
+          }}
         />
       </View>
 
-      <Text style={styles.scanText}>Scanning for devices...</Text>
-      <Text style={styles.scanSubtext}>Looking for nearby Bluetooth devices</Text>
+      <Text className="text-base mb-1 text-gray-800 font-medium">Scanning for devices...</Text>
+      <Text className="text-xs text-gray-500 mb-4">Looking for nearby Bluetooth devices</Text>
       
-      <TouchableOpacity style={styles.cancelBtn} onPress={onCancelPress}>
-        <Text style={styles.cancelBtnText}>Cancel</Text>
+      <TouchableOpacity className="py-2 px-5 bg-transparent border border-blue-600 rounded-full mt-2.5" onPress={onCancelPress}>
+        <Text className="text-blue-600 text-sm font-medium">Cancel</Text>
       </TouchableOpacity>
+    </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  scanSection: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    textAlign: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  scanAnimation: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: '#1e88e5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(30, 136, 229, 0.05)',
-  },
-  pulseCircle: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: 'rgba(30, 136, 229, 0.2)',
-  },
-  centerPoint: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(30, 136, 229, 0.8)',
-    zIndex: 3,
-  },
-  radarContainer: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    zIndex: 2,
-  },
-  radarDot: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    backgroundColor: 'rgba(30, 136, 229, 0.8)',
-    borderRadius: 3,
-    zIndex: 1,
-  },
-  radarDot1: {
-    top: '30%',
-    left: '70%',
-  },
-  radarDot2: {
-    top: '60%',
-    left: '40%',
-  },
-  radarDot3: {
-    top: '45%',
-    left: '75%',
-  },
-  scanText: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: '#333',
-    fontWeight: '500',
-  },
-  scanSubtext: {
-    fontSize: 13,
-    color: '#777',
-    marginBottom: 15,
-  },
-  cancelBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: 'transparent',
-    borderColor: '#1e88e5',
-    borderWidth: 1,
-    borderRadius: 20,
-    marginTop: 10,
-  },
-  cancelBtnText: {
-    color: '#1e88e5',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});
 
 export default ScanSection;
