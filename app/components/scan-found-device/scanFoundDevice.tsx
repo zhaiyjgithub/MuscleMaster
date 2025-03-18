@@ -1,5 +1,7 @@
-import React from 'react';
-import { Text, View, TouchableOpacity } from "react-native";
+import React, { useEffect } from 'react';
+import { Text, View, TouchableOpacity, Platform } from "react-native";
+import { BLEManager } from '../../lib/manger';
+import { Bluetooth } from 'lucide-react-native';
 
 interface DeviceItemProps {
   name: string;
@@ -43,7 +45,7 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
       {/* Device Info */}
       <View className="flex-row items-start mb-4">
         <View className="w-[42px] h-[42px] bg-white rounded-full justify-center items-center mr-3.5 flex-shrink-0" style={{ backgroundColor: 'white' }}>
-          <Text className="text-lg" style={{ color: iconColor }}>{icon}</Text>
+          <Bluetooth size={24} color={iconColor} />
         </View>
 
         <View className="flex-1">
@@ -73,7 +75,7 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
 
       {/* Connect Button */}
       <TouchableOpacity
-        className={`py-2 rounded-lg items-center ${connected ? 'bg-green-600' : 'bg-blue-600'}`}
+        className={`py-3 rounded-lg items-center ${connected ? 'bg-green-600' : 'bg-blue-600'}`}
         onPress={onConnectPress}
       >
         <Text className="text-white font-medium text-[13px]">{connected ? 'Connected' : 'Connect'}</Text>
@@ -82,18 +84,39 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
   );
 };
 
-// 示例用法
-const ScanFoundDeviceList = () => {
+export interface FoundDevice {
+  name: string;
+  id: string;
+  signalStrength: 'excellent' | 'good' | 'weak';
+  connected: boolean;
+  icon: string;
+  iconColor: string;
+}
+
+interface ScanFoundDeviceListProps {
+  devices: FoundDevice[];
+}
+
+const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices }) => {
+  if (devices.length === 0) {
+    return (
+      <View className='p-4'>
+        <View className=' bg-white flex flex-col gap-y-2 rounded-xl p-4'>
+          <Text className='text-lg text-gray-800 font-semibold'>No devices found</Text>
+        </View>
+      </View>
+    )
+  }
   return (
     <View className='p-4'>
-      <View className=' bg-white flex flex-col gap-y-2 rounded-xl'>
-        <View className='mx-4 flex flex-row items-center justify-between p-4'>
+      <View className=' bg-white flex flex-col rounded-xl overflow-hidden'>
+        <View className='flex flex-row items-center justify-between px-4 py-2'>
           <Text className='text-lg text-black font-semibold'>Found Devices</Text>
-          <Text>3 devices</Text>
+          <Text>{devices.length} devices</Text>
         </View>
         <View className='w-full h-px bg-gray-200' />
-        <View className=" bg-white px-4">
-          <ScanFoundDevice
+        <View className=" bg-white px-4 pt-4">
+          {/* <ScanFoundDevice
             name="Smart Dumbbell Pro"
             id="MM-DB-2024"
             signalStrength="excellent"
@@ -101,27 +124,15 @@ const ScanFoundDeviceList = () => {
             icon="💪"
             iconColor="#1e88e5"
             onConnectPress={() => console.log('Connect to Smart Dumbbell Pro')}
-          />
+          /> */}
 
-          <ScanFoundDevice
-            name="Muscle Stimulator X1"
-            id="MM-EMS-1001"
-            signalStrength="good"
-            connected={false}
-            icon="⚡"
-            iconColor="#ff9800"
-            onConnectPress={() => console.log('Connect to Muscle Stimulator X1')}
-          />
-
-          <ScanFoundDevice
-            name="Ab Trainer 3000"
-            id="MM-AB-3030"
-            signalStrength="weak"
-            connected={false}
-            icon="🏋️"
-            iconColor="#9c27b0"
-            onConnectPress={() => console.log('Connect to Ab Trainer 3000')}
-          />
+          {devices.map((device) => (
+            <ScanFoundDevice
+              key={device.id}
+              {...device}
+              onConnectPress={() => console.log(`Connect to ${device.name}`)}
+            />
+          ))}
         </View>
       </View>
     </View>

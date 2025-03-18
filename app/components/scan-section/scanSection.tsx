@@ -264,12 +264,14 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
         />
       </View>
 
-      <Text className="text-base mb-1 text-gray-800 font-medium">Scanning for devices...</Text>
-      <Text className="text-xs text-gray-500 mb-4">Looking for nearby Bluetooth devices</Text>
-      
-      <TouchableOpacity className="py-2 px-5 bg-transparent border border-blue-600 rounded-full mt-2.5" onPress={onCancelPress}>
-        <Text className="text-blue-600 text-sm font-medium">Cancel</Text>
-      </TouchableOpacity>
+      <View className='flex flex-col items-center justify-center gap-y-2 mt-2'>
+        <Text className="text-base text-gray-800 font-medium">Scanning for devices...</Text>
+        <Text className="text-xs text-gray-500">Looking for nearby Bluetooth devices</Text>
+        
+        <TouchableOpacity className="py-2 px-5 bg-transparent border border-blue-600 rounded-full" onPress={onCancelPress}>
+          <Text className="text-blue-600 text-sm font-medium">Cancel</Text>
+        </TouchableOpacity>
+      </View>
     </View>
     </View>
   );
