@@ -95,9 +95,10 @@ export interface FoundDevice {
 
 interface ScanFoundDeviceListProps {
   devices: FoundDevice[];
+  updateConnectionStatus?: (deviceId: string, isConnected: boolean) => void;
 }
 
-const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices }) => {
+const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices, updateConnectionStatus }) => {
   if (devices.length === 0) {
     return (
       <View className='p-4'>
@@ -130,7 +131,26 @@ const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices }) =>
             <ScanFoundDevice
               key={device.id}
               {...device}
-              onConnectPress={() => console.log(`Connect to ${device.name}`)}
+              onConnectPress={async () => {
+                try {
+                  if (device.connected) {
+                    // 如果已经连接，则断开连接
+                    await BLEManager.disconnectDevice(device.id);
+                    console.log(`Disconnected from ${device.name}`);
+                    updateConnectionStatus?.(device.id, false);
+                  } else {
+                    // 连接设备
+                    const connectedDevice = await BLEManager.connectToDevice(device.id);
+                    if (connectedDevice) {
+                      console.log(`Successfully connected to ${device.name}`);
+                      // 使用传入的函数更新设备连接状态，触发 UI 更新
+                      updateConnectionStatus?.(device.id, true);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
+                }
+              }}
             />
           ))}
         </View>

@@ -255,3 +255,23 @@ class BLEManagerClass {
 // 导出单例实例
 export const BLEManager = new BLEManagerClass();
 export default BLEManager; 
+
+
+export function calculateSignalStrength(device: Device) {
+  const rssi = device.rssi;
+  if (rssi !== null && rssi >= -50) {
+    return 'excellent';
+  } else if (rssi !== null && rssi >= -70) {
+    return 'good';
+  } else {
+    return 'weak';
+  }
+}
+
+// 计算信号的增益
+export function calculateSignalGain(rssi: number | null) {
+  if (rssi === null) {
+    return 0;
+  }
+  return rssi + 100;
+}
