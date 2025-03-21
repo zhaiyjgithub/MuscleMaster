@@ -246,6 +246,42 @@ class BLEManagerClass {
     );
   }
 
+  // 发现所有服务和特性
+  async discoverAllServicesAndCharacteristics(deviceId: string) {
+    try {
+      const device = await this.manager.discoverAllServicesAndCharacteristicsForDevice(deviceId);
+      return device;
+    } catch (error) {
+      console.error('Error discovering services and characteristics:', error);
+      throw error;
+    }
+  }
+
+  // 获取设备的所有服务
+  async servicesForDevice(deviceId: string) {
+    try {
+      const services = await this.manager.servicesForDevice(deviceId);
+      return services;
+    } catch (error) {
+      console.error('Error getting services for device:', error);
+      return [];
+    }
+  }
+
+  // 获取服务的所有特性
+  async characteristicsForDevice(deviceId: string, serviceUUID: string) {
+    try {
+      const characteristics = await this.manager.characteristicsForDevice(
+        deviceId,
+        serviceUUID
+      );
+      return characteristics;
+    } catch (error) {
+      console.error('Error getting characteristics for service:', error);
+      return [];
+    }
+  }
+
   // 销毁管理器
   destroy() {
     this.manager.destroy();

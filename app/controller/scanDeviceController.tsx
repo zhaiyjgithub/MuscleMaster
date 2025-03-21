@@ -1,12 +1,33 @@
+import React from 'react';
 import {Text, View, ScrollView} from 'react-native';
 import {NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
-import ScanFoundDeviceList, { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
+import ScanFoundDeviceList, { FoundDevice, ServiceInfo } from '../components/scan-found-device/scanFoundDevice';
 import { useEffect, useState } from 'react';
 import { BLEManager } from '../services/BLEManager';
 import { Device } from 'react-native-ble-plx';
 import { TouchableOpacity } from 'react-native';
+
+// 计算信号强度级别
+const calculateSignalStrength = (device: Device): 'excellent' | 'good' | 'weak' => {
+  const rssi = device.rssi;
+  if (rssi !== null && rssi >= -50) {
+    return 'excellent';
+  } else if (rssi !== null && rssi >= -70) {
+    return 'good';
+  } else {
+    return 'weak';
+  }
+};
+
+// 计算信号的增益
+function calculateSignalGain(rssi: number | null) {
+  if (rssi === null) {
+    return 0;
+  }
+  return rssi + 100;
+}
 
 const ScanDeviceController: NavigationFunctionComponent = () => {
   const [devices, setDevices] = useState<FoundDevice[]>([]);
@@ -29,7 +50,7 @@ const ScanDeviceController: NavigationFunctionComponent = () => {
           return prevDevices;
         }
 
-        // 计算 信号强度
+        // 计算信号强度
         const signalStrength = calculateSignalStrength(device);
 
         // If device is new, add it to array
@@ -80,6 +101,17 @@ const ScanDeviceController: NavigationFunctionComponent = () => {
       )
     );
   };
+
+  // 更新设备服务
+  const updateDeviceServices = (deviceId: string, serviceInfos: ServiceInfo[]) => {
+    setDevices(prevDevices => 
+      prevDevices.map(device => 
+        device.id === deviceId 
+          ? { ...device, serviceInfos }
+          : device
+      )
+    );
+  };
   
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
@@ -91,6 +123,7 @@ const ScanDeviceController: NavigationFunctionComponent = () => {
           <ScanFoundDeviceList 
             devices={devices} 
             updateConnectionStatus={updateDeviceConnectionStatus}
+            updateDeviceServices={updateDeviceServices}
           />
         </ScrollView>
         
@@ -117,22 +150,3 @@ ScanDeviceController.options = {
 };
 
 export default ScanDeviceController;
-
-function calculateSignalStrength(device: Device) {
-  const rssi = device.rssi;
-  if (rssi !== null && rssi >= -50) {
-    return 'excellent';
-  } else if (rssi !== null && rssi >= -70) {
-    return 'good';
-  } else {
-    return 'weak';
-  }
-}
-
-// 计算信号的增益
-function calculateSignalGain(rssi: number | null) {
-  if (rssi === null) {
-    return 0;
-  }
-  return rssi + 100;
-}

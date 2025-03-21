@@ -67,19 +67,19 @@ class BLEManagerClass {
       if (bleState !== State.PoweredOn) {
         console.warn('Bluetooth is not powered on. Current state:', bleState);
         
-        // 如果蓝牙未开启，返回一个Promise，等待蓝牙开启
+        // 如果蓝牙未开启，返回一个 Promise，等待蓝牙开启
         await new Promise<void>((resolve, reject) => {
           // 设置超时，避免无限等待
           const timeoutId = setTimeout(() => {
             // 取消订阅蓝牙状态变化
             subscription.remove();
             reject(new Error('Timeout waiting for Bluetooth to power on'));
-          }, 10000); // 10秒超时
+          }, 10000); // 10 秒超时
           
           // 监听蓝牙状态变化
           const subscription = this.manager.onStateChange(state => {
             if (state === State.PoweredOn) {
-              // 蓝牙已开启，清除超时并解决Promise
+              // 蓝牙已开启，清除超时并解决 Promise
               clearTimeout(timeoutId);
               subscription.remove();
               console.log('Bluetooth is now powered on');
@@ -348,4 +348,4 @@ export function calculateSignalGain(rssi: number | null) {
     return 0;
   }
   return rssi + 100;
-}
+} 

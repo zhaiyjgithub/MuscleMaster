@@ -2,6 +2,7 @@
  * @format
  */
 
+import React from 'react';
 import {Navigation} from 'react-native-navigation';
 import './global.css';
 import ScanDeviceController from './app/controller/scanDeviceController';

@@ -1,7 +1,25 @@
-import React, { useEffect } from 'react';
-import { Text, View, TouchableOpacity, Platform } from "react-native";
-import { BLEManager } from '../../lib/manger';
+import React, { useEffect, useState } from 'react';
+import { Text, View, TouchableOpacity, Platform, ActivityIndicator, ScrollView } from "react-native";
+import { BLEManager } from '../../services/BLEManager';
 import { Bluetooth } from 'lucide-react-native';
+import { Service, Characteristic } from 'react-native-ble-plx';
+
+// 定义特性信息接口
+export interface CharacteristicInfo {
+  uuid: string;
+  isReadable: boolean;
+  isWritableWithResponse: boolean;
+  isWritableWithoutResponse: boolean;
+  isNotifiable: boolean;
+  isIndicatable: boolean;
+}
+
+// 定义服务信息接口
+export interface ServiceInfo {
+  uuid: string;
+  isPrimary: boolean;
+  characteristicInfos: CharacteristicInfo[];
+}
 
 interface DeviceItemProps {
   name: string;
@@ -11,6 +29,9 @@ interface DeviceItemProps {
   icon: string;
   iconColor: string;
   onConnectPress: () => void;
+  loading?: boolean;
+  serviceInfos?: ServiceInfo[];
+  onServicesDiscovered?: (serviceInfos: ServiceInfo[]) => void;
 }
 
 const ScanFoundDevice: React.FC<DeviceItemProps> = ({
@@ -20,7 +41,10 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
   connected,
   icon,
   iconColor,
-  onConnectPress
+  onConnectPress,
+  loading = false,
+  serviceInfos = [],
+  onServicesDiscovered
 }) => {
   // 信号强度对应的 bar 数量和文本
   const signalInfo = {
@@ -39,6 +63,16 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
   };
 
   const { activeBars, text } = signalInfo[signalStrength];
+  const [expandedService, setExpandedService] = useState<string | null>(null);
+
+  // 切换服务展开状态
+  const toggleServiceExpand = (serviceUUID: string) => {
+    if (expandedService === serviceUUID) {
+      setExpandedService(null);
+    } else {
+      setExpandedService(serviceUUID);
+    }
+  };
 
   return (
     <View className="flex flex-col p-3.5 rounded-xl bg-gray-50 mb-3">
@@ -77,9 +111,65 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
       <TouchableOpacity
         className={`py-3 rounded-lg items-center ${connected ? 'bg-green-600' : 'bg-blue-600'}`}
         onPress={onConnectPress}
+        disabled={loading}
       >
-        <Text className="text-white font-medium text-[13px]">{connected ? 'Connected' : 'Connect'}</Text>
+        {loading ? (
+          <View className="flex-row items-center">
+            <ActivityIndicator size="small" color="white" />
+            <Text className="text-white font-medium text-[13px] ml-2">
+              {connected ? 'Disconnecting...' : 'Connecting...'}
+            </Text>
+          </View>
+        ) : (
+          <Text className="text-white font-medium text-[13px]">
+            {connected ? 'Connected' : 'Connect'}
+          </Text>
+        )}
       </TouchableOpacity>
+
+      {/* Services and Characteristics (Only shown when connected) */}
+      {connected && serviceInfos.length > 0 && (
+        <View className="mt-3 border-t border-gray-200 pt-3">
+          <Text className="font-medium text-[14px] text-gray-900 mb-2">Services:</Text>
+          <ScrollView style={{ maxHeight: 200 }}>
+            {serviceInfos.map((service) => (
+              <View key={service.uuid} className="mb-2">
+                <TouchableOpacity 
+                  className="flex-row items-center justify-between py-1"
+                  onPress={() => toggleServiceExpand(service.uuid)}
+                >
+                  <Text className="text-[12px] text-blue-700">{service.uuid}</Text>
+                  <Text className="text-[12px] text-gray-500">{expandedService === service.uuid ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+                
+                {expandedService === service.uuid && (
+                  <View className="ml-3 mt-1 mb-2">
+                    <Text className="text-[12px] font-medium text-gray-700 mb-1">Characteristics:</Text>
+                    {service.characteristicInfos && service.characteristicInfos.length > 0 ? (
+                      service.characteristicInfos.map(characteristic => (
+                        <View key={characteristic.uuid} className="mb-1 ml-2">
+                          <Text className="text-[11px] text-gray-600">• {characteristic.uuid}</Text>
+                          <Text className="text-[10px] text-gray-500 ml-3">
+                            {[
+                              characteristic.isReadable ? 'Read' : null,
+                              characteristic.isWritableWithResponse ? 'Write' : null,
+                              characteristic.isWritableWithoutResponse ? 'WriteNoResponse' : null,
+                              characteristic.isNotifiable ? 'Notify' : null,
+                              characteristic.isIndicatable ? 'Indicate' : null
+                            ].filter(Boolean).join(', ')}
+                          </Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text className="text-[11px] text-gray-500 ml-2">Loading characteristics...</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 };
@@ -91,14 +181,88 @@ export interface FoundDevice {
   connected: boolean;
   icon: string;
   iconColor: string;
+  loading?: boolean;
+  serviceInfos?: ServiceInfo[];
 }
 
 interface ScanFoundDeviceListProps {
   devices: FoundDevice[];
   updateConnectionStatus?: (deviceId: string, isConnected: boolean) => void;
+  updateDeviceServices?: (deviceId: string, serviceInfos: ServiceInfo[]) => void;
 }
 
-const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices, updateConnectionStatus }) => {
+const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ 
+  devices, 
+  updateConnectionStatus,
+  updateDeviceServices 
+}) => {
+  // 跟踪正在加载的设备 ID
+  const [loadingDeviceIds, setLoadingDeviceIds] = useState<Set<string>>(new Set());
+
+  // 设置设备加载状态
+  const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
+    setLoadingDeviceIds(prevIds => {
+      const newIds = new Set(prevIds);
+      if (isLoading) {
+        newIds.add(deviceId);
+      } else {
+        newIds.delete(deviceId);
+      }
+      return newIds;
+    });
+  };
+
+  // 发现服务和特性
+  const discoverServicesAndCharacteristics = async (deviceId: string) => {
+    try {
+      console.log(`Discovering services for device: ${deviceId}`);
+      
+      // 发现所有服务和特性
+      await BLEManager.discoverAllServicesAndCharacteristics(deviceId);
+      
+      // 获取所有服务
+      const services = await BLEManager.servicesForDevice(deviceId);
+      console.log(`Found ${services.length} services`);
+      
+      // 转换成我们自定义的 ServiceInfo 格式
+      const serviceInfos: ServiceInfo[] = [];
+      
+      // 获取每个服务的特性
+      for (const service of services) {
+        console.log(`Discovering characteristics for service: ${service.uuid}`);
+        const characteristics = await BLEManager.characteristicsForDevice(deviceId, service.uuid);
+        console.log(`Found ${characteristics.length} characteristics for service ${service.uuid}`);
+        
+        // 将特性转换为我们的格式
+        const characteristicInfos: CharacteristicInfo[] = characteristics.map(char => ({
+          uuid: char.uuid,
+          isReadable: char.isReadable,
+          isWritableWithResponse: char.isWritableWithResponse,
+          isWritableWithoutResponse: char.isWritableWithoutResponse,
+          isNotifiable: char.isNotifiable,
+          isIndicatable: char.isIndicatable
+        }));
+        
+        // 添加到服务信息数组
+        serviceInfos.push({
+          uuid: service.uuid,
+          isPrimary: service.isPrimary,
+          characteristicInfos
+        });
+      }
+
+      // 更新设备的服务信息
+      if (updateDeviceServices) {
+        updateDeviceServices(deviceId, serviceInfos);
+      }
+      
+      return serviceInfos;
+    } catch (error) {
+      console.error('Error discovering services:', error);
+      return [];
+    }
+  };
+
   if (devices.length === 0) {
     return (
       <View className='p-4'>
@@ -117,38 +281,42 @@ const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ devices, upda
         </View>
         <View className='w-full h-px bg-gray-200' />
         <View className=" bg-white px-4 pt-4">
-          {/* <ScanFoundDevice
-            name="Smart Dumbbell Pro"
-            id="MM-DB-2024"
-            signalStrength="excellent"
-            connected={true}
-            icon="💪"
-            iconColor="#1e88e5"
-            onConnectPress={() => console.log('Connect to Smart Dumbbell Pro')}
-          /> */}
-
           {devices.map((device) => (
             <ScanFoundDevice
               key={device.id}
               {...device}
+              loading={loadingDeviceIds.has(device.id)}
               onConnectPress={async () => {
                 try {
+                  // 设置加载状态
+                  setDeviceLoading(device.id, true);
+                  
                   if (device.connected) {
                     // 如果已经连接，则断开连接
                     await BLEManager.disconnectDevice(device.id);
                     console.log(`Disconnected from ${device.name}`);
                     updateConnectionStatus?.(device.id, false);
                   } else {
+                    // 停止扫描（在连接前停止扫描是最佳实践）
+                    BLEManager.stopScan();
+                    
                     // 连接设备
                     const connectedDevice = await BLEManager.connectToDevice(device.id);
                     if (connectedDevice) {
                       console.log(`Successfully connected to ${device.name}`);
-                      // 使用传入的函数更新设备连接状态，触发 UI 更新
+                      
+                      // 更新设备连接状态
                       updateConnectionStatus?.(device.id, true);
+                      
+                      // 发现服务和特性
+                      await discoverServicesAndCharacteristics(device.id);
                     }
                   }
                 } catch (error) {
                   console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
+                } finally {
+                  // 无论成功失败，都结束加载状态
+                  setDeviceLoading(device.id, false);
                 }
               }}
             />
