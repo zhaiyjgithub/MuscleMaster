@@ -30,6 +30,7 @@ import {
     Icon,
     Bluetooth,
  } from 'lucide-react-native';
+import { Device } from 'react-native-ble-plx';
 
 interface ModeItem {
   id: string;
@@ -37,7 +38,11 @@ interface ModeItem {
   icon: any;
 }
 
-const DevicePanelController: NavigationFunctionComponent = ({ componentId }) => {
+export interface DevicePanelControllerProps {
+  devices: Device[];
+}
+
+const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerProps> = ({ componentId, devices }) => {
   const [selectedMode, setSelectedMode] = useState('Strength Training');
   const [selectedDevice, setSelectedDevice] = useState('MuscleMaster Pro');
   const [isConnected, setIsConnected] = useState(true);

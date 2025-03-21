@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, Platform, ActivityIndicator, ScrollView } from "react-native";
 import { BLEManager } from '../../services/BLEManager';
 import { Bluetooth } from 'lucide-react-native';
-import { Service, Characteristic } from 'react-native-ble-plx';
-
+import { Navigation } from 'react-native-navigation';
+import { decodeBase64Value } from '../../lib/utils';
 // 定义特性信息接口
 export interface CharacteristicInfo {
   uuid: string;
@@ -309,7 +309,28 @@ const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({
                       updateConnectionStatus?.(device.id, true);
                       
                       // 发现服务和特性
-                      await discoverServicesAndCharacteristics(device.id);
+                      const serviceInfos = await discoverServicesAndCharacteristics(device.id);
+                      console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
+                      
+                      // 遍历读取特性
+                      // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
+                      for (const service of serviceInfos) {
+                        for (const characteristic of service.characteristicInfos) {
+                          const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
+                          console.log(`Value of ${characteristic.uuid}:`, value);
+                          if (value) {
+                            const decodedValue = decodeBase64Value(value);
+                            console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
+                          }
+                        }
+                      }
+
+                      // Write value to characteristic
+                      // const serviceUUID = '0000aaa0-0000-1000-8000-aabbccddeeff';
+                      // const characteristicUUID = 'abcdef01-1234-5678-1234-56789abcdef9';
+
+                      // const writeValue = await BLEManager.writeCharacteristicWithResponse(device.id, serviceUUID,characteristicUUID, '1234567890');
+                      // console.log(`Write value to ${serviceUUID} ${characteristicUUID}:`, writeValue);
                     }
                   }
                 } catch (error) {

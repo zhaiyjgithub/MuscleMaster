@@ -9,9 +9,17 @@ import {
 
 interface ScanSectionProps {
   onCancelPress: () => void;
+  onRescanPress?: () => void;
+  isScanning?: boolean;
+  isBleReady?: boolean;
 }
 
-const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
+const ScanSection: React.FC<ScanSectionProps> = ({ 
+  onCancelPress,
+  onRescanPress,
+  isScanning = false,
+  isBleReady = true 
+}) => {
   // Animation values
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim2 = useRef(new Animated.Value(0)).current;
@@ -22,97 +30,109 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
   const blipAnim3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Pulse animations with delays
-    Animated.loop(
-      Animated.timing(pulseAnim, {
-        toValue: 1,
-        duration: 2000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+    // 仅在扫描中时启动动画
+    if (isScanning) {
+      // Pulse animations with delays
+      Animated.loop(
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
 
-    // Second pulse with delay
-    Animated.loop(
-      Animated.timing(pulseAnim2, {
-        toValue: 1,
-        duration: 2000,
-        delay: 650,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+      // Second pulse with delay
+      Animated.loop(
+        Animated.timing(pulseAnim2, {
+          toValue: 1,
+          duration: 2000,
+          delay: 650,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
 
-    // Third pulse with delay
-    Animated.loop(
-      Animated.timing(pulseAnim3, {
-        toValue: 1,
-        duration: 2000,
-        delay: 1300,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+      // Third pulse with delay
+      Animated.loop(
+        Animated.timing(pulseAnim3, {
+          toValue: 1,
+          duration: 2000,
+          delay: 1300,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
 
-    // Radar sweep animation
-    Animated.loop(
-      Animated.timing(sweepAnim, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Blip animations with different delays
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(blipAnim1, {
+      // Radar sweep animation
+      Animated.loop(
+        Animated.timing(sweepAnim, {
           toValue: 1,
           duration: 3000,
-          delay: 600,
+          easing: Easing.linear,
           useNativeDriver: true,
-        }),
-        Animated.timing(blipAnim1, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+        })
+      ).start();
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(blipAnim2, {
-          toValue: 1,
-          duration: 3000,
-          delay: 1700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(blipAnim2, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+      // Blip animations with different delays
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blipAnim1, {
+            toValue: 1,
+            duration: 3000,
+            delay: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blipAnim1, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(blipAnim3, {
-          toValue: 1,
-          duration: 3000,
-          delay: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(blipAnim3, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blipAnim2, {
+            toValue: 1,
+            duration: 3000,
+            delay: 1700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blipAnim2, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blipAnim3, {
+            toValue: 1,
+            duration: 3000,
+            delay: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blipAnim3, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      // 如果不是扫描中状态，停止所有动画
+      pulseAnim.stopAnimation();
+      pulseAnim2.stopAnimation();
+      pulseAnim3.stopAnimation();
+      sweepAnim.stopAnimation();
+      blipAnim1.stopAnimation();
+      blipAnim2.stopAnimation();
+      blipAnim3.stopAnimation();
+    }
+  }, [isScanning]);
 
   // Interpolate animations
   const pulseScale = pulseAnim.interpolate({
@@ -182,6 +202,40 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
     inputRange: [0, 0.3, 0.7, 1],
     outputRange: [0, 1, 1, 0],
   });
+
+  // 根据状态获取扫描文本
+  const getScanningText = () => {
+    if (!isBleReady) {
+      return "蓝牙未启用，请打开蓝牙";
+    }
+    
+    if (isScanning) {
+      return "正在扫描设备...";
+    }
+    
+    return "点击扫描按钮开始搜索设备";
+  };
+
+  // 根据状态获取按钮
+  const renderActionButton = () => {
+    if (isScanning) {
+      return (
+        <TouchableOpacity className="py-2 px-5 bg-transparent border border-red-500 rounded-full" onPress={onCancelPress}>
+          <Text className="text-red-500 text-sm font-medium">取消扫描</Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    return (
+      <TouchableOpacity 
+        className={`py-2 px-5 bg-transparent border ${isBleReady ? 'border-blue-600' : 'border-gray-400'} rounded-full`} 
+        onPress={onRescanPress}
+        disabled={!isBleReady}
+      >
+        <Text className={`text-sm font-medium ${isBleReady ? 'text-blue-600' : 'text-gray-400'}`}>重新扫描</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View className='px-4 pt-4'>
@@ -265,12 +319,15 @@ const ScanSection: React.FC<ScanSectionProps> = ({ onCancelPress }) => {
       </View>
 
       <View className='flex flex-col items-center justify-center gap-y-2 mt-2'>
-        <Text className="text-base text-gray-800 font-medium">Scanning for devices...</Text>
-        <Text className="text-xs text-gray-500">Looking for nearby Bluetooth devices</Text>
+        <Text className="text-base text-gray-800 font-medium">{getScanningText()}</Text>
+        <Text className="text-xs text-gray-500">
+          {isBleReady 
+            ? "搜索周围的蓝牙设备" 
+            : "请在设置中打开蓝牙"
+          }
+        </Text>
         
-        <TouchableOpacity className="py-2 px-5 bg-transparent border border-blue-600 rounded-full" onPress={onCancelPress}>
-          <Text className="text-blue-600 text-sm font-medium">Cancel</Text>
-        </TouchableOpacity>
+        {renderActionButton()}
       </View>
     </View>
     </View>

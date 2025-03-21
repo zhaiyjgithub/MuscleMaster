@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@frsource/base64": "^1.0.132",
     "@gorhom/bottom-sheet": "^5",
     "clsx": "^2.1.1",
     "lucide-react-native": "^0.482.0",

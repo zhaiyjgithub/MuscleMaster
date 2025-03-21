@@ -5,76 +5,88 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
 import ScanFoundDeviceList, { FoundDevice, ServiceInfo } from '../components/scan-found-device/scanFoundDevice';
 import { useEffect, useState } from 'react';
-import { BLEManager } from '../services/BLEManager';
+import { BLEManager, calculateSignalStrength } from '../services/BLEManager';
 import { Device } from 'react-native-ble-plx';
 import { TouchableOpacity } from 'react-native';
-
-// 计算信号强度级别
-const calculateSignalStrength = (device: Device): 'excellent' | 'good' | 'weak' => {
-  const rssi = device.rssi;
-  if (rssi !== null && rssi >= -50) {
-    return 'excellent';
-  } else if (rssi !== null && rssi >= -70) {
-    return 'good';
-  } else {
-    return 'weak';
-  }
-};
-
-// 计算信号的增益
-function calculateSignalGain(rssi: number | null) {
-  if (rssi === null) {
-    return 0;
-  }
-  return rssi + 100;
-}
 
 const ScanDeviceController: NavigationFunctionComponent = () => {
   const [devices, setDevices] = useState<FoundDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [bleReady, setBleReady] = useState(false);
 
   // 开始扫描设备的函数
   const startScanning = async () => {
     if (isScanning) return;
     
-    setIsScanning(true);
-    await BLEManager.startScan((device) => {
-      console.log('Found device:', device.name, device.id);
-      
-      setDevices((prevDevices) => {
-        // Check if device already exists
-        const existingDeviceIndex = prevDevices.findIndex(d => d.id === device.id);
+    try {
+      setIsScanning(true);
+      await BLEManager.startScan((device) => {
+        console.log('Found device:', device.name, device.id);
         
-        // If device exists, return unchanged array
-        if (existingDeviceIndex >= 0) {
-          return prevDevices;
-        }
+        setDevices((prevDevices) => {
+          // Check if device already exists
+          const existingDeviceIndex = prevDevices.findIndex(d => d.id === device.id);
+          
+          // If device exists, return unchanged array
+          if (existingDeviceIndex >= 0) {
+            return prevDevices;
+          }
 
-        // 计算信号强度
-        const signalStrength = calculateSignalStrength(device);
+          // 计算信号强度
+          const signalStrength = calculateSignalStrength(device);
 
-        // If device is new, add it to array
-        return [...prevDevices, {
-          name: device.name || '',
-          id: device.id,
-          signalStrength: signalStrength,
-          connected: false,
-          icon: '💪', 
-          iconColor: '#1e88e5'
-        }];
+          // If device is new, add it to array
+          return [...prevDevices, {
+            name: device.name || '',
+            id: device.id,
+            signalStrength: signalStrength,
+            connected: false,
+            icon: '💪', 
+            iconColor: '#1e88e5'
+          }];
+        });
       });
-    });
-    
-    // 扫描完成后更新状态
-    setIsScanning(false);
+    } catch (error) {
+      console.error('Error starting scan:', error);
+    } finally {
+      // 扫描完成后更新状态
+      setIsScanning(false);
+    }
   };
 
-  // 组件挂载时自动开始首次扫描
+  // 等待蓝牙状态变为 PoweredOn 并开始扫描
+  const waitForBluetoothAndScan = () => {
+    // 检查当前状态，使用公共方法 getState()
+    BLEManager.getState()
+      .then(state => {
+        if (state === 'PoweredOn') {
+          setBleReady(true);
+          startScanning();
+        } else {
+          console.log('Bluetooth not ready, current state:', state);
+        }
+      })
+      .catch(error => {
+        console.error('Error checking Bluetooth state:', error);
+      });
+  };
+
+  // 组件挂载时监听蓝牙状态变化
   useEffect(() => {
-    startScanning();
+    // 订阅蓝牙状态变化，使用公共方法 onStateChange()
+    const subscription = BLEManager.onStateChange(state => {
+      console.log('Bluetooth state changed:', state);
+      if (state === 'PoweredOn') {
+        setBleReady(true);
+        startScanning();
+      } else {
+        setBleReady(false);
+      }
+    }, true); // true 参数表示立即检查当前状态
     
-    // 组件卸载时停止扫描
+    // 组件卸载时取消订阅并停止扫描
     return () => {
+      subscription.remove();
       BLEManager.stopScan();
     };
   }, []);
@@ -83,6 +95,15 @@ const ScanDeviceController: NavigationFunctionComponent = () => {
   const handleCancelScan = () => {
     BLEManager.stopScan();
     setIsScanning(false);
+  };
+
+  // 处理重新扫描
+  const handleRescan = () => {
+    if (bleReady) {
+      startScanning();
+    } else {
+      waitForBluetoothAndScan();
+    }
   };
 
   // 处理开始训练按钮
@@ -118,7 +139,10 @@ const ScanDeviceController: NavigationFunctionComponent = () => {
       <View className="flex-1 relative">
         <ScrollView className="flex-1 pb-20">
           <ScanSection 
-            onCancelPress={handleCancelScan} 
+            onCancelPress={handleCancelScan}
+            onRescanPress={handleRescan}
+            isScanning={isScanning}
+            isBleReady={bleReady}
           />
           <ScanFoundDeviceList 
             devices={devices} 
