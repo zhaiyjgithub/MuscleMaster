@@ -8,6 +8,7 @@ import './global.css';
 import ScanDeviceController from './app/controller/scanDeviceController';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {NavigationProvider} from 'react-native-navigation-hooks';
+import DevicePanelController from './app/controller/devicePanelController';
 
 Navigation.registerComponent(
   'ScanDeviceController',
@@ -21,6 +22,20 @@ Navigation.registerComponent(
     );
   },
   () => ScanDeviceController,
+);
+
+Navigation.registerComponent(
+  'DevicePanelController',
+  () => props => {
+    return (
+      <NavigationProvider value={{componentId: props.componentId}}>
+        <SafeAreaProvider>
+          <DevicePanelController {...props} />
+        </SafeAreaProvider>
+      </NavigationProvider>
+    );
+  },
+  () => DevicePanelController,
 );
 
 Navigation.setDefaultOptions({
