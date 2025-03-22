@@ -146,8 +146,6 @@ const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
     );
   };
   
-  console.log('isScanning', isScanning);
-  console.log('bleReady', bleReady);
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
       <View className="flex-1 relative">

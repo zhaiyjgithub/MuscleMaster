@@ -1,35 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
   Modal
 } from 'react-native';
 import { NavigationFunctionComponent } from 'react-native-navigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BLEManager } from '../services/BLEManager';
-import {    
-    Dumbbell,
-    Flame,
-    Heart,
-    Smile,
-    Droplet,
-    Zap,
-    Crown,
-    User,
-    Scan,
-    Activity,
-    Scissors,
-    Shield,
-    Settings,
-    ChevronRight,
-    ChevronUp,
-    ChevronDown,
-    Smartphone,
-    Icon,
-    Bluetooth,
- } from 'lucide-react-native';
+import {
+  Dumbbell,
+  Flame,
+  Heart,
+  Smile,
+  Droplet,
+  Zap,
+  Crown,
+  User,
+  Scan,
+  Activity,
+  Scissors,
+  Shield,
+  Settings,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Smartphone,
+  Icon,
+  Bluetooth,
+} from 'lucide-react-native';
 import { Device } from 'react-native-ble-plx';
 import { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
 import { useNavigationComponentDidAppear } from 'react-native-navigation-hooks';
@@ -99,7 +99,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     try {
       // 使用 BLEManager 发现所有服务和特性
       await BLEManager.discoverAllServicesAndCharacteristics(deviceId);
-      
+
       // 获取服务
       const services = await BLEManager.servicesForDevice(deviceId);
       const serviceInfos: ServiceInfo[] = [];
@@ -107,13 +107,13 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
       // 对每个服务获取特性
       for (const service of services) {
         const characteristics = await BLEManager.characteristicsForDevice(deviceId, service.uuid);
-        
+
         serviceInfos.push({
           uuid: service.uuid,
           characteristicInfos: characteristics.map(char => ({ uuid: char.uuid }))
         });
       }
-      
+
       return serviceInfos;
     } catch (error) {
       console.error('Error discovering services and characteristics:', error);
@@ -123,8 +123,8 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
   // Available modes for selection
   const modes: ModeItem[] = [
-    { id: '1', name: 'Fitness', icon:  <Dumbbell  size={24} color="#1e88e5" />},
-    { id: '2', name: 'Warm up', icon: <Flame size={24} color="#1e88e5" />},
+    { id: '1', name: 'Fitness', icon: <Dumbbell size={24} color="#1e88e5" /> },
+    { id: '2', name: 'Warm up', icon: <Flame size={24} color="#1e88e5" /> },
     { id: '3', name: 'Cardio', icon: <Heart size={24} color="#1e88e5" /> },
     { id: '4', name: 'Relax', icon: <Smile size={24} color="#1e88e5" /> },
     { id: '5', name: 'Dermal', icon: <User size={24} color="#1e88e5" /> },
@@ -143,30 +143,30 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   useNavigationComponentDidAppear(() => {
     if (devices && devices.length > 0) {
       setSelectedDevice(devices[0]);
-      
+
       // 尝试连接到设备
       const connectToDevice = async () => {
         const device = devices[0];
-        
+
         try {
           // 设置加载状态
           setDeviceLoading(device.id, true);
-          
+
           // 停止扫描（在连接前停止扫描是最佳实践）
           BLEManager.stopScan();
-          
+
           // 连接设备
           const connectedDevice = await BLEManager.connectToDevice(device.id);
           if (connectedDevice) {
             console.log(`Successfully connected to ${device.name}`);
-            
+
             // 更新设备连接状态
             updateConnectionStatus(device.id, true);
-            
+
             // 发现服务和特性
             const serviceInfos = await discoverServicesAndCharacteristics(device.id);
             console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
-            
+
             // 遍历读取特性
             // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
             for (const service of serviceInfos) {
@@ -187,7 +187,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
           setDeviceLoading(device.id, false);
         }
       };
-      
+
       connectToDevice();
     }
   });
@@ -235,7 +235,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   };
 
   const $modeActionSheet = (
-    <ModeListActionSheet 
+    <ModeListActionSheet
       selectedMode={selectedMode}
       handleModeSelect={handleModeSelect}
       ref={modeListActionSheetRef}
@@ -243,98 +243,100 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   )
 
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
-          <SafeAreaView className="flex-1 bg-gray-200">
-      {/* Top Navigation Bar */}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView className="flex-1 bg-gray-200">
+        {/* Top Navigation Bar */}
 
-      <ScrollView className="flex-1 p-4">
-        {/* Current Device Section */}
-        <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-          <TouchableOpacity 
-            className="flex-row justify-between items-center p-4"
-            onPress={() => {}}
-          >
-            <View className="flex-row items-center">
-              <View className="w-2 h-2 rounded-full bg-green-600 mr-1.5" />
-              <Text className="text-base font-semibold text-gray-800">{selectedDevice?.name}</Text>
-            </View>
-            <ChevronRight size={20} color="#777" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Timer Section */}
-        <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-          <View className="p-4 items-center">
-            <Text className="text-5xl font-light text-gray-800 mb-4 tracking-wider">{timerValue}</Text>
-            <View className="flex-row gap-4">
-              <TouchableOpacity 
-                className="py-2 px-5 rounded-full bg-blue-500 items-center justify-center"
-                onPress={toggleTimer}
-              >
-                <Text className="text-white font-medium text-sm">
-                  {timerRunning ? 'Pause' : 'Start'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                className="py-2 px-5 rounded-full bg-transparent border border-blue-500 items-center justify-center"
-                onPress={resetTimer}
-              >
-                <Text className="text-blue-500 font-medium text-sm">Reset</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Intensity Control Section */}
-        <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-          <View className="p-4">
-            <View className="items-center mb-3.5">
-              <Text className="text-[22px] font-bold text-blue-500">
-                {intensityLevel} / {maxIntensity}
-              </Text>
-            </View>
-            <View className="flex-row justify-between relative">
-              <TouchableOpacity 
-                className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center" 
-                onPress={increaseIntensity}
-              >
-                <ChevronUp size={24} color="white" />
-                <Text className="font-semibold mt-0.5 text-white">Up</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center" 
-                onPress={decreaseIntensity}
-              >
-                <ChevronDown size={24} color="white" />
-                <Text className="font-semibold mt-0.5 text-white">Down</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Mode Selection Section */}
-        <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-          <View className="p-4">
-            <View className="items-center mb-3.5 flex-col gap-y-2">
-              {getIconByMode(selectedMode, 32, '#1e88e5')}
-              <Text className="text-[22px] font-bold text-blue-500">{selectedMode}</Text>
-            </View>
-            <TouchableOpacity 
-              className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"
-              onPress={() => {
-                modeListActionSheetRef.current?.expand()
-              }}
+        <ScrollView className="flex-1 p-4">
+          {/* Current Device Section */}
+          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
+            <TouchableOpacity
+              className="flex-row justify-between items-center p-4"
+              onPress={() => { }}
             >
-              <Text className="font-medium text-base text-white">Mode</Text>
+              <View className="flex-row items-center">
+                <View className="w-2 h-2 rounded-full bg-green-600 mr-1.5" />
+                <Text className="text-base font-semibold text-gray-800">{selectedDevice?.name}</Text>
+              </View>
+              <ChevronRight size={20} color="#777" />
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
 
-      {/* Mode Selection Modal */}
-      {$modeActionSheet}
+          {/* Timer Section */}
+          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
+            <View className="p-4 items-center">
+              <Text className="text-5xl font-light text-gray-800 mb-4 tracking-wider">{timerValue}</Text>
+              <View className="flex-row gap-4">
+                <TouchableOpacity
+                  className="py-2 px-5 rounded-full bg-blue-500 items-center justify-center"
+                  onPress={toggleTimer}
+                >
+                  <Text className="text-white font-medium text-sm">
+                    {timerRunning ? 'Pause' : 'Start'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="py-2 px-5 rounded-full bg-transparent border border-blue-500 items-center justify-center"
+                  onPress={resetTimer}
+                >
+                  <Text className="text-blue-500 font-medium text-sm">Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
 
-    </SafeAreaView>
+          {/* Mode Selection Section */}
+          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
+            <View className="p-4">
+              <View className="items-center mb-3.5 flex-col gap-y-2">
+                {getIconByMode(selectedMode, 32, '#1e88e5')}
+                <Text className="text-[22px] font-bold text-blue-500">{selectedMode}</Text>
+              </View>
+              <TouchableOpacity
+                className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"
+                onPress={() => {
+                  modeListActionSheetRef.current?.expand()
+                }}
+              >
+                <Text className="font-medium text-base text-white">Mode</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Intensity Control Section */}
+          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
+            <View className="p-4">
+              <View className="items-center mb-3.5">
+                <Text className="text-[22px] font-bold text-blue-500">
+                  {intensityLevel} / {maxIntensity}
+                </Text>
+              </View>
+              <View className="flex-row justify-between relative">
+                <TouchableOpacity
+                  className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center"
+                  onPress={increaseIntensity}
+                >
+                  <ChevronUp size={24} color="white" />
+                  <Text className="font-semibold mt-0.5 text-white">Up</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center"
+                  onPress={decreaseIntensity}
+                >
+                  <ChevronDown size={24} color="white" />
+                  <Text className="font-semibold mt-0.5 text-white">Down</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+
+        </ScrollView>
+
+        {/* Mode Selection Modal */}
+        {$modeActionSheet}
+
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
