@@ -37,6 +37,7 @@ import { decode } from '@frsource/base64'; // 修正导入
 import ModeListActionSheet, { getIconByMode } from '../components/mode-list-action-sheet/modeListActionSheet';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
 
 interface ModeItem {
   id: string;
@@ -72,9 +73,9 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [batteryLevel, setBatteryLevel] = useState(75);
   const [intensityLevel, setIntensityLevel] = useState(7);
   const [maxIntensity, setMaxIntensity] = useState(10);
-  const [timerValue, setTimerValue] = useState('00:05:32');
+  const [timerValue, setTimerValue] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [modeModalVisible, setModeModalVisible] = useState(false);
+  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<Record<string, boolean>>({});
 
 
@@ -208,14 +209,72 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
   // Toggle timer state (start/pause)
   const toggleTimer = () => {
-    setTimerRunning(!timerRunning);
+    if (timerRunning) {
+      // 如果计时器正在运行，暂停它
+      pauseTimer();
+    } else {
+      // 如果计时器未运行，启动它
+      startTimer();
+    }
+  };
+
+  // 启动计时器
+  const startTimer = () => {
+    // 只有当时间大于 0 时才启动计时器
+    if (timerValue <= 0) {
+      console.log("Timer value is 0, can't start timer");
+      return;
+    }
+
+    setTimerRunning(true);
+    // 每秒减少一秒
+    const interval = setInterval(() => {
+      setTimerValue((prevTime) => {
+        if (prevTime <= 1) {
+          // 时间到，停止计时器
+          clearInterval(interval);
+          setTimerRunning(false);
+          setTimerInterval(null);
+          // 可以添加提示音或振动
+          console.log("Timer finished!");
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+
+    setTimerInterval(interval);
+  };
+
+  // 暂停计时器
+  const pauseTimer = () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+    setTimerRunning(false);
   };
 
   // Reset timer
   const resetTimer = () => {
-    setTimerValue('00:00:00');
+    // 停止计时器
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+    setTimerValue(0);
     setTimerRunning(false);
+    timePickerActionSheetRef.current?.expand();
   };
+
+  // 在组件卸载时清除定时器
+  useEffect(() => {
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [timerInterval]);
 
   // Handle device selection
   const handleDeviceSelect = (device: FoundDevice) => {
@@ -242,6 +301,34 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     />
   )
 
+  const timePickerActionSheetRef = useRef<BottomSheet>(null);
+
+  const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
+    console.log(`Time selected: ${hours}:${minutes}:${seconds}`);
+    // 格式化时间 如果小于 10 则补 0
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    setTimerValue(totalSeconds);
+    
+  }
+
+  const $timePickerActionSheet = (
+    <TimePickerActionSheet
+      ref={timePickerActionSheetRef}
+      initialHours={0}
+      initialMinutes={0}
+      initialSeconds={0}
+      onTimeSelected={onTimeSelected}
+    />
+  )
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return formattedTime;
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView className="flex-1 bg-gray-200">
@@ -264,22 +351,39 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
           {/* Timer Section */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-            <View className="p-4 items-center">
-              <Text className="text-5xl font-light text-gray-800 mb-4 tracking-wider">{timerValue}</Text>
-              <View className="flex-row gap-4">
+            <View className="p-4 gap-y-4">
+              <TouchableOpacity 
+                className='p-4 flex flex-row items-center justify-center'
+                onPress={() => !timerRunning && timePickerActionSheetRef.current?.expand()}
+                disabled={timerRunning}
+              >
+                <Text className={`text-5xl font-light ${timerRunning ? 'text-blue-500' : 'text-gray-800'} pt-2`}>
+                  {formatTime(timerValue)}
+                </Text>
+              </TouchableOpacity>
+              <View className="flex-row items-center justify-between ">
                 <TouchableOpacity
-                  className="py-2 px-5 rounded-full bg-blue-500 items-center justify-center"
-                  onPress={toggleTimer}
-                >
-                  <Text className="text-white font-medium text-sm">
-                    {timerRunning ? 'Pause' : 'Start'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="py-2 px-5 rounded-full bg-transparent border border-blue-500 items-center justify-center"
+                  className={`py-3 w-24 rounded-lg border items-center justify-center ${
+                    timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
+                  }`}
                   onPress={resetTimer}
+                  disabled={timerValue === 0}
                 >
-                  <Text className="text-blue-500 font-medium text-sm">Reset</Text>
+                  <Text className={`font-semibold text-base ${
+                    timerValue > 0 ? 'text-blue-500' : 'text-gray-300'
+                  }`}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className={`py-3 w-24 rounded-lg items-center justify-center ${
+                    timerValue > 0 ? (timerRunning ? 'bg-orange-500' : 'bg-green-500') : 'bg-gray-300'
+                  }`}
+                  onPress={toggleTimer}
+                  disabled={timerValue === 0}
+                >
+                  <Text className="text-white font-semibold text-base">
+                    {timerRunning ? 'Pause' : 'Continue'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -335,7 +439,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
         {/* Mode Selection Modal */}
         {$modeActionSheet}
-
+        {$timePickerActionSheet}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
