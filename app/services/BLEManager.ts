@@ -62,13 +62,19 @@ class BLEManagerClass {
     return false;
   }
 
+  // 添加公共方法来检查是否正在扫描
+  isScanningDevices(): boolean {
+    return this.isScanning;
+  }
+
   // 开始扫描设备
-  async startScan(onDeviceFound: (device: Device) => void) {
+  async startScan(onDeviceFound: (device: Device) => void, onScanComplete?: () => void) {
     try {
       // 检查权限
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
         console.error('BLE permission not granted');
+        if (onScanComplete) onScanComplete();
         return;
       }
 
@@ -101,6 +107,7 @@ class BLEManagerClass {
           }, true); // true 表示立即检查当前状态
         }).catch(error => {
           console.error('Failed waiting for Bluetooth:', error);
+          if (onScanComplete) onScanComplete();
           throw error;
         });
       }
@@ -126,6 +133,7 @@ class BLEManagerClass {
           if (error) {
             console.error('Scan error:', error);
             this.stopScan();
+            if (onScanComplete) onScanComplete();
             return;
           }
 
@@ -142,11 +150,13 @@ class BLEManagerClass {
       // 15 秒后自动停止扫描
       setTimeout(() => {
         this.stopScan();
+        if (onScanComplete) onScanComplete();
       }, 15000);
 
     } catch (error) {
       console.error('Failed to start scan:', error);
       this.isScanning = false;
+      if (onScanComplete) onScanComplete();
       throw error;
     }
   }

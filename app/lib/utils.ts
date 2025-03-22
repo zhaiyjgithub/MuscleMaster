@@ -1,4 +1,7 @@
 import { encode, decode } from '@frsource/base64';
+import clsx from 'clsx';
+import {twMerge} from 'tailwind-merge';
+import { ClassValue } from 'clsx';
 /**
  * 解码 Base64 编码的字符串
  * @param base64String Base64 编码的字符串
@@ -15,3 +18,7 @@ export const decodeBase64Value = (base64String: string): string => {
     return base64String;
   }
 };
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}

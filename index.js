@@ -9,15 +9,18 @@ import ScanDeviceController from './app/controller/scanDeviceController';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {NavigationProvider} from 'react-native-navigation-hooks';
 import DevicePanelController from './app/controller/devicePanelController';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
 Navigation.registerComponent(
   'ScanDeviceController',
   () => props => {
     return (
       <NavigationProvider value={{componentId: props.componentId}}>
-        <SafeAreaProvider>
-          <ScanDeviceController {...props} />
-        </SafeAreaProvider>
+        <GestureHandlerRootView>
+          <SafeAreaProvider>
+            <ScanDeviceController {...props} />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
       </NavigationProvider>
     );
   },
@@ -29,9 +32,9 @@ Navigation.registerComponent(
   () => props => {
     return (
       <NavigationProvider value={{componentId: props.componentId}}>
-        <SafeAreaProvider>
-          <DevicePanelController {...props} />
-        </SafeAreaProvider>
+          <SafeAreaProvider>
+            <DevicePanelController {...props} />
+          </SafeAreaProvider>
       </NavigationProvider>
     );
   },
@@ -45,10 +48,12 @@ Navigation.setDefaultOptions({
     },
     backButton: {
       color: 'white',
+      showTitle: false,
     },
     background: {
       color: '#1e88e5',
     },
+    rightButtonColor: 'white',
   },
 });
 

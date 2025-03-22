@@ -183,18 +183,20 @@ export interface FoundDevice {
   iconColor: string;
   loading?: boolean;
   serviceInfos?: ServiceInfo[];
+  selected?: boolean;
 }
-
 interface ScanFoundDeviceListProps {
   devices: FoundDevice[];
   updateConnectionStatus?: (deviceId: string, isConnected: boolean) => void;
   updateDeviceServices?: (deviceId: string, serviceInfos: ServiceInfo[]) => void;
+  onPress: (device: FoundDevice) => void;
 }
 
 const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({ 
   devices, 
   updateConnectionStatus,
-  updateDeviceServices 
+  updateDeviceServices,
+  onPress
 }) => {
   // 跟踪正在加载的设备 ID
   const [loadingDeviceIds, setLoadingDeviceIds] = useState<Set<string>>(new Set());
@@ -287,58 +289,59 @@ const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({
               {...device}
               loading={loadingDeviceIds.has(device.id)}
               onConnectPress={async () => {
-                try {
-                  // 设置加载状态
-                  setDeviceLoading(device.id, true);
+                onPress(device);
+                // try {
+                //   // 设置加载状态
+                //   setDeviceLoading(device.id, true);
                   
-                  if (device.connected) {
-                    // 如果已经连接，则断开连接
-                    await BLEManager.disconnectDevice(device.id);
-                    console.log(`Disconnected from ${device.name}`);
-                    updateConnectionStatus?.(device.id, false);
-                  } else {
-                    // 停止扫描（在连接前停止扫描是最佳实践）
-                    BLEManager.stopScan();
+                //   if (device.connected) {
+                //     // 如果已经连接，则断开连接
+                //     await BLEManager.disconnectDevice(device.id);
+                //     console.log(`Disconnected from ${device.name}`);
+                //     updateConnectionStatus?.(device.id, false);
+                //   } else {
+                //     // 停止扫描（在连接前停止扫描是最佳实践）
+                //     BLEManager.stopScan();
                     
-                    // 连接设备
-                    const connectedDevice = await BLEManager.connectToDevice(device.id);
-                    if (connectedDevice) {
-                      console.log(`Successfully connected to ${device.name}`);
+                //     // 连接设备
+                //     const connectedDevice = await BLEManager.connectToDevice(device.id);
+                //     if (connectedDevice) {
+                //       console.log(`Successfully connected to ${device.name}`);
                       
-                      // 更新设备连接状态
-                      updateConnectionStatus?.(device.id, true);
+                //       // 更新设备连接状态
+                //       updateConnectionStatus?.(device.id, true);
                       
-                      // 发现服务和特性
-                      const serviceInfos = await discoverServicesAndCharacteristics(device.id);
-                      console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
+                //       // 发现服务和特性
+                //       const serviceInfos = await discoverServicesAndCharacteristics(device.id);
+                //       console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
                       
-                      // 遍历读取特性
-                      // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
-                      for (const service of serviceInfos) {
-                        for (const characteristic of service.characteristicInfos) {
-                          const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
-                          console.log(`Value of ${characteristic.uuid}:`, value);
-                          if (value) {
-                            const decodedValue = decodeBase64Value(value);
-                            console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
-                          }
-                        }
-                      }
+                //       // 遍历读取特性
+                //       // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
+                //       for (const service of serviceInfos) {
+                //         for (const characteristic of service.characteristicInfos) {
+                //           const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
+                //           console.log(`Value of ${characteristic.uuid}:`, value);
+                //           if (value) {
+                //             const decodedValue = decodeBase64Value(value);
+                //             console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
+                //           }
+                //         }
+                //       }
 
-                      // Write value to characteristic
-                      // const serviceUUID = '0000aaa0-0000-1000-8000-aabbccddeeff';
-                      // const characteristicUUID = 'abcdef01-1234-5678-1234-56789abcdef9';
+                //       // Write value to characteristic
+                //       // const serviceUUID = '0000aaa0-0000-1000-8000-aabbccddeeff';
+                //       // const characteristicUUID = 'abcdef01-1234-5678-1234-56789abcdef9';
 
-                      // const writeValue = await BLEManager.writeCharacteristicWithResponse(device.id, serviceUUID,characteristicUUID, '1234567890');
-                      // console.log(`Write value to ${serviceUUID} ${characteristicUUID}:`, writeValue);
-                    }
-                  }
-                } catch (error) {
-                  console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
-                } finally {
-                  // 无论成功失败，都结束加载状态
-                  setDeviceLoading(device.id, false);
-                }
+                //       // const writeValue = await BLEManager.writeCharacteristicWithResponse(device.id, serviceUUID,characteristicUUID, '1234567890');
+                //       // console.log(`Write value to ${serviceUUID} ${characteristicUUID}:`, writeValue);
+                //     }
+                //   }
+                // } catch (error) {
+                //   console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
+                // } finally {
+                //   // 无论成功失败，都结束加载状态
+                //   setDeviceLoading(device.id, false);
+                // }
               }}
             />
           ))}

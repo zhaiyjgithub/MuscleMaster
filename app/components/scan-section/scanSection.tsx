@@ -30,6 +30,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
   const blipAnim3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    console.log('ScanSection: isScanning changed to', isScanning);
     // 仅在扫描中时启动动画
     if (isScanning) {
       // Pulse animations with delays

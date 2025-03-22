@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -31,6 +31,12 @@ import {
     Bluetooth,
  } from 'lucide-react-native';
 import { Device } from 'react-native-ble-plx';
+import { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
+import { useNavigationComponentDidAppear } from 'react-native-navigation-hooks';
+import { decode } from '@frsource/base64'; // 修正导入
+import ModeListActionSheet, { getIconByMode } from '../components/mode-list-action-sheet/modeListActionSheet';
+import BottomSheet from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 interface ModeItem {
   id: string;
@@ -39,12 +45,29 @@ interface ModeItem {
 }
 
 export interface DevicePanelControllerProps {
-  devices: Device[];
+  devices: FoundDevice[];
 }
 
+// 添加缺失的类型定义和函数
+interface ServiceInfo {
+  uuid: string;
+  characteristicInfos: {
+    uuid: string;
+  }[];
+}
+
+// 定义 Base64 解码函数
+const decodeBase64Value = (value: string): string => {
+  try {
+    return decode(value);
+  } catch (error) {
+    console.error('Error decoding Base64 value:', error);
+    return 'Decoding error';
+  }
+};
+
 const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerProps> = ({ componentId, devices }) => {
-  const [selectedMode, setSelectedMode] = useState('Strength Training');
-  const [selectedDevice, setSelectedDevice] = useState('MuscleMaster Pro');
+  const [selectedMode, setSelectedMode] = useState('Fitness');
   const [isConnected, setIsConnected] = useState(true);
   const [batteryLevel, setBatteryLevel] = useState(75);
   const [intensityLevel, setIntensityLevel] = useState(7);
@@ -52,7 +75,51 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [timerValue, setTimerValue] = useState('00:05:32');
   const [timerRunning, setTimerRunning] = useState(false);
   const [modeModalVisible, setModeModalVisible] = useState(false);
-  const [deviceModalVisible, setDeviceModalVisible] = useState(false);
+  const [deviceLoadingStates, setDeviceLoadingStates] = useState<Record<string, boolean>>({});
+
+
+  const modeListActionSheetRef = useRef<BottomSheet>(null);
+
+  // 添加设备加载状态管理函数
+  const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
+    setDeviceLoadingStates(prev => ({
+      ...prev,
+      [deviceId]: isLoading
+    }));
+  };
+
+  // 添加连接状态更新函数
+  const updateConnectionStatus = (deviceId: string, isConnected: boolean) => {
+    // 这个函数在实际应用中应该用来更新 UI 或状态
+    console.log(`更新设备 ${deviceId} 连接状态为：${isConnected}`);
+  };
+
+  // 添加服务和特性发现函数
+  const discoverServicesAndCharacteristics = async (deviceId: string): Promise<ServiceInfo[]> => {
+    try {
+      // 使用 BLEManager 发现所有服务和特性
+      await BLEManager.discoverAllServicesAndCharacteristics(deviceId);
+      
+      // 获取服务
+      const services = await BLEManager.servicesForDevice(deviceId);
+      const serviceInfos: ServiceInfo[] = [];
+
+      // 对每个服务获取特性
+      for (const service of services) {
+        const characteristics = await BLEManager.characteristicsForDevice(deviceId, service.uuid);
+        
+        serviceInfos.push({
+          uuid: service.uuid,
+          characteristicInfos: characteristics.map(char => ({ uuid: char.uuid }))
+        });
+      }
+      
+      return serviceInfos;
+    } catch (error) {
+      console.error('Error discovering services and characteristics:', error);
+      return [];
+    }
+  };
 
   // Available modes for selection
   const modes: ModeItem[] = [
@@ -71,12 +138,59 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     { id: '13', name: 'Vip', icon: <Crown size={24} color="#1e88e5" /> },
   ];
 
-  // Available devices for selection
-  const devices = [
-    { id: '1', name: 'MuscleMaster Pro', status: 'Connected', battery: 75 },
-    { id: '2', name: 'MuscleMaster Mini', status: 'Available', battery: 92 },
-    { id: '3', name: 'MuscleMaster Lite', status: 'Available', battery: 64 },
-  ];
+  const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(null);
+
+  useNavigationComponentDidAppear(() => {
+    if (devices && devices.length > 0) {
+      setSelectedDevice(devices[0]);
+      
+      // 尝试连接到设备
+      const connectToDevice = async () => {
+        const device = devices[0];
+        
+        try {
+          // 设置加载状态
+          setDeviceLoading(device.id, true);
+          
+          // 停止扫描（在连接前停止扫描是最佳实践）
+          BLEManager.stopScan();
+          
+          // 连接设备
+          const connectedDevice = await BLEManager.connectToDevice(device.id);
+          if (connectedDevice) {
+            console.log(`Successfully connected to ${device.name}`);
+            
+            // 更新设备连接状态
+            updateConnectionStatus(device.id, true);
+            
+            // 发现服务和特性
+            const serviceInfos = await discoverServicesAndCharacteristics(device.id);
+            console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
+            
+            // 遍历读取特性
+            // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
+            for (const service of serviceInfos) {
+              for (const characteristic of service.characteristicInfos) {
+                const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
+                console.log(`Value of ${characteristic.uuid}:`, value);
+                if (value) {
+                  const decodedValue = decodeBase64Value(value);
+                  console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
+        } finally {
+          // 无论成功失败，都结束加载状态
+          setDeviceLoading(device.id, false);
+        }
+      };
+      
+      connectToDevice();
+    }
+  });
 
   // Increase intensity level
   const increaseIntensity = () => {
@@ -104,15 +218,14 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   };
 
   // Handle device selection
-  const handleDeviceSelect = (device: string) => {
+  const handleDeviceSelect = (device: FoundDevice) => {
     setSelectedDevice(device);
-    setDeviceModalVisible(false);
   };
 
   // Handle mode selection
   const handleModeSelect = (mode: string) => {
     setSelectedMode(mode);
-    setModeModalVisible(false);
+    modeListActionSheetRef.current?.close();
   };
 
   // Navigate to settings
@@ -121,35 +234,29 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     // Implementation of navigation to settings
   };
 
+  const $modeActionSheet = (
+    <ModeListActionSheet 
+      selectedMode={selectedMode}
+      handleModeSelect={handleModeSelect}
+      ref={modeListActionSheetRef}
+    />
+  )
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <GestureHandlerRootView style={{flex: 1}}>
+          <SafeAreaView className="flex-1 bg-gray-200">
       {/* Top Navigation Bar */}
-      <View className="h-11 flex-row justify-center items-center bg-opacity-80 bg-gray-100 border-b border-gray-200 relative">
-        <Text className="text-base font-semibold text-black">MuscleMaster</Text>
-        {isConnected && (
-          <View className="absolute right-[50px] flex-row items-center">
-            <View className="w-2 h-2 rounded-full bg-green-600 mr-1.5" />
-            <Bluetooth size={18} color="#43a047" className="ml-1" />
-          </View>
-        )}
-        <TouchableOpacity 
-          className="absolute right-4 w-7 h-7 rounded-full justify-center items-center" 
-          onPress={navigateToSettings}
-        >
-          <Settings size={20} color="#333" />
-        </TouchableOpacity>
-      </View>
 
       <ScrollView className="flex-1 p-4">
         {/* Current Device Section */}
         <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
           <TouchableOpacity 
             className="flex-row justify-between items-center p-4"
-            onPress={() => setDeviceModalVisible(true)}
+            onPress={() => {}}
           >
             <View className="flex-row items-center">
               <View className="w-2 h-2 rounded-full bg-green-600 mr-1.5" />
-              <Text className="text-base font-semibold text-gray-800">{selectedDevice}</Text>
+              <Text className="text-base font-semibold text-gray-800">{selectedDevice?.name}</Text>
             </View>
             <ChevronRight size={20} color="#777" />
           </TouchableOpacity>
@@ -161,7 +268,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
             <Text className="text-5xl font-light text-gray-800 mb-4 tracking-wider">{timerValue}</Text>
             <View className="flex-row gap-4">
               <TouchableOpacity 
-                className="py-2 px-5 rounded-full bg-blue-600 items-center justify-center"
+                className="py-2 px-5 rounded-full bg-blue-500 items-center justify-center"
                 onPress={toggleTimer}
               >
                 <Text className="text-white font-medium text-sm">
@@ -169,10 +276,10 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                className="py-2 px-5 rounded-full bg-transparent border border-blue-600 items-center justify-center"
+                className="py-2 px-5 rounded-full bg-transparent border border-blue-500 items-center justify-center"
                 onPress={resetTimer}
               >
-                <Text className="text-blue-600 font-medium text-sm">Reset</Text>
+                <Text className="text-blue-500 font-medium text-sm">Reset</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -182,24 +289,24 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
         <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
           <View className="p-4">
             <View className="items-center mb-3.5">
-              <Text className="text-[22px] font-bold text-blue-600">
+              <Text className="text-[22px] font-bold text-blue-500">
                 {intensityLevel} / {maxIntensity}
               </Text>
             </View>
-            <View className="flex-row justify-between h-12 relative">
+            <View className="flex-row justify-between relative">
               <TouchableOpacity 
-                className="w-[90px] h-10 rounded-lg bg-gray-100 items-center justify-center shadow-sm" 
+                className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center" 
                 onPress={increaseIntensity}
               >
-                <ChevronUp size={24} color="#1e88e5" />
-                <Text className="font-semibold mt-0.5">Up</Text>
+                <ChevronUp size={24} color="white" />
+                <Text className="font-semibold mt-0.5 text-white">Up</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                className="w-[90px] h-10 rounded-lg bg-gray-100 items-center justify-center shadow-sm" 
+                className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center" 
                 onPress={decreaseIntensity}
               >
-                <ChevronDown size={24} color="#1e88e5" />
-                <Text className="font-semibold mt-0.5">Down</Text>
+                <ChevronDown size={24} color="white" />
+                <Text className="font-semibold mt-0.5 text-white">Down</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -208,122 +315,43 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
         {/* Mode Selection Section */}
         <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
           <View className="p-4">
-            <View className="items-center mb-3.5">
-              <Text className="text-[22px] font-bold text-blue-600">{selectedMode}</Text>
+            <View className="items-center mb-3.5 flex-col gap-y-2">
+              {getIconByMode(selectedMode, 32, '#1e88e5')}
+              <Text className="text-[22px] font-bold text-blue-500">{selectedMode}</Text>
             </View>
             <TouchableOpacity 
-              className="h-[50px] rounded-xl bg-gray-100 items-center justify-center mt-3"
-              onPress={() => setModeModalVisible(true)}
+              className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"
+              onPress={() => {
+                modeListActionSheetRef.current?.expand()
+              }}
             >
-              <Text className="font-medium text-base text-gray-800">Mode</Text>
+              <Text className="font-medium text-base text-white">Mode</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
       {/* Mode Selection Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modeModalVisible}
-        onRequestClose={() => setModeModalVisible(false)}
-      >
-        <View className="flex-1 bg-black bg-opacity-40 justify-end">
-          <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">
-            <View className="flex-row justify-center mb-5 relative">
-              <Text className="font-semibold text-lg">Select Mode</Text>
-              <TouchableOpacity
-                onPress={() => setModeModalVisible(false)}
-                className="absolute right-0 top-0"
-              >
-                <Text className="text-2xl font-medium">×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View className="flex-row flex-wrap justify-center gap-[25px] mb-4">
-              {modes.map((mode) => (
-                <TouchableOpacity
-                  key={mode.id}
-                  className={`w-12 h-12 rounded-full items-center justify-center mb-5 ${
-                    selectedMode === mode.name 
-                      ? 'bg-blue-600 scale-105' 
-                      : 'bg-[#062e62]'
-                  }`}
-                  onPress={() => handleModeSelect(mode.name)}
-                >
-                    {mode.icon}
-                  <Text className="text-[10px] text-center absolute -bottom-[18px] text-gray-800 font-medium w-[60px]">{mode.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg py-3.5 items-center"
-              onPress={() => setModeModalVisible(false)}
-            >
-              <Text className="text-white font-medium text-base">Confirm</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {$modeActionSheet}
 
-      {/* Device Selection Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={deviceModalVisible}
-        onRequestClose={() => setDeviceModalVisible(false)}
-      >
-        <View className="flex-1 bg-black bg-opacity-40 justify-end">
-          <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">
-            <View className="flex-row justify-center mb-5 relative">
-              <Text className="font-semibold text-lg">Select Device</Text>
-              <TouchableOpacity
-                onPress={() => setDeviceModalVisible(false)}
-                className="absolute right-0 top-0"
-              >
-                <Text className="text-2xl font-medium">×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View className="mb-5">
-              {devices.map((device) => (
-                <TouchableOpacity
-                  key={device.id}
-                  className={`flex-row items-center p-4 rounded-xl mb-3 ${
-                    selectedDevice === device.name 
-                      ? 'bg-blue-50 border border-blue-200' 
-                      : 'bg-gray-100'
-                  }`}
-                  onPress={() => handleDeviceSelect(device.name)}
-                >
-                  <Smartphone size={24} color="#1e88e5" />
-                  <View className="flex-1 ml-3">
-                    <Text className="font-semibold text-base text-gray-800 mb-1">{device.name}</Text>
-                    <Text className="text-sm text-gray-600">{device.status}</Text>
-                  </View>
-                  <Text className="text-sm text-green-600 font-medium">{device.battery}%</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg py-3.5 items-center"
-              onPress={() => setDeviceModalVisible(false)}
-            >
-              <Text className="text-white font-medium text-base">Connect</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
 DevicePanelController.options = {
   topBar: {
-    visible: false,
-    height: 0,
+    visible: true,
+    title: {
+      text: 'Muscle Master',
+    },
+    rightButtons: [
+      {
+        id: 'settings',
+        icon: require('../assets/settings.png'),
+        color: 'white',
+      },
+    ],
   },
 };
 
