@@ -121,24 +121,6 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
       return [];
     }
   };
-
-  // Available modes for selection
-  const modes: ModeItem[] = [
-    { id: '1', name: 'Fitness', icon: <Dumbbell size={24} color="#1e88e5" /> },
-    { id: '2', name: 'Warm up', icon: <Flame size={24} color="#1e88e5" /> },
-    { id: '3', name: 'Cardio', icon: <Heart size={24} color="#1e88e5" /> },
-    { id: '4', name: 'Relax', icon: <Smile size={24} color="#1e88e5" /> },
-    { id: '5', name: 'Dermal', icon: <User size={24} color="#1e88e5" /> },
-    { id: '6', name: 'Drainage', icon: <Droplet size={24} color="#1e88e5" /> },
-    { id: '7', name: 'Cellulite', icon: <Scan size={24} color="#1e88e5" /> },
-    { id: '8', name: 'Metabolic', icon: <Activity size={24} color="#1e88e5" /> },
-    { id: '9', name: 'Slim', icon: <Scissors size={24} color="#1e88e5" /> },
-    { id: '10', name: 'Resistance', icon: <Shield size={24} color="#1e88e5" /> },
-    { id: '11', name: 'Contractures', icon: <Zap size={24} color="#1e88e5" /> },
-    { id: '12', name: 'Capillary', icon: <Activity size={24} color="#1e88e5" /> },
-    { id: '13', name: 'Vip', icon: <Crown size={24} color="#1e88e5" /> },
-  ];
-
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(null);
 
   useNavigationComponentDidAppear(() => {
@@ -226,24 +208,8 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
       return;
     }
 
-    setTimerRunning(true);
-    // 每秒减少一秒
-    const interval = setInterval(() => {
-      setTimerValue((prevTime) => {
-        if (prevTime <= 1) {
-          // 时间到，停止计时器
-          clearInterval(interval);
-          setTimerRunning(false);
-          setTimerInterval(null);
-          // 可以添加提示音或振动
-          console.log("Timer finished!");
-          return 0;
-        }
-        return prevTime - 1;
-      });
-    }, 1000);
-
-    setTimerInterval(interval);
+    // 使用通用启动方法，传入当前时间值
+    startTimerWithValue(timerValue);
   };
 
   // 暂停计时器
@@ -305,18 +271,64 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
   const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
     console.log(`Time selected: ${hours}:${minutes}:${seconds}`);
-    // 格式化时间 如果小于 10 则补 0
+    // 计算总秒数
     const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    setTimerValue(totalSeconds);
     
+    // 确保时间大于 0
+    if (totalSeconds > 0) {
+      // 设置时间值
+      setTimerValue(totalSeconds);
+
+      // 使用短延迟确保 UI 更新
+      setTimeout(() => {
+        console.log('Starting timer with', totalSeconds, 'seconds');
+        // 创建一个直接使用 totalSeconds 的自定义启动函数
+        startTimerWithValue(totalSeconds);
+      }, 300);
+    }
   }
+
+  // 启动计时器，使用指定的时间值
+  const startTimerWithValue = (seconds: number) => {
+    // 确认有时间可以倒计时
+    if (seconds <= 0) {
+      console.log("Timer value is 0, can't start timer");
+      return;
+    }
+
+    // 如果已经有一个计时器在运行，先清除它
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
+
+    // 设置运行状态
+    setTimerRunning(true);
+    
+    // 每秒减少一秒
+    const interval = setInterval(() => {
+      setTimerValue((prevTime) => {
+        if (prevTime <= 1) {
+          // 时间到，停止计时器
+          clearInterval(interval);
+          setTimerRunning(false);
+          setTimerInterval(null);
+          // 可以添加提示音或振动
+          console.log("Timer finished!");
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+
+    setTimerInterval(interval);
+  };
 
   const $timePickerActionSheet = (
     <TimePickerActionSheet
       ref={timePickerActionSheetRef}
-      initialHours={0}
-      initialMinutes={0}
-      initialSeconds={0}
+      initialHours={Math.floor(timerValue / 3600)}
+      initialMinutes={Math.floor((timerValue % 3600) / 60)}
+      initialSeconds={timerValue % 60}
       onTimeSelected={onTimeSelected}
     />
   )
@@ -352,7 +364,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
           {/* Timer Section */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
             <View className="p-4 gap-y-4">
-              <TouchableOpacity 
+              <TouchableOpacity
                 className='p-4 flex flex-row items-center justify-center'
                 onPress={() => !timerRunning && timePickerActionSheetRef.current?.expand()}
                 disabled={timerRunning}
@@ -363,21 +375,18 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
               </TouchableOpacity>
               <View className="flex-row items-center justify-between ">
                 <TouchableOpacity
-                  className={`py-3 w-24 rounded-lg border items-center justify-center ${
-                    timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
-                  }`}
+                  className={`py-3 w-24 rounded-lg border items-center justify-center ${timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
+                    }`}
                   onPress={resetTimer}
                   disabled={timerValue === 0}
                 >
-                  <Text className={`font-semibold text-base ${
-                    timerValue > 0 ? 'text-blue-500' : 'text-gray-300'
-                  }`}>Cancel</Text>
+                  <Text className={`font-semibold text-base ${timerValue > 0 ? 'text-blue-500' : 'text-gray-300'
+                    }`}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  className={`py-3 w-24 rounded-lg items-center justify-center ${
-                    timerValue > 0 ? (timerRunning ? 'bg-orange-500' : 'bg-green-500') : 'bg-gray-300'
-                  }`}
+                  className={`py-3 w-24 rounded-lg items-center justify-center ${timerValue > 0 ? (timerRunning ? 'bg-orange-500' : 'bg-green-500') : 'bg-gray-300'
+                    }`}
                   onPress={toggleTimer}
                   disabled={timerValue === 0}
                 >
