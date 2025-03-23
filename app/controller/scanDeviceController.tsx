@@ -149,24 +149,6 @@ const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
       <View className="flex-1 relative">
-        <TouchableOpacity onPress={() => Navigation.push(componentId, {
-          component: {
-            name: 'DevicePanelController',
-            passProps: {
-              devices: [{
-                name: 'Device 1',
-                id: '1',
-                signalStrength: 100,
-                connected: true,
-                icon: '💪',
-                iconColor: '#1e88e5',
-                
-              }],
-            },
-          },
-        })}>
-          <Text>Settings</Text>
-        </TouchableOpacity>
         <ScrollView className="flex-1 pb-20">
           <ScanSection 
             onCancelPress={handleCancelScan}

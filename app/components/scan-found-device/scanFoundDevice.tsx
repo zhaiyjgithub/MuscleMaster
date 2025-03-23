@@ -75,10 +75,10 @@ const ScanFoundDevice: React.FC<DeviceItemProps> = ({
   };
 
   return (
-    <View className="flex flex-col p-3.5 rounded-xl bg-gray-50 mb-3">
+    <View className="flex flex-col p-3.5 rounded-xl bg-gray-100 mb-3">
       {/* Device Info */}
       <View className="flex-row items-start mb-4">
-        <View className="w-[42px] h-[42px] bg-white rounded-full justify-center items-center mr-3.5 flex-shrink-0" style={{ backgroundColor: 'white' }}>
+        <View className="w-[36px] h-[36px] bg-white rounded-full justify-center items-center mr-2.5 flex-shrink-0" style={{ backgroundColor: 'white' }}>
           <Bluetooth size={24} color={iconColor} />
         </View>
 
@@ -279,7 +279,9 @@ const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({
       <View className=' bg-white flex flex-col rounded-xl overflow-hidden'>
         <View className='flex flex-row items-center justify-between px-4 py-2'>
           <Text className='text-lg text-black font-semibold'>Found Devices</Text>
-          <Text>{devices.length} devices</Text>
+          <Text className='text-sm text-gray-500'>
+            <Text className='text-blue-600 font-semibold'>{devices.length}</Text>
+             {' devices'}</Text>
         </View>
         <View className='w-full h-px bg-gray-200' />
         <View className=" bg-white px-4 pt-4">

@@ -31,7 +31,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
 
   useEffect(() => {
     console.log('ScanSection: isScanning changed to', isScanning);
-    // 仅在扫描中时启动动画
+    // Only start animations when scanning
     if (isScanning) {
       // Pulse animations with delays
       Animated.loop(
@@ -124,7 +124,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
         ])
       ).start();
     } else {
-      // 如果不是扫描中状态，停止所有动画
+      // If not in scanning state, stop all animations
       pulseAnim.stopAnimation();
       pulseAnim2.stopAnimation();
       pulseAnim3.stopAnimation();
@@ -204,25 +204,25 @@ const ScanSection: React.FC<ScanSectionProps> = ({
     outputRange: [0, 1, 1, 0],
   });
 
-  // 根据状态获取扫描文本
+  // Get scanning text based on state
   const getScanningText = () => {
     if (!isBleReady) {
-      return "蓝牙未启用，请打开蓝牙";
+      return "Bluetooth is not enabled, please turn on Bluetooth";
     }
     
     if (isScanning) {
-      return "正在扫描设备...";
+      return "Scanning for devices...";
     }
     
-    return "点击扫描按钮开始搜索设备";
+    return "Click scan button to start searching for devices";
   };
 
-  // 根据状态获取按钮
+  // Get action button based on state
   const renderActionButton = () => {
     if (isScanning) {
       return (
         <TouchableOpacity className="py-2 px-5 bg-transparent border border-red-500 rounded-full" onPress={onCancelPress}>
-          <Text className="text-red-500 text-sm font-medium">取消扫描</Text>
+          <Text className="text-red-500 text-sm font-medium">Cancel Scan</Text>
         </TouchableOpacity>
       );
     }
@@ -233,7 +233,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
         onPress={onRescanPress}
         disabled={!isBleReady}
       >
-        <Text className={`text-sm font-medium ${isBleReady ? 'text-blue-600' : 'text-gray-400'}`}>重新扫描</Text>
+        <Text className={`text-sm font-medium ${isBleReady ? 'text-blue-600' : 'text-gray-400'}`}>Rescan</Text>
       </TouchableOpacity>
     );
   };
@@ -323,8 +323,8 @@ const ScanSection: React.FC<ScanSectionProps> = ({
         <Text className="text-base text-gray-800 font-medium">{getScanningText()}</Text>
         <Text className="text-xs text-gray-500">
           {isBleReady 
-            ? "搜索周围的蓝牙设备" 
-            : "请在设置中打开蓝牙"
+            ? "Searching for nearby Bluetooth devices" 
+            : "Please enable Bluetooth in settings"
           }
         </Text>
         

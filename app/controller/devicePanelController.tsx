@@ -492,7 +492,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
               transform: [{ scale: pulseAnim }]
             }}
           />
-          <Text className="text-yellow-500 text-xs">连接中...</Text>
+          <Text className="text-yellow-500 text-xs">Connecting...</Text>
         </View>
       );
     }
@@ -509,7 +509,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
           }}
         />
         <Text className={`text-xs ${isConnected ? 'text-green-600' : 'text-red-500'}`}>
-          {isConnected ? '已连接' : '未连接'}
+          {isConnected ? 'Connected' : 'Disconnected'}
         </Text>
       </View>
     );
@@ -532,7 +532,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
             >
               <View className="flex-row items-center">
                 {renderDeviceStatusIndicator()}
-                <Text className="text-base font-semibold text-gray-800 ml-2">{selectedDevice?.name || '未选择设备'}</Text>
+                <Text className="text-base font-semibold text-gray-800 ml-2">{selectedDevice?.name || 'No device selected'}</Text>
               </View>
               <ChevronRight size={20} color="#777" />
             </TouchableOpacity>
@@ -548,7 +548,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
             <View className="flex-1 bg-black bg-opacity-40 justify-end">
               <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">
                 <View className="flex-row justify-center mb-5 relative">
-                  <Text className="font-semibold text-lg">选择设备</Text>
+                  <Text className="font-semibold text-lg">Select Device</Text>
                   <TouchableOpacity
                     onPress={() => setDeviceModalVisible(false)}
                     className="absolute right-0 top-0"
@@ -609,7 +609,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
                   className="bg-blue-500 rounded-lg py-3.5 items-center"
                   onPress={() => setDeviceModalVisible(false)}
                 >
-                  <Text className="text-white font-medium text-base">确认</Text>
+                  <Text className="text-white font-medium text-base">Confirm</Text>
                 </TouchableOpacity>
               </View>
             </View>
