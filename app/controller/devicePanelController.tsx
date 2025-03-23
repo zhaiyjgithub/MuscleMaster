@@ -72,6 +72,8 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<Record<string, boolean>>({});
+  
+  const firstLoad = useRef(true);
 
   // 创建一个动画值用于状态指示器的呼吸效果
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -155,13 +157,36 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(null);
 
   useNavigationComponentDidAppear(() => {
-    if (devices && devices.length > 0) {
-      setSelectedDevice(devices[0]);
+    if (firstLoad.current) {  
+      if (devices && devices.length > 0) {
+        setSelectedDevice(devices[0]);
 
-      // 自动连接到第一个设备
-      connectToDevice(devices[0]);
+        // 自动连接到第一个设备
+        connectToDevice(devices[0]);
+      }
+      firstLoad.current = false
     }
   });
+
+  useEffect(() => {
+    // 组件挂载时的代码...
+    
+    // 返回清理函数，当组件即将卸载时执行
+    return () => {
+      console.log('Component unmounting, disconnecting from device');
+      
+      if (selectedDevice && isConnected) {
+        // 使用 Promise 而不是 await，因为清理函数不能是 async
+        BLEManager.disconnectDevice(selectedDevice.id)
+          .then(() => {
+            console.log('Successfully disconnected from device');
+          })
+          .catch((error) => {
+            console.error('Error disconnecting from device:', error);
+          });
+      }
+    };
+  }, []); // 空依赖数组表示这个效果只在挂载和卸载时运行
 
   // Increase intensity level
   const increaseIntensity = () => {
@@ -255,7 +280,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     if (!selectedDevice) return;
 
     if (isConnected) {
-      // 设备已连接，显示两个按钮的Alert
+      // 设备已连接，显示两个按钮的 Alert
       Alert.alert(
         'Connected',
         `Do you want to reconnect to ${selectedDevice.name || 'Unnamed device'}?`,
@@ -266,6 +291,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
           },
           {
             text: 'Reconnect',
+            style: 'destructive',
             onPress: () => {
               console.log('Reconnecting device');
               // 先断开连接
@@ -287,7 +313,7 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
         { cancelable: true }
       );
     } else {
-      // 设备未连接，显示单个按钮的Alert
+      // 设备未连接，显示单个按钮的 Alert
       Alert.alert(
         'Device not connected',
         `Do you want to connect to ${selectedDevice.name || 'Unnamed device'}?`,
