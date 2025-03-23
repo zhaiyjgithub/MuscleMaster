@@ -4,7 +4,9 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal
+  Modal,
+  ActivityIndicator,
+  Animated
 } from 'react-native';
 import { NavigationFunctionComponent } from 'react-native-navigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +40,7 @@ import ModeListActionSheet, { getIconByMode } from '../components/mode-list-acti
 import BottomSheet from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
+import { decodeBase64Value, encodeBase64Value } from '../lib/utils';
 
 interface ModeItem {
   id: string;
@@ -57,19 +60,10 @@ interface ServiceInfo {
   }[];
 }
 
-// 定义 Base64 解码函数
-const decodeBase64Value = (value: string): string => {
-  try {
-    return decode(value);
-  } catch (error) {
-    console.error('Error decoding Base64 value:', error);
-    return 'Decoding error';
-  }
-};
-
 const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerProps> = ({ componentId, devices }) => {
   const [selectedMode, setSelectedMode] = useState('Fitness');
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [batteryLevel, setBatteryLevel] = useState(75);
   const [intensityLevel, setIntensityLevel] = useState(7);
   const [maxIntensity, setMaxIntensity] = useState(10);
@@ -77,7 +71,42 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<Record<string, boolean>>({});
-
+  
+  // 创建一个动画值用于状态指示器的呼吸效果
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // 状态指示器的呼吸动画
+  useEffect(() => {
+    if (isConnecting) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.5,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    
+    return () => {
+      pulseAnim.stopAnimation();
+    };
+  }, [isConnecting, pulseAnim]);
+  
+  // 获取设备状态颜色
+  const getDeviceStatusColor = () => {
+    if (isConnecting) return '#f59e0b'; // 黄色，连接中
+    if (isConnected) return '#10b981';  // 绿色，已连接
+    return '#ef4444';                    // 红色，未连接
+  };
 
   const modeListActionSheetRef = useRef<BottomSheet>(null);
 
@@ -90,9 +119,10 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   };
 
   // 添加连接状态更新函数
-  const updateConnectionStatus = (deviceId: string, isConnected: boolean) => {
-    // 这个函数在实际应用中应该用来更新 UI 或状态
-    console.log(`更新设备 ${deviceId} 连接状态为：${isConnected}`);
+  const updateConnectionStatus = (deviceId: string, connected: boolean) => {
+    setIsConnected(connected);
+    setIsConnecting(false);
+    console.log(`更新设备 ${deviceId} 连接状态为：${connected}`);
   };
 
   // 添加服务和特性发现函数
@@ -126,59 +156,35 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   useNavigationComponentDidAppear(() => {
     if (devices && devices.length > 0) {
       setSelectedDevice(devices[0]);
-
-      // 尝试连接到设备
-      const connectToDevice = async () => {
-        const device = devices[0];
-
-        try {
-          // 设置加载状态
-          setDeviceLoading(device.id, true);
-
-          // 停止扫描（在连接前停止扫描是最佳实践）
-          BLEManager.stopScan();
-
-          // 连接设备
-          const connectedDevice = await BLEManager.connectToDevice(device.id);
-          if (connectedDevice) {
-            console.log(`Successfully connected to ${device.name}`);
-
-            // 更新设备连接状态
-            updateConnectionStatus(device.id, true);
-
-            // 发现服务和特性
-            const serviceInfos = await discoverServicesAndCharacteristics(device.id);
-            console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
-
-            // 遍历读取特性
-            // e.g. service UUID = '0000aaa0-0000-1000-8000-aabbccddeeff', characteristic UUID = 'abcdef01-1234-5678-1234-56789abcdef9'
-            for (const service of serviceInfos) {
-              for (const characteristic of service.characteristicInfos) {
-                const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
-                console.log(`Value of ${characteristic.uuid}:`, value);
-                if (value) {
-                  const decodedValue = decodeBase64Value(value);
-                  console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
-        } finally {
-          // 无论成功失败，都结束加载状态
-          setDeviceLoading(device.id, false);
-        }
-      };
-
-      connectToDevice();
+      
+      // 自动连接到第一个设备
+      connectToDevice(devices[0]);
     }
   });
 
   // Increase intensity level
   const increaseIntensity = () => {
     if (intensityLevel < maxIntensity) {
-      setIntensityLevel(intensityLevel + 1);
+      const newIntensity = intensityLevel + 1;
+      setIntensityLevel(newIntensity);
+      
+      // 写入强度到设备
+      if (selectedDevice) {
+        const serviceUUID = 'abcdef01-1234-5678-1234-56789abcdef0';
+        const characteristicUUID = 'abcdef01-1234-5678-1234-56789abcdef9';
+        
+        // 使用智能写入方法，自动选择合适的写入模式
+        BLEManager.writeCharacteristic(
+          selectedDevice.id, 
+          serviceUUID, 
+          characteristicUUID, 
+          newIntensity.toString()
+        ).then(() => {
+          console.log('Successfully wrote intensity value:', newIntensity);
+        }).catch(error => {
+          console.error('Error writing intensity:', error);
+        });
+      }
     }
   };
 
@@ -244,7 +250,62 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
   // Handle device selection
   const handleDeviceSelect = (device: FoundDevice) => {
-    setSelectedDevice(device);
+    if (device.id !== selectedDevice?.id) {
+      // 如果选择了不同的设备，则重置连接状态
+      setIsConnected(false);
+      setSelectedDevice(device);
+      
+      // 如果需要立即连接到新设备，可以在这里添加连接逻辑
+      connectToDevice(device);
+    }
+  };
+
+  // 封装设备连接逻辑为可重用的函数
+  const connectToDevice = async (device: FoundDevice) => {
+    if (!device) return;
+    
+    try {
+      // 设置连接中状态
+      setIsConnecting(true);
+      // 设置加载状态
+      setDeviceLoading(device.id, true);
+
+      // 停止扫描（在连接前停止扫描是最佳实践）
+      BLEManager.stopScan();
+
+      // 连接设备
+      const connectedDevice = await BLEManager.connectToDevice(device.id);
+      if (connectedDevice) {
+        console.log(`Successfully connected to ${device.name}`);
+
+        // 更新设备连接状态
+        updateConnectionStatus(device.id, true);
+
+        // 发现服务和特性
+        const serviceInfos = await discoverServicesAndCharacteristics(device.id);
+        console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
+
+        // 遍历读取特性
+        for (const service of serviceInfos) {
+          for (const characteristic of service.characteristicInfos) {
+            const value = await BLEManager.readCharacteristic(device.id, service.uuid, characteristic.uuid);
+            console.log(`service UUID: ${service.uuid} characteristic UUID: ${characteristic.uuid}`);
+            if (value) {
+              const decodedValue = decodeBase64Value(value);
+              console.log(`Decoded value of ${characteristic.uuid}:`, decodedValue);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name}:`, error);
+      // 更新设备连接状态为断开
+      updateConnectionStatus(device.id, false);
+    } finally {
+      // 无论成功失败，都结束加载状态
+      setDeviceLoading(device.id, false);
+      setIsConnecting(false);
+    }
   };
 
   // Handle mode selection
@@ -341,25 +402,146 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
     return formattedTime;
   }
 
+  // 渲染设备状态指示器
+  const renderDeviceStatusIndicator = () => {
+    const statusColor = getDeviceStatusColor();
+    
+    if (isConnecting) {
+      return (
+        <View className="flex-row items-center">
+          <Animated.View 
+            style={{
+              width: 8, 
+              height: 8, 
+              borderRadius: 4,
+              backgroundColor: statusColor,
+              marginRight: 6,
+              transform: [{ scale: pulseAnim }]
+            }} 
+          />
+          <Text className="text-yellow-500 text-xs">连接中...</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View className="flex-row items-center">
+        <View 
+          style={{ 
+            width: 8, 
+            height: 8, 
+            borderRadius: 4, 
+            backgroundColor: statusColor,
+            marginRight: 6
+          }} 
+        />
+        <Text className={`text-xs ${isConnected ? 'text-green-600' : 'text-red-500'}`}>
+          {isConnected ? '已连接' : '未连接'}
+        </Text>
+      </View>
+    );
+  };
+
+  const [deviceModalVisible, setDeviceModalVisible] = useState(false);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView className="flex-1 bg-gray-200">
-        {/* Top Navigation Bar */}
 
         <ScrollView className="flex-1 p-4">
           {/* Current Device Section */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
             <TouchableOpacity
               className="flex-row justify-between items-center p-4"
-              onPress={() => { }}
+              onPress={() => { 
+                // 显示设备选择弹窗
+                setDeviceModalVisible(true);
+              }}
             >
               <View className="flex-row items-center">
-                <View className="w-2 h-2 rounded-full bg-green-600 mr-1.5" />
-                <Text className="text-base font-semibold text-gray-800">{selectedDevice?.name}</Text>
+                {renderDeviceStatusIndicator()}
+                <Text className="text-base font-semibold text-gray-800 ml-2">{selectedDevice?.name || '未选择设备'}</Text>
               </View>
               <ChevronRight size={20} color="#777" />
             </TouchableOpacity>
           </View>
+          
+          {/* 设备选择弹窗 */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={deviceModalVisible}
+            onRequestClose={() => setDeviceModalVisible(false)}
+          >
+            <View className="flex-1 bg-black bg-opacity-40 justify-end">
+              <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">
+                <View className="flex-row justify-center mb-5 relative">
+                  <Text className="font-semibold text-lg">选择设备</Text>
+                  <TouchableOpacity
+                    onPress={() => setDeviceModalVisible(false)}
+                    className="absolute right-0 top-0"
+                  >
+                    <Text className="text-2xl font-medium">×</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View className="mb-5">
+                  {devices.map((device) => {
+                    const isLoading = deviceLoadingStates[device.id] || false;
+                    const isCurrentDevice = selectedDevice?.id === device.id;
+                    const isDeviceConnected = isCurrentDevice && isConnected;
+                    
+                    return (
+                      <TouchableOpacity
+                        key={device.id}
+                        className={`flex-row items-center p-4 rounded-xl mb-3 ${
+                          isCurrentDevice 
+                            ? 'bg-blue-50 border border-blue-200' 
+                            : 'bg-gray-100'
+                        }`}
+                        onPress={() => handleDeviceSelect(device)}
+                        disabled={isLoading}
+                      >
+                        <Smartphone size={24} color="#1e88e5" />
+                        <View className="flex-1 ml-3">
+                          <Text className="font-semibold text-base text-gray-800 mb-1">{device.name}</Text>
+                          <View className="flex-row items-center">
+                            {isLoading ? (
+                              <View className="flex-row items-center">
+                                <ActivityIndicator size="small" color="#f59e0b" />
+                                <Text className="text-sm text-yellow-500 ml-2">连接中...</Text>
+                              </View>
+                            ) : (
+                              <View className="flex-row items-center">
+                                <View 
+                                  className={`w-2 h-2 rounded-full mr-1.5 ${
+                                    isDeviceConnected ? 'bg-green-500' : 'bg-red-500'
+                                  }`} 
+                                />
+                                <Text className="text-sm text-gray-600">
+                                  {isDeviceConnected ? '已连接' : '未连接'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        <Text className="text-sm text-green-600 font-medium">
+                          {isDeviceConnected ? '已选择' : '选择'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                
+                <TouchableOpacity
+                  className="bg-blue-500 rounded-lg py-3.5 items-center"
+                  onPress={() => setDeviceModalVisible(false)}
+                >
+                  <Text className="text-white font-medium text-base">确认</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
           {/* Timer Section */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">

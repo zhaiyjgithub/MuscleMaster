@@ -19,6 +19,10 @@ export const decodeBase64Value = (base64String: string): string => {
   }
 };
 
+export const encodeBase64Value = (value: string): string => {
+  return encode(value);
+};
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

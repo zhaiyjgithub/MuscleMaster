@@ -1,5 +1,6 @@
 import { BleManager, Device, State, Subscription } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform } from 'react-native';
+import { encodeBase64Value } from '../lib/utils';
 
 class BLEManagerClass {
   private manager: BleManager;
@@ -239,45 +240,97 @@ class BLEManagerClass {
     }
   }
 
-  // 写入特性值（带响应）
-  async writeCharacteristicWithResponse(
-    deviceId: string,
-    serviceUUID: string,
-    characteristicUUID: string,
-    value: string // Base64 encoded value
-  ): Promise<boolean> {
+  // 检查特性是否支持特定写入模式
+  async checkCharacteristicProperties(deviceId: string, serviceUUID: string, characteristicUUID: string) {
     try {
-      await this.manager.writeCharacteristicWithResponseForDevice(
+      // 读取特性以获取其属性
+      const characteristic = await this.manager.readCharacteristicForDevice(
         deviceId,
         serviceUUID,
-        characteristicUUID,
-        value
+        characteristicUUID
       );
-      return true;
+      
+      // 直接返回特性对象提供的属性标志
+      return {
+        canRead: characteristic.isReadable,
+        canWriteWithResponse: characteristic.isWritableWithResponse,
+        canWriteWithoutResponse: characteristic.isWritableWithoutResponse,
+        canNotify: characteristic.isNotifiable,
+        isNotifying: characteristic.isNotifying,
+        canIndicate: characteristic.isIndicatable,
+        value: characteristic.value
+      };
     } catch (error) {
-      console.error('Write characteristic error:', error);
-      return false;
+      console.error('Error checking characteristic properties:', error);
+      throw error;
     }
   }
 
-  // 写入特性值（无响应）
-  async writeCharacteristicWithoutResponse(
+  // 智能写入方法 - 使用优化后的特性属性检查
+  async writeCharacteristicSmart(
     deviceId: string,
     serviceUUID: string,
     characteristicUUID: string,
-    value: string // Base64 encoded value
-  ): Promise<boolean> {
+    data: string
+  ) {
     try {
-      await this.manager.writeCharacteristicWithoutResponseForDevice(
-        deviceId,
-        serviceUUID,
-        characteristicUUID,
-        value
-      );
-      return true;
+      // 检查特性属性
+      const props = await this.checkCharacteristicProperties(deviceId, serviceUUID, characteristicUUID);
+      console.log('Characteristic properties:', props);
+      
+      // 根据特性支持的写入模式选择写入方法
+      if (props.canWriteWithResponse) {
+        console.log('Using write with response for characteristic:', characteristicUUID);
+        return await this.manager.writeCharacteristicWithResponseForDevice(
+          deviceId,
+          serviceUUID,
+          characteristicUUID,
+          data
+        );
+      } else if (props.canWriteWithoutResponse) {
+        console.log('Using write without response for characteristic:', characteristicUUID);
+        return await this.manager.writeCharacteristicWithoutResponseForDevice(
+          deviceId,
+          serviceUUID,
+          characteristicUUID,
+          data
+        );
+      } else {
+        throw new Error(`Characteristic ${characteristicUUID} does not support any write operations`);
+      }
     } catch (error) {
-      console.error('Write characteristic error:', error);
-      return false;
+      console.error('Error writing characteristic:', error);
+      throw error;
+    }
+  }
+
+  // 增强型写入特性方法，使用 encodeBase64Value 工具方法
+  async writeCharacteristic(
+    deviceId: string,
+    serviceUUID: string,
+    characteristicUUID: string,
+    value: any,
+    forceWithResponse: boolean = false
+  ) {
+    try {
+      // 使用 encodeBase64Value 工具方法编码数据
+      const data = encodeBase64Value(value);
+      
+      // 检查特性属性，以决定使用哪种写入方法
+      if (forceWithResponse) {
+        // 强制使用带响应的写入
+        return await this.manager.writeCharacteristicWithResponseForDevice(
+          deviceId,
+          serviceUUID,
+          characteristicUUID,
+          data
+        );
+      } else {
+        return await this.writeCharacteristicSmart(deviceId, serviceUUID, characteristicUUID, data);
+      }
+    } catch (error) {
+      console.error('Error writing characteristic:', error);
+      throw error;
     }
   }
 
