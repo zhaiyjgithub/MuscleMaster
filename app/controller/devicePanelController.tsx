@@ -42,6 +42,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
 import { decodeBase64Value, encodeBase64Value } from '../lib/utils';
+import { BLE_UUID_SHORT, Commands, CommandType, DeviceMode } from '../services/protocol';
 
 interface ModeItem {
   id: string;
@@ -196,15 +197,12 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
 
       // 写入强度到设备
       if (selectedDevice) {
-        const serviceUUID = 'abcdef01-1234-5678-1234-56789abcdef0';
-        const characteristicUUID = 'abcdef01-1234-5678-1234-56789abcdef9';
-
         // 使用智能写入方法，自动选择合适的写入模式
         BLEManager.writeCharacteristic(
           selectedDevice.id,
-          serviceUUID,
-          characteristicUUID,
-          newIntensity.toString()
+          BLE_UUID_SHORT.SERVICE,
+          BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+          Commands.setIntensity(newIntensity)
         ).then(() => {
           console.log('Successfully wrote intensity value:', newIntensity);
         }).catch(error => {
@@ -217,7 +215,22 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   // Decrease intensity level
   const decreaseIntensity = () => {
     if (intensityLevel > 1) {
-      setIntensityLevel(intensityLevel - 1);
+      const newIntensity = intensityLevel - 1;  
+      setIntensityLevel(newIntensity);
+
+      // 写入强度到设备
+      if (selectedDevice) {
+        BLEManager.writeCharacteristic(
+          selectedDevice.id,
+          BLE_UUID_SHORT.SERVICE,
+          BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+          Commands.setIntensity(newIntensity)
+        ).then(() => {
+          console.log('Successfully wrote intensity value:', newIntensity);
+        }).catch(error => {
+          console.error('Error writing intensity:', error); 
+        });
+      }
     }
   };
 
@@ -382,9 +395,22 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   };
 
   // Handle mode selection
-  const handleModeSelect = (mode: string) => {
-    setSelectedMode(mode);
+  const handleModeSelect = (mode: DeviceMode, name: string, icon: any) => {
+    setSelectedMode(name);
     modeListActionSheetRef.current?.close();
+
+    if (selectedDevice) {
+      BLEManager.writeCharacteristic(
+        selectedDevice.id,
+        BLE_UUID_SHORT.SERVICE,
+        BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+        Commands.setMode(mode)
+      ).then(() => {
+        console.log('Successfully wrote mode value:', mode);
+      }).catch(error => {
+        console.error('Error writing mode:', error);
+      });
+    } 
   };
 
   // Navigate to settings

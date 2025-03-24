@@ -36,6 +36,7 @@ import {
     Bluetooth,
 } from 'lucide-react-native';
 import { cn } from '../../lib/utils';
+import { DeviceMode } from '../../services/protocol';
 
 export const getIconByMode = (mode: string, size: number = 24, color: string = '#1e88e5') => {
     switch (mode) {
@@ -71,14 +72,14 @@ export const getIconByMode = (mode: string, size: number = 24, color: string = '
  }
 
 interface ModeItem {
-    id: string;
+    id: DeviceMode;
     name: string;
     icon: any;
 }
 
 export interface ModeListActionSheetActionSheetProps {
     selectedMode: string,
-    handleModeSelect: (mode: string, icon: any) => void
+    handleModeSelect: (mode: DeviceMode, name: string, icon: any) => void
 }
 
 const ModeListActionSheet = forwardRef<
@@ -87,7 +88,6 @@ const ModeListActionSheet = forwardRef<
 >((props, ref) => {
     const { selectedMode, handleModeSelect } = props
     const bottomSheetRef = useRef<BottomSheet>(null);
-    const snapPoints = useMemo(() => ['50%'], []);
     useImperativeHandle(ref, () => bottomSheetRef.current!);
 
     const handleSheetChanges = useCallback((index: number) => {
@@ -107,19 +107,19 @@ const ModeListActionSheet = forwardRef<
     );
 
     const modes: ModeItem[] = [
-        { id: '1', name: 'Fitness', icon: <Dumbbell size={24} color="#1e88e5" /> },
-        { id: '2', name: 'Warm up', icon: <Flame size={24} color="#1e88e5" /> },
-        { id: '3', name: 'Cardio', icon: <Heart size={24} color="#1e88e5" /> },
-        { id: '4', name: 'Relax', icon: <Smile size={24} color="#1e88e5" /> },
-        { id: '5', name: 'Dermal', icon: <User size={24} color="#1e88e5" /> },
-        { id: '6', name: 'Drainage', icon: <Droplet size={24} color="#1e88e5" /> },
-        { id: '7', name: 'Cellulite', icon: <Scan size={24} color="#1e88e5" /> },
-        { id: '8', name: 'Metabolic', icon: <Activity size={24} color="#1e88e5" /> },
-        { id: '9', name: 'Slim', icon: <Scissors size={24} color="#1e88e5" /> },
-        { id: '10', name: 'Resistance', icon: <Shield size={24} color="#1e88e5" /> },
-        { id: '11', name: 'Contractures', icon: <Zap size={24} color="#1e88e5" /> },
-        { id: '12', name: 'Capillary', icon: <Activity size={24} color="#1e88e5" /> },
-        { id: '13', name: 'Vip', icon: <Crown size={24} color="#1e88e5" /> },
+        { id: DeviceMode.FITNESS, name: 'Fitness', icon: <Dumbbell size={24} color="#1e88e5" /> },
+        { id: DeviceMode.WARM_UP, name: 'Warm up', icon: <Flame size={24} color="#1e88e5" /> },
+        { id: DeviceMode.CARDIO, name: 'Cardio', icon: <Heart size={24} color="#1e88e5" /> },
+        { id: DeviceMode.RELAX, name: 'Relax', icon: <Smile size={24} color="#1e88e5" /> },
+        { id: DeviceMode.DERMAL, name: 'Dermal', icon: <User size={24} color="#1e88e5" /> },
+        { id: DeviceMode.DRAINAGE, name: 'Drainage', icon: <Droplet size={24} color="#1e88e5" /> },
+        { id: DeviceMode.CELLULITE, name: 'Cellulite', icon: <Scan size={24} color="#1e88e5" /> },
+        { id: DeviceMode.METABOLIC, name: 'Metabolic', icon: <Activity size={24} color="#1e88e5" /> },
+        { id: DeviceMode.SLIM, name: 'Slim', icon: <Scissors size={24} color="#1e88e5" /> },
+        { id: DeviceMode.RESISTANCE, name: 'Resistance', icon: <Shield size={24} color="#1e88e5" /> },
+        { id: DeviceMode.CONTRACTURES, name: 'Contractures', icon: <Zap size={24} color="#1e88e5" /> },
+        { id: DeviceMode.CAPILLARY, name: 'Capillary', icon: <Activity size={24} color="#1e88e5" /> },
+        { id: DeviceMode.VIP, name: 'Vip', icon: <Crown size={24} color="#1e88e5" /> },
     ];
 
 
@@ -130,7 +130,7 @@ const ModeListActionSheet = forwardRef<
                  <TouchableOpacity
                     
                     className={cn('flex w-4/5 aspect-square flex-col items-center justify-center rounded-lg gap-y-2', selectedMode === mode.name ? 'bg-blue-500' : 'bg-gray-100')}
-                    onPress={() => handleModeSelect(mode.name, mode.icon)}
+                    onPress={() => handleModeSelect(mode.id, mode.name, mode.icon)}
                 >
                     {getIconByMode(mode.name, 32, selectedMode === mode.name ? 'white' : '#1e88e5')}
                     <Text className={cn('text-black text-sm font-medium', selectedMode === mode.name ? 'text-white' : 'text-black')}>{mode.name}</Text>
