@@ -66,13 +66,14 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
   const [selectedMode, setSelectedMode] = useState('Fitness');
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [batteryLevel, setBatteryLevel] = useState(75);
+  const [batteryLevel, setBatteryLevel] = useState("75");
   const [intensityLevel, setIntensityLevel] = useState(7);
   const [maxIntensity, setMaxIntensity] = useState(10);
   const [timerValue, setTimerValue] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<Record<string, boolean>>({});
+  const [deviceVersion, setDeviceVersion] = useState('');
   
   const firstLoad = useRef(true);
 
@@ -168,6 +169,42 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
       firstLoad.current = false
     }
   });
+
+  // 在设备连接成功后，获取设备版本, 并显示在设备名称后面
+  // 获取设备电量
+  // 获取设备模式
+  useEffect(() => {
+    if (selectedDevice && isConnected) {
+      // 使用 async IIFE 来处理异步操作
+      (async () => {
+        try {
+          const version = await BLEManager.writeCharacteristic(
+            selectedDevice.id, BLE_UUID_SHORT.SERVICE, BLE_UUID_SHORT.CHARACTERISTIC_READ, Commands.getVersion());
+          console.log(`Device version: ${version}`);
+          if (version) {
+            setDeviceVersion(version.toString());
+          }
+        } catch (error) {
+          console.error('Error reading device version:', error);
+        }
+
+        const battery = await BLEManager.writeCharacteristic(
+          selectedDevice.id, BLE_UUID_SHORT.SERVICE, BLE_UUID_SHORT.CHARACTERISTIC_READ, Commands.getBattery());
+        console.log(`Device battery: ${battery}`);
+        if (battery) {
+          setBatteryLevel(battery.toString());
+        }
+
+        const mode = await BLEManager.writeCharacteristic(
+          selectedDevice.id, BLE_UUID_SHORT.SERVICE, BLE_UUID_SHORT.CHARACTERISTIC_READ, Commands.getMode());
+        console.log(`Device mode: ${mode}`);
+        if (mode) {
+          setSelectedMode(mode.toString());
+        }
+
+      })();
+    }
+  }, [selectedDevice, isConnected]);
 
   useEffect(() => {
     // 组件挂载时的代码...
@@ -558,7 +595,11 @@ const DevicePanelController: NavigationFunctionComponent<DevicePanelControllerPr
             >
               <View className="flex-row items-center">
                 {renderDeviceStatusIndicator()}
-                <Text className="text-base font-semibold text-gray-800 ml-2">{selectedDevice?.name || 'No device selected'}</Text>
+                <Text className="text-base font-semibold text-gray-800 ml-2">
+                  {selectedDevice?.name || 'No device selected'}
+                  {deviceVersion && ` (${deviceVersion})`}
+                </Text>
+
               </View>
               <ChevronRight size={20} color="#777" />
             </TouchableOpacity>
@@ -750,4 +791,3 @@ DevicePanelController.options = {
   },
 };
 
-export default DevicePanelController;
