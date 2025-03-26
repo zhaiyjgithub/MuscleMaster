@@ -17,6 +17,7 @@ import {
   ChevronUp,
   ChevronDown,
   Smartphone,
+  Battery,
 } from 'lucide-react-native';
 import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
 import {useNavigationComponentDidAppear} from 'react-native-navigation-hooks';
@@ -27,7 +28,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
 import {decodeBase64Value} from '../lib/utils';
-import {BLE_UUID_SHORT, BLECommands, DeviceMode} from '../services/protocol';
+import {BLE_UUID, BLECommands, DeviceMode} from '../services/protocol';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -176,11 +177,11 @@ const DevicePanelController: NavigationFunctionComponent<
         try {
           const version = await BLEManager.writeCharacteristic(
             selectedDevice.id,
-            BLE_UUID_SHORT.SERVICE,
-            BLE_UUID_SHORT.CHARACTERISTIC_READ,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
             BLECommands.getVersion(),
           );
-          console.log(`Device version: ${version}`);
+          console.log(`Device version: ${JSON.stringify(version)}`);
           if (version) {
             setDeviceVersion(version.toString());
           }
@@ -188,10 +189,11 @@ const DevicePanelController: NavigationFunctionComponent<
           console.error('Error reading device version:', error);
         }
 
+
         const battery = await BLEManager.writeCharacteristic(
           selectedDevice.id,
-          BLE_UUID_SHORT.SERVICE,
-          BLE_UUID_SHORT.CHARACTERISTIC_READ,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_READ,
           BLECommands.getBattery(),
         );
         console.log(`Device battery: ${battery}`);
@@ -201,8 +203,8 @@ const DevicePanelController: NavigationFunctionComponent<
 
         const mode = await BLEManager.writeCharacteristic(
           selectedDevice.id,
-          BLE_UUID_SHORT.SERVICE,
-          BLE_UUID_SHORT.CHARACTERISTIC_READ,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_READ,
           BLECommands.getMode(),
         );
         console.log(`Device mode: ${mode}`);
@@ -212,8 +214,8 @@ const DevicePanelController: NavigationFunctionComponent<
 
         const intensity = await BLEManager.writeCharacteristic(
           selectedDevice.id,
-          BLE_UUID_SHORT.SERVICE,
-          BLE_UUID_SHORT.CHARACTERISTIC_READ,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_READ,
           BLECommands.getIntensity(),
         );
         console.log(`Device intensity: ${intensity}`);
@@ -255,8 +257,8 @@ const DevicePanelController: NavigationFunctionComponent<
         // 使用智能写入方法，自动选择合适的写入模式
         BLEManager.writeCharacteristic(
           selectedDevice.id,
-          BLE_UUID_SHORT.SERVICE,
-          BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
           BLECommands.setIntensity(newIntensity),
         )
           .then(() => {
@@ -279,8 +281,8 @@ const DevicePanelController: NavigationFunctionComponent<
       if (selectedDevice) {
         BLEManager.writeCharacteristic(
           selectedDevice.id,
-          BLE_UUID_SHORT.SERVICE,
-          BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
           BLECommands.setIntensity(newIntensity),
         )
           .then(() => {
@@ -481,8 +483,8 @@ const DevicePanelController: NavigationFunctionComponent<
     if (selectedDevice) {
       BLEManager.writeCharacteristic(
         selectedDevice.id,
-        BLE_UUID_SHORT.SERVICE,
-        BLE_UUID_SHORT.CHARACTERISTIC_WRITE,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_WRITE,
         BLECommands.setMode(mode),
       )
         .then(() => {
@@ -641,7 +643,13 @@ const DevicePanelController: NavigationFunctionComponent<
                   {deviceVersion && ` (${deviceVersion})`}
                 </Text>
               </View>
-              <ChevronRight size={20} color="#777" />
+              <View className="flex-row items-center">
+                <Battery size={16} color="#777" />
+                <Text className="text-sm text-gray-500 ml-1">
+                  {batteryLevel}%
+                </Text>
+                <ChevronRight size={20} color="#777" className="ml-2" />
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -837,7 +845,7 @@ DevicePanelController.options = {
   topBar: {
     visible: true,
     title: {
-      text: 'Muscle Master',
+      text: 'GuGeer Device',
     },
     rightButtons: [
       {

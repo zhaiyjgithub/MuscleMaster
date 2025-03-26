@@ -1,7 +1,7 @@
-import { encode, decode } from '@frsource/base64';
+import {encode, decode} from '@frsource/base64';
 import clsx from 'clsx';
 import {twMerge} from 'tailwind-merge';
-import { ClassValue } from 'clsx';
+import {ClassValue} from 'clsx';
 /**
  * 解码 Base64 编码的字符串
  * @param base64String Base64 编码的字符串
@@ -13,7 +13,7 @@ export const decodeBase64Value = (base64String: string): string => {
     return decode(base64String);
   } catch (e) {
     console.error('Error decoding Base64:', e);
-    
+
     // 如果解码失败，返回原始字符串
     return base64String;
   }

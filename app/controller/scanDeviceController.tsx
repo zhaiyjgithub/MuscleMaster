@@ -117,6 +117,8 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   // 处理重新扫描
   const handleRescan = useCallback(() => {
     if (bleReady) {
+      // clear all previous devices
+      setDevices([])
       startScanning();
     } else {
       waitForBluetoothAndScan();
@@ -200,7 +202,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 ScanDeviceController.options = {
   topBar: {
     title: {
-      text: 'Muscle Master',
+      text: 'GuGeer',
     },
   },
 };

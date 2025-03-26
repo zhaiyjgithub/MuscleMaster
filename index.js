@@ -1,15 +1,15 @@
+import DevicePanelController from './app/controller/devicePanelController';
+import ScanDeviceController from './app/controller/scanDeviceController';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {NavigationProvider} from 'react-native-navigation-hooks';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {Navigation} from 'react-native-navigation';
+import React from 'react';
+import './global.css';
 /**
  * @format
  */
 
-import React from 'react';
-import {Navigation} from 'react-native-navigation';
-import './global.css';
-import ScanDeviceController from './app/controller/scanDeviceController';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {NavigationProvider} from 'react-native-navigation-hooks';
-import DevicePanelController from './app/controller/devicePanelController';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
 Navigation.registerComponent(
   'ScanDeviceController',
@@ -54,6 +54,12 @@ Navigation.setDefaultOptions({
       color: '#1e88e5',
     },
     rightButtonColor: 'white',
+  },
+  statusBar: {
+    backgroundColor: '#1976d2',
+    style: 'light',
+    translucent: true,
+    drawBehind: true,
   },
 });
 

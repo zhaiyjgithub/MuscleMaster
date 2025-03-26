@@ -1,6 +1,6 @@
-import { BleManager, Device, State, Subscription } from 'react-native-ble-plx';
-import { PermissionsAndroid, Platform } from 'react-native';
-import { encodeBase64Value } from '../lib/utils';
+import {BleManager, Device, State, Subscription} from 'react-native-ble-plx';
+import {PermissionsAndroid, Platform} from 'react-native';
+import {encodeBase64Value} from '../lib/utils';
 
 class BLEManagerClass {
   private manager: BleManager;
@@ -14,7 +14,7 @@ class BLEManagerClass {
 
   // 设置蓝牙状态监听
   private setupBleListener() {
-    this.manager.onStateChange((state) => {
+    this.manager.onStateChange(state => {
       console.log('BLE state changed:', state);
       if (state === State.PoweredOn) {
         // 蓝牙已打开，可以开始扫描
@@ -27,9 +27,12 @@ class BLEManagerClass {
   async getState(): Promise<State> {
     return await this.manager.state();
   }
-  
+
   // 监听蓝牙状态变化的公共方法
-  onStateChange(listener: (state: State) => void, emitCurrentState: boolean = true): Subscription {
+  onStateChange(
+    listener: (state: State) => void,
+    emitCurrentState: boolean = true,
+  ): Subscription {
     return this.manager.onStateChange(listener, emitCurrentState);
   }
 
@@ -40,7 +43,8 @@ class BLEManagerClass {
     }
 
     if (Platform.OS === 'android') {
-      if (Platform.Version >= 31) { // Android 12 或更高版本
+      if (Platform.Version >= 31) {
+        // Android 12 或更高版本
         const grants = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
@@ -48,13 +52,14 @@ class BLEManagerClass {
         ]);
 
         const allGranted = Object.values(grants).every(
-          (result) => result === PermissionsAndroid.RESULTS.GRANTED
+          result => result === PermissionsAndroid.RESULTS.GRANTED,
         );
 
         return allGranted;
-      } else { // Android 11 或更低版本
+      } else {
+        // Android 11 或更低版本
         const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       }
@@ -69,13 +74,18 @@ class BLEManagerClass {
   }
 
   // 开始扫描设备
-  async startScan(onDeviceFound: (device: Device) => void, onScanComplete?: () => void) {
+  async startScan(
+    onDeviceFound: (device: Device) => void,
+    onScanComplete?: () => void,
+  ) {
     try {
       // 检查权限
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
         console.error('BLE permission not granted');
-        if (onScanComplete) onScanComplete();
+        if (onScanComplete) {
+          onScanComplete();
+        }
         return;
       }
 
@@ -83,7 +93,7 @@ class BLEManagerClass {
       const bleState = await this.manager.state();
       if (bleState !== State.PoweredOn) {
         console.warn('Bluetooth is not powered on. Current state:', bleState);
-        
+
         // 如果蓝牙未开启，返回一个 Promise，等待蓝牙开启
         await new Promise<void>((resolve, reject) => {
           // 设置超时，避免无限等待
@@ -92,7 +102,7 @@ class BLEManagerClass {
             subscription.remove();
             reject(new Error('Timeout waiting for Bluetooth to power on'));
           }, 10000); // 10 秒超时
-          
+
           // 监听蓝牙状态变化
           const subscription = this.manager.onStateChange(state => {
             if (state === State.PoweredOn) {
@@ -108,7 +118,9 @@ class BLEManagerClass {
           }, true); // true 表示立即检查当前状态
         }).catch(error => {
           console.error('Failed waiting for Bluetooth:', error);
-          if (onScanComplete) onScanComplete();
+          if (onScanComplete) {
+            onScanComplete();
+          }
           throw error;
         });
       }
@@ -134,7 +146,9 @@ class BLEManagerClass {
           if (error) {
             console.error('Scan error:', error);
             this.stopScan();
-            if (onScanComplete) onScanComplete();
+            if (onScanComplete) {
+              onScanComplete();
+            }
             return;
           }
 
@@ -143,7 +157,7 @@ class BLEManagerClass {
             this.devices.set(device.id, device);
             onDeviceFound(device);
           }
-        }
+        },
       );
 
       console.log('Successfully started scanning for devices');
@@ -151,13 +165,16 @@ class BLEManagerClass {
       // 15 秒后自动停止扫描
       setTimeout(() => {
         this.stopScan();
-        if (onScanComplete) onScanComplete();
+        if (onScanComplete) {
+          onScanComplete();
+        }
       }, 15000);
-
     } catch (error) {
       console.error('Failed to start scan:', error);
       this.isScanning = false;
-      if (onScanComplete) onScanComplete();
+      if (onScanComplete) {
+        onScanComplete();
+      }
       throw error;
     }
   }
@@ -176,16 +193,16 @@ class BLEManagerClass {
     try {
       const device = await this.manager.connectToDevice(deviceId);
       console.log('Connected to device:', device.name);
-      
+
       // 发现所有服务和特征
       await device.discoverAllServicesAndCharacteristics();
       console.log('Discovered services and characteristics');
-      
+
       // 监听断开连接事件
       device.onDisconnected((error, disconnectedDevice) => {
         console.log('Device disconnected:', disconnectedDevice.name);
       });
-      
+
       return device;
     } catch (error) {
       console.error('Connection error:', error);
@@ -225,13 +242,13 @@ class BLEManagerClass {
   async readCharacteristic(
     deviceId: string,
     serviceUUID: string,
-    characteristicUUID: string
+    characteristicUUID: string,
   ) {
     try {
       const characteristic = await this.manager.readCharacteristicForDevice(
         deviceId,
         serviceUUID,
-        characteristicUUID
+        characteristicUUID,
       );
       return characteristic.value; // Base64 encoded value
     } catch (error) {
@@ -241,15 +258,19 @@ class BLEManagerClass {
   }
 
   // 检查特性是否支持特定写入模式
-  async checkCharacteristicProperties(deviceId: string, serviceUUID: string, characteristicUUID: string) {
+  async checkCharacteristicProperties(
+    deviceId: string,
+    serviceUUID: string,
+    characteristicUUID: string,
+  ) {
     try {
       // 读取特性以获取其属性
       const characteristic = await this.manager.readCharacteristicForDevice(
         deviceId,
         serviceUUID,
-        characteristicUUID
+        characteristicUUID,
       );
-      
+
       // 直接返回特性对象提供的属性标志
       return {
         canRead: characteristic.isReadable,
@@ -258,7 +279,7 @@ class BLEManagerClass {
         canNotify: characteristic.isNotifiable,
         isNotifying: characteristic.isNotifying,
         canIndicate: characteristic.isIndicatable,
-        value: characteristic.value
+        value: characteristic.value,
       };
     } catch (error) {
       console.error('Error checking characteristic properties:', error);
@@ -271,32 +292,44 @@ class BLEManagerClass {
     deviceId: string,
     serviceUUID: string,
     characteristicUUID: string,
-    data: string
+    data: string,
   ) {
     try {
       // 检查特性属性
-      const props = await this.checkCharacteristicProperties(deviceId, serviceUUID, characteristicUUID);
+      const props = await this.checkCharacteristicProperties(
+        deviceId,
+        serviceUUID,
+        characteristicUUID,
+      );
       console.log('Characteristic properties:', props);
-      
+
       // 根据特性支持的写入模式选择写入方法
       if (props.canWriteWithResponse) {
-        console.log('Using write with response for characteristic:', characteristicUUID);
+        console.log(
+          'Using write with response for characteristic:',
+          characteristicUUID,
+        );
         return await this.manager.writeCharacteristicWithResponseForDevice(
           deviceId,
           serviceUUID,
           characteristicUUID,
-          data
+          data,
         );
       } else if (props.canWriteWithoutResponse) {
-        console.log('Using write without response for characteristic:', characteristicUUID);
+        console.log(
+          'Using write without response for characteristic:',
+          characteristicUUID,
+        );
         return await this.manager.writeCharacteristicWithoutResponseForDevice(
           deviceId,
           serviceUUID,
           characteristicUUID,
-          data
+          data,
         );
       } else {
-        throw new Error(`Characteristic ${characteristicUUID} does not support any write operations`);
+        throw new Error(
+          `Characteristic ${characteristicUUID} does not support any write operations`,
+        );
       }
     } catch (error) {
       console.error('Error writing characteristic:', error);
@@ -310,12 +343,12 @@ class BLEManagerClass {
     serviceUUID: string,
     characteristicUUID: string,
     value: any,
-    forceWithResponse: boolean = false
+    forceWithResponse: boolean = false,
   ) {
     try {
       // 使用 encodeBase64Value 工具方法编码数据
       const data = encodeBase64Value(value);
-      
+
       // 检查特性属性，以决定使用哪种写入方法
       if (forceWithResponse) {
         // 强制使用带响应的写入
@@ -323,10 +356,15 @@ class BLEManagerClass {
           deviceId,
           serviceUUID,
           characteristicUUID,
-          data
+          data,
         );
       } else {
-        return await this.writeCharacteristicSmart(deviceId, serviceUUID, characteristicUUID, data);
+        return await this.writeCharacteristicSmart(
+          deviceId,
+          serviceUUID,
+          characteristicUUID,
+          data,
+        );
       }
     } catch (error) {
       console.error('Error writing characteristic:', error);
@@ -339,7 +377,7 @@ class BLEManagerClass {
     deviceId: string,
     serviceUUID: string,
     characteristicUUID: string,
-    listener: (value: string | null, error?: Error) => void
+    listener: (value: string | null, error?: Error) => void,
   ) {
     return this.manager.monitorCharacteristicForDevice(
       deviceId,
@@ -353,14 +391,17 @@ class BLEManagerClass {
         if (characteristic && characteristic.value) {
           listener(characteristic.value);
         }
-      }
+      },
     );
   }
 
   // 发现所有服务和特性
   async discoverAllServicesAndCharacteristics(deviceId: string) {
     try {
-      const device = await this.manager.discoverAllServicesAndCharacteristicsForDevice(deviceId);
+      const device =
+        await this.manager.discoverAllServicesAndCharacteristicsForDevice(
+          deviceId,
+        );
       return device;
     } catch (error) {
       console.error('Error discovering services and characteristics:', error);
@@ -384,7 +425,7 @@ class BLEManagerClass {
     try {
       const characteristics = await this.manager.characteristicsForDevice(
         deviceId,
-        serviceUUID
+        serviceUUID,
       );
       return characteristics;
     } catch (error) {
@@ -401,8 +442,7 @@ class BLEManagerClass {
 
 // 导出单例实例
 export const BLEManager = new BLEManagerClass();
-export default BLEManager; 
-
+export default BLEManager;
 
 export function calculateSignalStrength(device: Device) {
   const rssi = device.rssi;
