@@ -32,9 +32,9 @@ Navigation.registerComponent(
   () => props => {
     return (
       <NavigationProvider value={{componentId: props.componentId}}>
-          <SafeAreaProvider>
-            <DevicePanelController {...props} />
-          </SafeAreaProvider>
+        <SafeAreaProvider>
+          <DevicePanelController {...props} />
+        </SafeAreaProvider>
       </NavigationProvider>
     );
   },

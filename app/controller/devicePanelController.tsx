@@ -154,13 +154,13 @@ const DevicePanelController: NavigationFunctionComponent<
     null,
   );
 
-  useNavigationComponentDidAppear(() => {
+  useNavigationComponentDidAppear(async () => {
     if (firstLoad.current) {
       if (devices && devices.length > 0) {
         setSelectedDevice(devices[0]);
 
         // 自动连接到第一个设备
-        connectToDevice(devices[0]);
+        await connectToDevice(devices[0]);
       }
       firstLoad.current = false;
     }
@@ -848,3 +848,5 @@ DevicePanelController.options = {
     ],
   },
 };
+
+export default DevicePanelController;

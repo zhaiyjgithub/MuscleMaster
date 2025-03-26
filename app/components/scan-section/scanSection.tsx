@@ -147,6 +147,29 @@ const ScanSection: React.FC<ScanSectionProps> = ({
     blipAnim3,
   ]);
 
+  useEffect(() => {
+    // Stop all animations and reset values when component unmounts or when scanning stops
+    return () => {
+      // Explicitly stop all animations
+      pulseAnim.stopAnimation();
+      pulseAnim2.stopAnimation();
+      pulseAnim3.stopAnimation();
+      sweepAnim.stopAnimation();
+      blipAnim1.stopAnimation();
+      blipAnim2.stopAnimation();
+      blipAnim3.stopAnimation();
+      
+      // Reset all animation values
+      pulseAnim.setValue(0);
+      pulseAnim2.setValue(0);
+      pulseAnim3.setValue(0);
+      sweepAnim.setValue(0);
+      blipAnim1.setValue(0);
+      blipAnim2.setValue(0);
+      blipAnim3.setValue(0);
+    };
+  }, []);
+
   // Interpolate animations
   const pulseScale = pulseAnim.interpolate({
     inputRange: [0, 1],

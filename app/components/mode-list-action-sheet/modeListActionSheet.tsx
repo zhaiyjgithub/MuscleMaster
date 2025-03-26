@@ -1,4 +1,7 @@
-import BottomSheet, {BottomSheetBackdrop, BottomSheetScrollView,} from '@gorhom/bottom-sheet';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 
 import {
   Activity,
@@ -14,7 +17,12 @@ import {
   User,
   Zap,
 } from 'lucide-react-native';
-import React, {forwardRef, useCallback, useImperativeHandle, useRef,} from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {cn} from '../../lib/utils';
@@ -208,4 +216,5 @@ const ModeListActionSheet = forwardRef<
   );
 });
 
+export { getIconByMode };
 export default ModeListActionSheet;

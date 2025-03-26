@@ -7,7 +7,7 @@ import ScanFoundDeviceList, {
   FoundDevice,
   ServiceInfo,
 } from '../components/scan-found-device/scanFoundDevice';
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useCallback} from 'react';
 import {BLEManager, calculateSignalStrength} from '../services/BLEManager';
 
 const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
@@ -16,7 +16,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const [bleReady, setBleReady] = useState(false);
 
   // 开始扫描设备的函数
-  const startScanning = async () => {
+  const startScanning = useCallback(async () => {
     if (isScanning) {
       return;
     }
@@ -69,10 +69,10 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
       console.error('Error starting scan:', error);
       setIsScanning(false);
     }
-  };
+  }, [isScanning]);
 
   // 等待蓝牙状态变为 PoweredOn 并开始扫描
-  const waitForBluetoothAndScan = () => {
+  const waitForBluetoothAndScan = useCallback(() => {
     // 检查当前状态，使用公共方法 getState()
     BLEManager.getState()
       .then(state => {
@@ -86,7 +86,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
       .catch(error => {
         console.error('Error checking Bluetooth state:', error);
       });
-  };
+  }, [startScanning]);
 
   // 组件挂载时监听蓝牙状态变化
   useEffect(() => {
@@ -95,7 +95,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
       console.log('Bluetooth state changed:', state);
       if (state === 'PoweredOn') {
         setBleReady(true);
-        startScanning().then();
+        startScanning();
       } else {
         setBleReady(false);
       }
@@ -106,59 +106,62 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
       subscription.remove();
       BLEManager.stopScan();
     };
-  }, [startScanning]);
+  }, []); // 移除 startScanning 依赖
 
   // 处理取消按钮
-  const handleCancelScan = () => {
-    console.log('Cancelling scan');
-    BLEManager.stopScan();
+  const handleCancelScan = useCallback(() => {
     setIsScanning(false);
-  };
+    BLEManager.stopScan();
+  }, []);
 
   // 处理重新扫描
-  const handleRescan = () => {
+  const handleRescan = useCallback(() => {
     if (bleReady) {
       startScanning();
     } else {
       waitForBluetoothAndScan();
     }
-  };
+  }, [bleReady, startScanning, waitForBluetoothAndScan]);
 
   // 处理开始训练按钮
-  const handleStartTraining = (device: FoundDevice) => {
-    console.log('Start training pressed');
-    Navigation.push(componentId, {
-      component: {
-        name: 'DevicePanelController',
-        passProps: {
-          devices: [device],
+  const handleStartTraining = useCallback(
+    (device: FoundDevice) => {
+      console.log('Start training pressed');
+      Navigation.push(componentId, {
+        component: {
+          name: 'DevicePanelController',
+          passProps: {
+            devices: [device],
+          },
         },
-      },
-    });
-  };
+      });
+    },
+    [componentId],
+  );
+
   // 更新设备连接状态
-  const updateDeviceConnectionStatus = (
-    deviceId: string,
-    isConnected: boolean,
-  ) => {
-    setDevices(prevDevices =>
-      prevDevices.map(device =>
-        device.id === deviceId ? {...device, connected: isConnected} : device,
-      ),
-    );
-  };
+  const updateDeviceConnectionStatus = useCallback(
+    (deviceId: string, isConnected: boolean) => {
+      setDevices(prevDevices =>
+        prevDevices.map(device =>
+          device.id === deviceId ? {...device, connected: isConnected} : device,
+        ),
+      );
+    },
+    [],
+  );
 
   // 更新设备服务
-  const updateDeviceServices = (
-    deviceId: string,
-    serviceInfos: ServiceInfo[],
-  ) => {
-    setDevices(prevDevices =>
-      prevDevices.map(device =>
-        device.id === deviceId ? {...device, serviceInfos} : device,
-      ),
-    );
-  };
+  const updateDeviceServices = useCallback(
+    (deviceId: string, serviceInfos: ServiceInfo[]) => {
+      setDevices(prevDevices =>
+        prevDevices.map(device =>
+          device.id === deviceId ? {...device, serviceInfos} : device,
+        ),
+      );
+    },
+    [],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
