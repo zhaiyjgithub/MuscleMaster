@@ -1,33 +1,38 @@
 import React from 'react';
-import {Text, View, ScrollView} from 'react-native';
+import {View, ScrollView} from 'react-native';
 import {Navigation, NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
-import ScanFoundDeviceList, { FoundDevice, ServiceInfo } from '../components/scan-found-device/scanFoundDevice';
-import { useEffect, useState } from 'react';
-import { BLEManager, calculateSignalStrength } from '../services/BLEManager';
-import { Device } from 'react-native-ble-plx';
-import { TouchableOpacity } from 'react-native';
+import ScanFoundDeviceList, {
+  FoundDevice,
+  ServiceInfo,
+} from '../components/scan-found-device/scanFoundDevice';
+import {useEffect, useState} from 'react';
+import {BLEManager, calculateSignalStrength} from '../services/BLEManager';
 
-const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
+const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const [devices, setDevices] = useState<FoundDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [bleReady, setBleReady] = useState(false);
 
   // 开始扫描设备的函数
   const startScanning = async () => {
-    if (isScanning) return;
-    
+    if (isScanning) {
+      return;
+    }
+
     try {
       setIsScanning(true);
       await BLEManager.startScan(
-        (device) => {
+        device => {
           console.log('Found device:', device.name, device.id);
-          
-          setDevices((prevDevices) => {
+
+          setDevices(prevDevices => {
             // Check if device already exists
-            const existingDeviceIndex = prevDevices.findIndex(d => d.id === device.id);
-            
+            const existingDeviceIndex = prevDevices.findIndex(
+              d => d.id === device.id,
+            );
+
             // If device exists, return unchanged array
             if (existingDeviceIndex >= 0) {
               return prevDevices;
@@ -37,21 +42,28 @@ const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
             const signalStrength = calculateSignalStrength(device);
 
             // If device is new, add it to array
-            return [...prevDevices, {
-              name: device.name || '',
-              id: device.id,
-              signalStrength: signalStrength,
-              connected: false,
-              icon: '💪', 
-              iconColor: '#1e88e5'
-            }];
+            // filter 'GuGeer' 开头的设备
+            if (device.name && device.name.toLowerCase().startsWith('gugeer')) {
+              return [
+                ...prevDevices,
+                {
+                  name: device.name || '',
+                  id: device.id,
+                  signalStrength: signalStrength,
+                  connected: false,
+                  icon: '💪',
+                  iconColor: '#1e88e5',
+                },
+              ];
+            }
+            return prevDevices;
           });
         },
         // 扫描完成回调
         () => {
           console.log('Scanning completed');
           setIsScanning(false);
-        }
+        },
       );
     } catch (error) {
       console.error('Error starting scan:', error);
@@ -83,19 +95,19 @@ const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
       console.log('Bluetooth state changed:', state);
       if (state === 'PoweredOn') {
         setBleReady(true);
-        startScanning();
+        startScanning().then();
       } else {
         setBleReady(false);
       }
     }, true); // true 参数表示立即检查当前状态
-    
+
     // 组件卸载时取消订阅并停止扫描
     return () => {
       subscription.remove();
       BLEManager.stopScan();
     };
-  }, []);
-  
+  }, [startScanning]);
+
   // 处理取消按钮
   const handleCancelScan = () => {
     console.log('Cancelling scan');
@@ -125,48 +137,50 @@ const ScanDeviceController: NavigationFunctionComponent = ({ componentId }) => {
     });
   };
   // 更新设备连接状态
-  const updateDeviceConnectionStatus = (deviceId: string, isConnected: boolean) => {
-    setDevices(prevDevices => 
-      prevDevices.map(device => 
-        device.id === deviceId 
-          ? { ...device, connected: isConnected }
-          : device
-      )
+  const updateDeviceConnectionStatus = (
+    deviceId: string,
+    isConnected: boolean,
+  ) => {
+    setDevices(prevDevices =>
+      prevDevices.map(device =>
+        device.id === deviceId ? {...device, connected: isConnected} : device,
+      ),
     );
   };
 
   // 更新设备服务
-  const updateDeviceServices = (deviceId: string, serviceInfos: ServiceInfo[]) => {
-    setDevices(prevDevices => 
-      prevDevices.map(device => 
-        device.id === deviceId 
-          ? { ...device, serviceInfos }
-          : device
-      )
+  const updateDeviceServices = (
+    deviceId: string,
+    serviceInfos: ServiceInfo[],
+  ) => {
+    setDevices(prevDevices =>
+      prevDevices.map(device =>
+        device.id === deviceId ? {...device, serviceInfos} : device,
+      ),
     );
   };
-  
+
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
       <View className="flex-1 relative">
         <ScrollView className="flex-1 pb-20">
-          <ScanSection 
+          <ScanSection
             onCancelPress={handleCancelScan}
             onRescanPress={handleRescan}
             isScanning={isScanning}
             isBleReady={bleReady}
           />
-          <ScanFoundDeviceList 
-            devices={devices} 
+          <ScanFoundDeviceList
+            devices={devices}
             updateConnectionStatus={updateDeviceConnectionStatus}
             updateDeviceServices={updateDeviceServices}
             onPress={handleStartTraining}
           />
         </ScrollView>
-        
+
         {/* 固定在底部的按钮 */}
         {/* <View className="absolute bottom-0 left-0 right-0 pb-4 px-4 bg-gray-100">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               handleStartTraining(devices[0]);
             }}

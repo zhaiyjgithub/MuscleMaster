@@ -1,11 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  Easing,
-} from 'react-native';
+import React, {useEffect, useRef} from 'react';
+import {View, Text, TouchableOpacity, Animated, Easing} from 'react-native';
 
 interface ScanSectionProps {
   onCancelPress: () => void;
@@ -14,11 +8,11 @@ interface ScanSectionProps {
   isBleReady?: boolean;
 }
 
-const ScanSection: React.FC<ScanSectionProps> = ({ 
+const ScanSection: React.FC<ScanSectionProps> = ({
   onCancelPress,
   onRescanPress,
   isScanning = false,
-  isBleReady = true 
+  isBleReady = true,
 }) => {
   // Animation values
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -40,7 +34,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
           duration: 2000,
           easing: Easing.linear,
           useNativeDriver: true,
-        })
+        }),
       ).start();
 
       // Second pulse with delay
@@ -51,7 +45,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
           delay: 650,
           easing: Easing.linear,
           useNativeDriver: true,
-        })
+        }),
       ).start();
 
       // Third pulse with delay
@@ -62,7 +56,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
           delay: 1300,
           easing: Easing.linear,
           useNativeDriver: true,
-        })
+        }),
       ).start();
 
       // Radar sweep animation
@@ -72,7 +66,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
           duration: 3000,
           easing: Easing.linear,
           useNativeDriver: true,
-        })
+        }),
       ).start();
 
       // Blip animations with different delays
@@ -89,7 +83,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
             duration: 0,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
 
       Animated.loop(
@@ -105,7 +99,7 @@ const ScanSection: React.FC<ScanSectionProps> = ({
             duration: 0,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
 
       Animated.loop(
@@ -121,10 +115,10 @@ const ScanSection: React.FC<ScanSectionProps> = ({
             duration: 0,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
-      // If not in scanning state, stop all animations
+      // If not in scanning state, stop all animations and reset their values
       pulseAnim.stopAnimation();
       pulseAnim2.stopAnimation();
       pulseAnim3.stopAnimation();
@@ -132,8 +126,26 @@ const ScanSection: React.FC<ScanSectionProps> = ({
       blipAnim1.stopAnimation();
       blipAnim2.stopAnimation();
       blipAnim3.stopAnimation();
+
+      // Reset all animation values to 0
+      pulseAnim.setValue(0);
+      pulseAnim2.setValue(0);
+      pulseAnim3.setValue(0);
+      sweepAnim.setValue(0);
+      blipAnim1.setValue(0);
+      blipAnim2.setValue(0);
+      blipAnim3.setValue(0);
     }
-  }, [isScanning]);
+  }, [
+    isScanning,
+    pulseAnim,
+    pulseAnim2,
+    pulseAnim3,
+    sweepAnim,
+    blipAnim1,
+    blipAnim2,
+    blipAnim3,
+  ]);
 
   // Interpolate animations
   const pulseScale = pulseAnim.interpolate({
@@ -207,130 +219,136 @@ const ScanSection: React.FC<ScanSectionProps> = ({
   // Get scanning text based on state
   const getScanningText = () => {
     if (!isBleReady) {
-      return "Bluetooth is not enabled, please turn on Bluetooth";
+      return 'Bluetooth is not enabled, please turn on Bluetooth';
     }
-    
+
     if (isScanning) {
-      return "Scanning for devices...";
+      return 'Scanning for devices...';
     }
-    
-    return "Click scan button to start searching for devices";
+
+    return 'Click scan button to start searching for devices';
   };
 
   // Get action button based on state
   const renderActionButton = () => {
     if (isScanning) {
       return (
-        <TouchableOpacity className="py-2 px-5 bg-transparent border border-red-500 rounded-full" onPress={onCancelPress}>
+        <TouchableOpacity
+          className="py-2 px-5 bg-transparent border border-red-500 rounded-full"
+          onPress={onCancelPress}>
           <Text className="text-red-500 text-sm font-medium">Cancel Scan</Text>
         </TouchableOpacity>
       );
     }
-    
+
     return (
-      <TouchableOpacity 
-        className={`py-2 px-5 bg-transparent border ${isBleReady ? 'border-blue-600' : 'border-gray-400'} rounded-full`} 
+      <TouchableOpacity
+        className={`py-2 px-5 bg-transparent border ${
+          isBleReady ? 'border-blue-600' : 'border-gray-400'
+        } rounded-full`}
         onPress={onRescanPress}
-        disabled={!isBleReady}
-      >
-        <Text className={`text-sm font-medium ${isBleReady ? 'text-blue-600' : 'text-gray-400'}`}>Rescan</Text>
+        disabled={!isBleReady}>
+        <Text
+          className={`text-sm font-medium ${
+            isBleReady ? 'text-blue-600' : 'text-gray-400'
+          }`}>
+          Rescan
+        </Text>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View className='px-4 pt-4'>
+    <View className="px-4 pt-4">
       <View className="flex flex-col items-center justify-center p-4 text-center bg-white rounded-2xl">
-      <View className="w-[120px] h-[120px] rounded-full border-2 border-blue-600 items-center justify-center relative overflow-hidden bg-blue-50/20">
-        {/* Multiple pulsing circles */}
-        <Animated.View
-          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
-          style={{
-            transform: [{ scale: pulseScale }],
-            opacity: pulseOpacity,
-          }}
-        />
-        <Animated.View
-          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
-          style={{
-            transform: [{ scale: pulseScale2 }],
-            opacity: pulseOpacity2,
-          }}
-        />
-        <Animated.View
-          className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
-          style={{
-            transform: [{ scale: pulseScale3 }],
-            opacity: pulseOpacity3,
-          }}
-        />
-
-        {/* Center point */}
-        <View className="absolute w-1 h-1 rounded-full bg-blue-500/80 z-30" />
-        
-        {/* Final radar sweep implementation */}
-        <View className="absolute w-[120px] h-[120px] z-20">
-          <Animated.View 
+        <View className="w-[120px] h-[120px] rounded-full border-2 border-blue-600 items-center justify-center relative overflow-hidden bg-blue-50/20">
+          {/* Multiple pulsing circles */}
+          <Animated.View
+            className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
             style={{
-              position: 'absolute',
-              width: 120,
-              height: 120,
-              justifyContent: 'center',
-              alignItems: 'center',
-              transform: [
-                { rotate: sweepRotate },
-              ],
+              transform: [{scale: pulseScale}],
+              opacity: pulseOpacity,
             }}
-          >
-            <View 
+          />
+          <Animated.View
+            className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
+            style={{
+              transform: [{scale: pulseScale2}],
+              opacity: pulseOpacity2,
+            }}
+          />
+          <Animated.View
+            className="absolute w-full h-full rounded-full border-2 border-blue-500/20"
+            style={{
+              transform: [{scale: pulseScale3}],
+              opacity: pulseOpacity3,
+            }}
+          />
+
+          {/* Center point */}
+          <View className="absolute w-1 h-1 rounded-full bg-blue-500/80 z-30" />
+
+          {/* Final radar sweep implementation */}
+          <View className="absolute w-[120px] h-[120px] z-20">
+            <Animated.View
               style={{
                 position: 'absolute',
-                backgroundColor: 'rgba(30, 136, 229, 0.8)',
-                height: 2,
-                width: 60,
-                right: 0,
-                alignSelf: 'center',
-              }} 
-            />
-          </Animated.View>
+                width: 120,
+                height: 120,
+                justifyContent: 'center',
+                alignItems: 'center',
+                transform: [{rotate: sweepRotate}],
+              }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  backgroundColor: 'rgba(30, 136, 229, 0.8)',
+                  height: 2,
+                  width: 60,
+                  right: 0,
+                  alignSelf: 'center',
+                }}
+              />
+            </Animated.View>
+          </View>
+
+          {/* Radar dots */}
+          <Animated.View
+            className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[30%] left-[70%]"
+            style={{
+              transform: [{scale: blip1Scale}],
+              opacity: blip1Opacity,
+            }}
+          />
+          <Animated.View
+            className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[60%] left-[40%]"
+            style={{
+              transform: [{scale: blip2Scale}],
+              opacity: blip2Opacity,
+            }}
+          />
+          <Animated.View
+            className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[45%] left-[75%]"
+            style={{
+              transform: [{scale: blip3Scale}],
+              opacity: blip3Opacity,
+            }}
+          />
         </View>
 
-        {/* Radar dots */}
-        <Animated.View
-          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[30%] left-[70%]"
-          style={{
-            transform: [{ scale: blip1Scale }],
-            opacity: blip1Opacity,
-          }}
-        />
-        <Animated.View
-          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[60%] left-[40%]"
-          style={{
-            transform: [{ scale: blip2Scale }],
-            opacity: blip2Opacity,
-          }}
-        />
-        <Animated.View
-          className="absolute w-1.5 h-1.5 bg-blue-500/80 rounded-full z-10 top-[45%] left-[75%]"
-          style={{
-            transform: [{ scale: blip3Scale }],
-            opacity: blip3Opacity,
-          }}
-        />
-      </View>
+        <View className="flex flex-col items-center justify-center gap-y-2 mt-2">
+          <Text className="text-base text-gray-800 font-medium">
+            {getScanningText()}
+          </Text>
+          <Text className="text-xs text-gray-500">
+            {isBleReady
+              ? 'Searching for nearby Bluetooth devices'
+              : 'Please enable Bluetooth in settings'}
+          </Text>
 
-      <View className='flex flex-col items-center justify-center gap-y-2 mt-2'>
-        <Text className="text-base text-gray-800 font-medium">{getScanningText()}</Text>
-        <Text className="text-xs text-gray-500">
-          {isBleReady 
-            ? "Searching for nearby Bluetooth devices" 
-            : "Please enable Bluetooth in settings"
-          }
-        </Text>
-        
-        {renderActionButton()}
+          {renderActionButton()}
+        </View>
       </View>
-    </View>
     </View>
   );
 };

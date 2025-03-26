@@ -20,7 +20,7 @@ export const BLE_UUID = {
 export const BLE_UUID_SHORT = {
   SERVICE: 'FFE0',
   CHARACTERISTIC_READ: 'FFE1',
-  CHARACTERISTIC_WRITE: 'FFE2',
+  CHARACTERISTIC_WRITE: 'FFE1', // FFE2
 };
 
 // 命令类型枚举

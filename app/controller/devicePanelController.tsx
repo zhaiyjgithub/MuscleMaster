@@ -848,8 +848,3 @@ DevicePanelController.options = {
     ],
   },
 };
-
-// GuGeerEMS01
-
-
-// keytool -genkey -v -keystore my-release-key.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias
