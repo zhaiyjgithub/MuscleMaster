@@ -9,6 +9,7 @@ import {
   Animated,
   Alert,
 } from 'react-native';
+import {Subscription} from 'react-native-ble-plx';
 import {NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {BLEManager} from '../services/BLEManager';
@@ -60,6 +61,11 @@ const DevicePanelController: NavigationFunctionComponent<
     Record<string, boolean>
   >({});
   const [deviceVersion, setDeviceVersion] = useState('');
+  const [connectionSubscription, setConnectionSubscription] =
+    useState<Subscription | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
+    null,
+  );
 
   const firstLoad = useRef(true);
 
@@ -91,6 +97,53 @@ const DevicePanelController: NavigationFunctionComponent<
       pulseAnim.stopAnimation();
     };
   }, [isConnecting, pulseAnim]);
+
+  useEffect(() => {
+    if (selectedDevice) {
+      const subscription = BLEManager.monitorDeviceConnection(
+        selectedDevice.id,
+        (device, isConnected, error) => {
+          if (error) {
+            console.error('Connection error:', error);
+          } else {
+            setIsConnected(isConnected);
+            console.log(
+              `Device ${device.name} is now ${
+                isConnected ? 'connected' : 'disconnected'
+              }`,
+            );
+          }
+        },
+      );
+      setConnectionSubscription(subscription);
+
+      return () => {
+        subscription.remove();
+      };
+    }
+  }, [selectedDevice]);
+
+  useEffect(() => {
+    if (selectedDevice && isConnected) {
+      const subscription = BLEManager.monitorCharacteristicForDevice(
+        selectedDevice.id,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_WRITE,
+        (error, characteristic) => {
+          if (error) {
+            console.error('Characteristic monitoring error:', error);
+          } else if (characteristic && characteristic.value) {
+            const decodedValue = decodeBase64Value(characteristic.value);
+            console.log('Monitored characteristic value:', decodedValue);
+          }
+        },
+      );
+
+      return () => {
+        subscription.remove();
+      };
+    }
+  }, [selectedDevice, isConnected]);
 
   // 获取设备状态颜色
   const getDeviceStatusColor = () => {
@@ -151,9 +204,6 @@ const DevicePanelController: NavigationFunctionComponent<
       return [];
     }
   };
-  const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
-    null,
-  );
 
   useNavigationComponentDidAppear(async () => {
     if (firstLoad.current) {
@@ -188,7 +238,6 @@ const DevicePanelController: NavigationFunctionComponent<
         } catch (error) {
           console.error('Error reading device version:', error);
         }
-
 
         const battery = await BLEManager.writeCharacteristic(
           selectedDevice.id,

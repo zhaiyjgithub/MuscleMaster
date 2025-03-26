@@ -1,11 +1,21 @@
-import {BleManager, Device, State, Subscription} from 'react-native-ble-plx';
+import {BleError, BleManager, Characteristic, Device, State, Subscription} from 'react-native-ble-plx';
 import {PermissionsAndroid, Platform} from 'react-native';
 import {encodeBase64Value} from '../lib/utils';
+
+type ConnectionListener = (
+  device: Device,
+  isConnected: boolean,
+  error?: Error | null,
+) => void;
 
 class BLEManagerClass {
   private manager: BleManager;
   private devices: Map<string, Device> = new Map();
   private isScanning: boolean = false;
+
+  private connectionListeners: Map<string, ConnectionListener[]> = new Map();
+  private globalConnectionListeners: ConnectionListener[] = [];
+  private connectedDevices: Map<string, Device> = new Map();
 
   constructor() {
     this.manager = new BleManager();
@@ -194,6 +204,12 @@ class BLEManagerClass {
       const device = await this.manager.connectToDevice(deviceId);
       console.log('Connected to device:', device.name);
 
+      // 添加到已连接设备列表
+      this.connectedDevices.set(deviceId, device);
+
+      // 通知连接成功
+      this.notifyConnectionChange(device, true);
+
       // 发现所有服务和特征
       await device.discoverAllServicesAndCharacteristics();
       console.log('Discovered services and characteristics');
@@ -201,6 +217,12 @@ class BLEManagerClass {
       // 监听断开连接事件
       device.onDisconnected((error, disconnectedDevice) => {
         console.log('Device disconnected:', disconnectedDevice.name);
+
+        // 从已连接设备列表中移除
+        this.connectedDevices.delete(disconnectedDevice.id);
+
+        // 通知断开连接
+        this.notifyConnectionChange(disconnectedDevice, false, error);
       });
 
       return device;
@@ -213,7 +235,19 @@ class BLEManagerClass {
   // 断开设备连接
   async disconnectDevice(deviceId: string): Promise<boolean> {
     try {
+      const device = this.connectedDevices.get(deviceId);
+      if (!device) {
+        console.log('Device not found in connected devices');
+        return false;
+      }
       await this.manager.cancelDeviceConnection(deviceId);
+
+      // 从已连接设备列表中移除
+      this.connectedDevices.delete(deviceId);
+
+      // 通知断开连接
+      this.notifyConnectionChange(device, false);
+
       console.log('Device disconnected successfully');
       return true;
     } catch (error) {
@@ -229,7 +263,7 @@ class BLEManagerClass {
 
   // 获取设备信息
   getDeviceById(deviceId: string): Device | undefined {
-    return this.devices.get(deviceId);
+    return this.devices.get(deviceId) || this.connectedDevices.get(deviceId);
   }
 
   // 检查蓝牙是否已启用
@@ -437,6 +471,134 @@ class BLEManagerClass {
   // 销毁管理器
   destroy() {
     this.manager.destroy();
+  }
+
+  // 添加连接状态监听器
+  addConnectionListener(listener: ConnectionListener): void {
+    this.globalConnectionListeners.push(listener);
+  }
+
+  // 移除连接状态监听器
+  removeConnectionListener(listener: ConnectionListener): void {
+    const index = this.globalConnectionListeners.indexOf(listener);
+    if (index !== -1) {
+      this.globalConnectionListeners.splice(index, 1);
+    }
+  }
+
+  // 为特定设备添加连接状态监听器
+  addDeviceConnectionListener(
+    deviceId: string,
+    listener: ConnectionListener,
+  ): void {
+    if (!this.connectionListeners.has(deviceId)) {
+      this.connectionListeners.set(deviceId, []);
+    }
+    this.connectionListeners.get(deviceId)?.push(listener);
+  }
+
+  // 为特定设备移除连接状态监听器
+  removeDeviceConnectionListener(
+    deviceId: string,
+    listener: ConnectionListener,
+  ): void {
+    if (!this.connectionListeners.has(deviceId)) {
+      return;
+    }
+    const listeners = this.connectionListeners.get(deviceId);
+    if (listeners) {
+      const index = listeners.indexOf(listener);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  // 通知所有监听器设备连接状态变化
+  private notifyConnectionChange(
+    device: Device,
+    isConnected: boolean,
+    error?: Error | null,
+  ): void {
+    // 通知全局监听器
+    for (const listener of this.globalConnectionListeners) {
+      listener(device, isConnected, error);
+    }
+
+    // 通知设备特定监听器
+    const deviceListeners = this.connectionListeners.get(device.id);
+    if (deviceListeners) {
+      for (const listener of deviceListeners) {
+        listener(device, isConnected, error);
+      }
+    }
+
+    // 更新已连接设备的缓存
+    if (isConnected) {
+      this.connectedDevices.set(device.id, device);
+    } else {
+      this.connectedDevices.delete(device.id);
+    }
+  }
+
+  // 检查设备是否已连接
+  isDeviceConnected(deviceId: string): boolean {
+    return this.connectedDevices.has(deviceId);
+  }
+
+  // 获取所有已连接的设备
+  getConnectedDevices(): Device[] {
+    return Array.from(this.connectedDevices.values());
+  }
+
+  // 获取已连接设备的数量
+  getConnectedDevicesCount(): number {
+    return this.connectedDevices.size;
+  }
+
+  // 监控指定设备的连接状态
+  monitorDeviceConnection(
+    deviceId: string,
+    listener: ConnectionListener,
+  ): Subscription {
+    // 首先检查设备是否已连接
+    const isConnected = this.isDeviceConnected(deviceId);
+    const device =
+      this.devices.get(deviceId) || this.connectedDevices.get(deviceId);
+
+    if (device && isConnected) {
+      // 如果设备已连接，立即通知监听器
+      listener(device, true);
+    }
+
+    // 添加设备特定监听器
+    this.addDeviceConnectionListener(deviceId, listener);
+
+    // 返回一个可取消的订阅对象
+    return {
+      remove: () => {
+        this.removeDeviceConnectionListener(deviceId, listener);
+      },
+    };
+  }
+
+  monitorCharacteristicForDevice(
+    deviceId: string,
+    serviceUUID: string,
+    characteristicUUID: string,
+    listener: (
+      error: BleError | null,
+      characteristic: Characteristic | null,
+    ) => void,
+    transactionId?: string,
+  ): Subscription {
+    return this.manager.monitorCharacteristicForDevice(
+      deviceId,
+      serviceUUID,
+      characteristicUUID,
+      listener,
+      transactionId,
+    );
   }
 }
 
