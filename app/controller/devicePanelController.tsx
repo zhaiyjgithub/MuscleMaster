@@ -209,6 +209,17 @@ const DevicePanelController: NavigationFunctionComponent<
         if (mode) {
           setSelectedMode(mode.toString());
         }
+
+        const intensity = await BLEManager.writeCharacteristic(
+          selectedDevice.id,
+          BLE_UUID_SHORT.SERVICE,
+          BLE_UUID_SHORT.CHARACTERISTIC_READ,
+          BLECommands.getIntensity(),
+        );
+        console.log(`Device intensity: ${intensity}`);
+        if (intensity) {
+          setIntensityLevel(parseInt(intensity.toString(), 10));
+        }
       })();
     }
   }, [selectedDevice, isConnected]);
