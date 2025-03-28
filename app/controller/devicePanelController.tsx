@@ -61,13 +61,13 @@ const DevicePanelController: NavigationFunctionComponent<
     Record<string, boolean>
   >({});
   const [deviceVersion, setDeviceVersion] = useState('');
-  const [connectionSubscription, setConnectionSubscription] =
-    useState<Subscription | null>(null);
+  useState<Subscription | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
     null,
   );
 
   const firstLoad = useRef(true);
+  const subscriptionRef = useRef<Subscription | null>(null);
 
   // 创建一个动画值用于状态指示器的呼吸效果
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -115,35 +115,12 @@ const DevicePanelController: NavigationFunctionComponent<
           }
         },
       );
-      setConnectionSubscription(subscription);
 
       return () => {
         subscription.remove();
       };
     }
   }, [selectedDevice]);
-
-  useEffect(() => {
-    if (selectedDevice && isConnected) {
-      const subscription = BLEManager.monitorCharacteristicForDevice(
-        selectedDevice.id,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_WRITE,
-        (error, characteristic) => {
-          if (error) {
-            console.error('Characteristic monitoring error:', error);
-          } else if (characteristic && characteristic.value) {
-            const decodedValue = decodeBase64Value(characteristic.value);
-            console.log('Monitored characteristic value:', decodedValue);
-          }
-        },
-      );
-
-      return () => {
-        subscription.remove();
-      };
-    }
-  }, [selectedDevice, isConnected]);
 
   // 获取设备状态颜色
   const getDeviceStatusColor = () => {
@@ -217,64 +194,6 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   });
 
-  // 在设备连接成功后，获取设备版本，并显示在设备名称后面
-  // 获取设备电量
-  // 获取设备模式
-  useEffect(() => {
-    if (selectedDevice && isConnected) {
-      // 使用 async IIFE 来处理异步操作
-      (async () => {
-        try {
-          const version = await BLEManager.writeCharacteristic(
-            selectedDevice.id,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_READ,
-            BLECommands.getVersion(),
-          );
-          console.log(`Device version: ${JSON.stringify(version)}`);
-          if (version) {
-            setDeviceVersion(version.toString());
-          }
-        } catch (error) {
-          console.error('Error reading device version:', error);
-        }
-
-        const battery = await BLEManager.writeCharacteristic(
-          selectedDevice.id,
-          BLE_UUID.SERVICE,
-          BLE_UUID.CHARACTERISTIC_READ,
-          BLECommands.getBattery(),
-        );
-        console.log(`Device battery: ${battery}`);
-        if (battery) {
-          setBatteryLevel(battery.toString());
-        }
-
-        const mode = await BLEManager.writeCharacteristic(
-          selectedDevice.id,
-          BLE_UUID.SERVICE,
-          BLE_UUID.CHARACTERISTIC_READ,
-          BLECommands.getMode(),
-        );
-        console.log(`Device mode: ${mode}`);
-        if (mode) {
-          setSelectedMode(mode.toString());
-        }
-
-        const intensity = await BLEManager.writeCharacteristic(
-          selectedDevice.id,
-          BLE_UUID.SERVICE,
-          BLE_UUID.CHARACTERISTIC_READ,
-          BLECommands.getIntensity(),
-        );
-        console.log(`Device intensity: ${intensity}`);
-        if (intensity) {
-          setIntensityLevel(parseInt(intensity.toString(), 10));
-        }
-      })();
-    }
-  }, [selectedDevice, isConnected]);
-
   useEffect(() => {
     // 组件挂载时的代码...
 
@@ -291,6 +210,9 @@ const DevicePanelController: NavigationFunctionComponent<
           .catch(error => {
             console.error('Error disconnecting from device:', error);
           });
+
+        // 清理订阅
+        subscriptionRef.current?.remove();
       }
     };
   }, [isConnected, selectedDevice]); // 空依赖数组表示这个效果只在挂载和卸载时运行
@@ -487,26 +409,51 @@ const DevicePanelController: NavigationFunctionComponent<
         );
         console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
 
-        // 遍历读取特性
-        for (const service of serviceInfos) {
-          for (const characteristic of service.characteristicInfos) {
-            const value = await BLEManager.readCharacteristic(
-              device.id,
-              service.uuid,
-              characteristic.uuid,
-            );
-            console.log(
-              `service UUID: ${service.uuid} characteristic UUID: ${characteristic.uuid}`,
-            );
-            if (value) {
-              const decodedValue = decodeBase64Value(value);
-              console.log(
-                `Decoded value of ${characteristic.uuid}:`,
-                decodedValue,
-              );
+        subscriptionRef.current = BLEManager.monitorCharacteristicForDevice(
+          device.id,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
+          (error, characteristic) => {
+            console.log('Monitoring characteristic:', characteristic, error);
+            if (error) {
+              console.error('Characteristic monitoring error:', error);
+            } else if (characteristic && characteristic.value) {
+              const decodedValue = decodeBase64Value(characteristic.value);
+              console.log('Monitored characteristic value:', decodedValue);
             }
-          }
+          },
+        );
+
+        try {
+          await BLEManager.writeCharacteristic(
+            device.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
+            BLECommands.getVersion(),
+          );
+        } catch (error) {
+          console.error('Error reading device version:', error);
         }
+        // 遍历读取特性
+        // for (const service of serviceInfos) {
+        //   for (const characteristic of service.characteristicInfos) {
+        //     const value = await BLEManager.readCharacteristic(
+        //       device.id,
+        //       service.uuid,
+        //       characteristic.uuid,
+        //     );
+        //     console.log(
+        //       `service UUID: ${service.uuid} characteristic UUID: ${characteristic.uuid}`,
+        //     );
+        //     if (value) {
+        //       const decodedValue = decodeBase64Value(value);
+        //       console.log(
+        //         `Decoded value of ${characteristic.uuid}:`,
+        //         decodedValue,
+        //       );
+        //     }
+        //   }
+        // }
       }
     } catch (error) {
       console.error(

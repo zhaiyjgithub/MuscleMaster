@@ -1,10 +1,66 @@
 /**
  * 蓝牙通信协议
- * 基于蓝牙透传协议文档
+ * 基于蓝牙透传协议文档 v3
  */
 
 // React Native 环境中需要专门引入Buffer库
 import {Buffer} from 'buffer';
+
+// 数据方向枚举
+export enum DataDirection {
+  // APP到设备
+  APP_TO_DEVICE = 0x01,
+  // 设备到APP
+  DEVICE_TO_APP = 0x02,
+}
+
+// 设备型号枚举
+export enum DeviceModel {
+  // 1路设备
+  MODEL_1 = 0x01,
+  // 2路设备
+  MODEL_2 = 0x02,
+  // 4路设备
+  MODEL_4 = 0x04,
+}
+
+// 命令类型枚举
+export enum CommandType {
+  // 设备控制命令
+  POWER_ON = 0x01,
+  POWER_OFF = 0x02,
+  SET_INTENSITY = 0x03,
+  GET_INTENSITY = 0x04,
+  SET_MODE = 0x05,
+  GET_MODE = 0x06,
+  START_THERAPY = 0x07,
+  STOP_THERAPY = 0x08,
+  GET_BATTERY = 0x09,
+  GET_VERSION = 0x01,
+  UNKNOWN = 0xff,
+  // 可以根据协议文档添加更多命令...
+}
+
+export const CommandValue = {
+  GET_VERSION: [0x00],
+};
+
+// 工作模式枚举
+export enum DeviceMode {
+  FITNESS = 0x01,
+  WARM_UP = 0x02,
+  CARDIO = 0x03,
+  RELAX = 0x04,
+  DERMAL = 0x05,
+  DRAINAGE = 0x06,
+  CELLULITE = 0x07,
+  METABOLIC = 0x08,
+  SLIM = 0x09,
+  RESISTANCE = 0x0a,
+  CONTRACTURES = 0x0b,
+  CAPILLARY = 0x0c,
+  VIP = 0x0d,
+}
 
 // 蓝牙UUID常量 - 使用标准格式
 export const BLE_UUID = {
@@ -23,98 +79,57 @@ export const BLE_UUID_SHORT = {
   CHARACTERISTIC_WRITE: 'FFE1', // FFE2
 };
 
-// 命令类型枚举
-export enum CommandType {
-  // 设备控制命令
-  POWER_ON = 0x01,
-  POWER_OFF = 0x02,
-  SET_INTENSITY = 0x03,
-  GET_INTENSITY = 0x04,
-  SET_MODE = 0x05,
-  GET_MODE = 0x06,
-  START_THERAPY = 0x07,
-  STOP_THERAPY = 0x08,
-  GET_BATTERY = 0x09,
-  GET_VERSION = 0x0a,
-  UNKNOWN,
-  // 可以根据协议文档添加更多命令...
-}
-
-// 工作模式枚举
-/*
-    const modes: ModeItem[] = [
-        { id: 0x01, name: 'Fitness', icon: <Dumbbell size={24} color="#1e88e5" /> },
-        { id: 0x02, name: 'Warm up', icon: <Flame size={24} color="#1e88e5" /> },
-        { id: 0x03, name: 'Cardio', icon: <Heart size={24} color="#1e88e5" /> },
-        { id: 0x04, name: 'Relax', icon: <Smile size={24} color="#1e88e5" /> },
-        { id: 0x05, name: 'Dermal', icon: <User size={24} color="#1e88e5" /> },
-        { id: 0x06, name: 'Drainage', icon: <Droplet size={24} color="#1e88e5" /> },
-        { id: 0x07, name: 'Cellulite', icon: <Scan size={24} color="#1e88e5" /> },
-        { id: 0x08, name: 'Metabolic', icon: <Activity size={24} color="#1e88e5" /> },
-        { id: 0x09, name: 'Slim', icon: <Scissors size={24} color="#1e88e5" /> },
-        { id: 0x0A, name: 'Resistance', icon: <Shield size={24} color="#1e88e5" /> },
-        { id: 0x0B, name: 'Contractures', icon: <Zap size={24} color="#1e88e5" /> },
-        { id: 0x0C, name: 'Capillary', icon: <Activity size={24} color="#1e88e5" /> },
-        { id: 0x0D, name: 'Vip', icon: <Crown size={24} color="#1e88e5" /> },
-    ];
-*/
-export enum DeviceMode {
-  FITNESS = 0x01,
-  WARM_UP = 0x02,
-  CARDIO = 0x03,
-  RELAX = 0x04,
-  DERMAL = 0x05,
-  DRAINAGE = 0x06,
-  CELLULITE = 0x07,
-  METABOLIC = 0x08,
-  SLIM = 0x09,
-  RESISTANCE = 0x0a,
-  CONTRACTURES = 0x0b,
-  CAPILLARY = 0x0c,
-  VIP = 0x0d,
-}
-
 // 协议帧格式定义
-const FRAME_HEADER = 0xaa;
-const MIN_FRAME_LENGTH = 4; // 帧头+命令+数据长度+校验和
+const FRAME_HEADER = 0x5a; // 根据协议，包头固定为0x5A
+const DEFAULT_MODEL = DeviceModel.MODEL_1; // 默认使用1路设备
+const MIN_FRAME_LENGTH = 6; // 包头+数据方向+型号+命令+数据长度+校验和(最小6字节)
 
 /**
  * 创建命令帧
  * @param command 命令类型
  * @param data 命令数据(可选)
- * @returns 经过base64编码的命令字符串，可直接发送给BLEManager
+ * @param model 设备型号(默认1路)
+ * @returns 命令字符串，可直接发送给BLEManager
  */
 export function createCommand(
   command: CommandType,
   data: number[] = [],
+  model: DeviceModel = DEFAULT_MODEL,
 ): string {
   try {
-    // 创建包含帧头、命令、数据长度的基础帧
-    const frameBuffer = Buffer.alloc(3 + data.length + 1); // +1 for checksum
+    // 创建包含包头、数据方向、型号、命令、数据长度的基础帧
+    const frameBuffer = Buffer.alloc(5 + data.length + 1); // +1 for checksum
 
-    // 帧头
+    // 包头
     frameBuffer[0] = FRAME_HEADER;
+    // 数据方向(APP到设备)
+    frameBuffer[1] = DataDirection.APP_TO_DEVICE;
+    // 型号
+    frameBuffer[2] = command === CommandType.GET_VERSION ? 0x00 : model;
     // 命令
-    frameBuffer[1] = command;
+    frameBuffer[3] = command;
     // 数据长度
-    frameBuffer[2] = data.length;
+    frameBuffer[4] = data.length;
 
     // 添加数据
     for (let i = 0; i < data.length; i++) {
-      frameBuffer[3 + i] = data[i];
+      frameBuffer[5 + i] = data[i];
     }
 
-    // 计算校验和(所有字节的异或值)
+    // 计算校验和(所有字节的和的低8位)
     let checksum = 0;
     for (let i = 0; i < frameBuffer.length - 1; i++) {
-      checksum ^= frameBuffer[i];
+      checksum += frameBuffer[i];
     }
+    // 取低8位
+    checksum = checksum & 0xff;
 
     // 添加校验和
     frameBuffer[frameBuffer.length - 1] = checksum;
 
-    // 返回base64编码的命令
-    return frameBuffer.toString('base64');
+    // 不需要转base64，直接返回Buffer
+    console.log('Command created:', frameBuffer);
+    return frameBuffer.toString();
   } catch (error) {
     console.error('Error creating command:', error);
     throw new Error('Failed to create command');
@@ -126,21 +141,32 @@ export function createCommand(
  * 适用于某些无法正确支持Buffer的环境
  * @param command 命令类型
  * @param data 命令数据(可选)
- * @returns base64编码的命令字符串
+ * @param model 设备型号(默认1路)
+ * @returns 命令字符串
  */
 export function createCommandAlt(
   command: CommandType,
   data: number[] = [],
+  model: DeviceModel = DEFAULT_MODEL,
 ): string {
   try {
-    // 创建包含帧头、命令、数据长度的基础帧
-    const frame = [FRAME_HEADER, command, data.length, ...data];
+    // 创建包含包头、数据方向、型号、命令、数据长度的基础帧
+    const frame = [
+      FRAME_HEADER,
+      DataDirection.APP_TO_DEVICE,
+      model,
+      command,
+      data.length,
+      ...data,
+    ];
 
-    // 计算校验和(所有字节的异或值)
+    // 计算校验和(所有字节的和的低8位)
     let checksum = 0;
     for (const byte of frame) {
-      checksum ^= byte;
+      checksum += byte;
     }
+    // 取低8位
+    checksum = checksum & 0xff;
 
     // 添加校验和
     frame.push(checksum);
@@ -148,9 +174,8 @@ export function createCommandAlt(
     // 转换为Uint8Array
     const frameUint8 = new Uint8Array(frame);
 
-    // 使用base64-js或类似库进行编码
-    // 这里使用的是内置的btoa函数，在实际环境中可能需要替换
-    const binary = String.fromCharCode.apply(null, [...frameUint8]);
+    // 使用base64编码
+    const binary = String.fromCharCode.apply(null, Array.from(frameUint8));
     return btoa(binary);
   } catch (error) {
     console.error('Error creating command (alternative method):', error);
@@ -164,6 +189,8 @@ export function createCommandAlt(
  * @returns 解析后的对象，包含命令类型和数据
  */
 export function parseResponse(responseBase64: string): {
+  dataDirection: DataDirection;
+  model: DeviceModel;
   command: CommandType;
   data: number[];
   isValid: boolean;
@@ -175,43 +202,69 @@ export function parseResponse(responseBase64: string): {
     // 检查最小长度
     if (responseBuffer.length < MIN_FRAME_LENGTH) {
       console.warn('Response too short:', responseBuffer.length);
-      return {command: CommandType.UNKNOWN, data: [], isValid: false};
+      return {
+        dataDirection: DataDirection.DEVICE_TO_APP,
+        model: DEFAULT_MODEL,
+        command: CommandType.UNKNOWN,
+        data: [],
+        isValid: false,
+      };
     }
 
-    // 检查帧头
+    // 检查包头
     if (responseBuffer[0] !== FRAME_HEADER) {
       console.warn('Invalid frame header:', responseBuffer[0]);
-      return {command: CommandType.UNKNOWN, data: [], isValid: false};
+      return {
+        dataDirection: DataDirection.DEVICE_TO_APP,
+        model: DEFAULT_MODEL,
+        command: CommandType.UNKNOWN,
+        data: [],
+        isValid: false,
+      };
     }
 
+    // 提取数据方向
+    const dataDirection = responseBuffer[1] as DataDirection;
+
+    // 提取型号
+    const model = responseBuffer[2] as DeviceModel;
+
     // 提取命令
-    const command = responseBuffer[1] as CommandType;
+    const command = responseBuffer[3] as CommandType;
 
     // 提取数据长度
-    const dataLength = responseBuffer[2];
+    const dataLength = responseBuffer[4];
 
     // 检查帧长度是否符合预期
-    if (responseBuffer.length !== 3 + dataLength + 1) {
+    if (responseBuffer.length !== 5 + dataLength + 1) {
       console.warn(
         'Invalid frame length. Expected:',
-        3 + dataLength + 1,
+        5 + dataLength + 1,
         'Got:',
         responseBuffer.length,
       );
-      return {command: CommandType.UNKNOWN, data: [], isValid: false};
+      return {
+        dataDirection,
+        model,
+        command: CommandType.UNKNOWN,
+        data: [],
+        isValid: false,
+      };
     }
 
     // 提取数据
     const data: number[] = [];
     for (let i = 0; i < dataLength; i++) {
-      data.push(responseBuffer[3 + i]);
+      data.push(responseBuffer[5 + i]);
     }
 
-    // 校验和验证
+    // 校验和验证(所有字节的和的低8位)
     let checksum = 0;
     for (let i = 0; i < responseBuffer.length - 1; i++) {
-      checksum ^= responseBuffer[i];
+      checksum += responseBuffer[i];
     }
+    // 取低8位
+    checksum = checksum & 0xff;
 
     const isValid = checksum === responseBuffer[responseBuffer.length - 1];
     if (!isValid) {
@@ -223,10 +276,16 @@ export function parseResponse(responseBase64: string): {
       );
     }
 
-    return {command, data, isValid};
+    return {dataDirection, model, command, data, isValid};
   } catch (error) {
     console.error('Error parsing response:', error);
-    return {command: CommandType.UNKNOWN, data: [], isValid: false};
+    return {
+      dataDirection: DataDirection.DEVICE_TO_APP,
+      model: DEFAULT_MODEL,
+      command: CommandType.UNKNOWN,
+      data: [],
+      isValid: false,
+    };
   }
 }
 
@@ -235,88 +294,92 @@ export const BLECommands = {
   /**
    * 打开设备电源
    */
-  powerOn(): string {
-    return createCommand(CommandType.POWER_ON);
+  powerOn(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.POWER_ON, [], model);
   },
 
   /**
    * 关闭设备电源
+   * 根据透传协议，需要发送两次相同命令，间隔100ms
    */
-  powerOff(): string {
-    return createCommand(CommandType.POWER_OFF);
+  powerOff(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.POWER_OFF, [], model);
   },
 
   /**
    * 设置强度等级
    * @param level 强度等级(例如1-10)
    */
-  setIntensity(level: number): string {
-    return createCommand(CommandType.SET_INTENSITY, [level]);
+  setIntensity(level: number, model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.SET_INTENSITY, [level], model);
   },
 
   /**
    * 获取当前强度等级
    */
-  getIntensity(): string {
-    return createCommand(CommandType.GET_INTENSITY);
+  getIntensity(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.GET_INTENSITY, [], model);
   },
 
   /**
    * 设置工作模式
    * @param mode 工作模式
    */
-  setMode(mode: DeviceMode): string {
-    return createCommand(CommandType.SET_MODE, [mode]);
+  setMode(mode: DeviceMode, model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.SET_MODE, [mode], model);
   },
 
   /**
    * 获取当前工作模式
    */
-  getMode(): string {
-    return createCommand(CommandType.GET_MODE);
+  getMode(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.GET_MODE, [], model);
   },
 
   /**
    * 开始治疗/按摩
    * @param duration 持续时间(秒)
    */
-  startTherapy(duration: number = 0): string {
-    // 假设持续时间需要两个字节(高字节在前)
+  startTherapy(
+    duration: number = 0,
+    model: DeviceModel = DEFAULT_MODEL,
+  ): string {
+    // 持续时间需要两个字节(高字节在前)
     const highByte = (duration >> 8) & 0xff;
     const lowByte = duration & 0xff;
-    return createCommand(CommandType.START_THERAPY, [highByte, lowByte]);
+    return createCommand(CommandType.START_THERAPY, [highByte, lowByte], model);
   },
 
   /**
    * 停止治疗/按摩
    */
-  stopTherapy(): string {
-    return createCommand(CommandType.STOP_THERAPY);
+  stopTherapy(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.STOP_THERAPY, [], model);
   },
 
   /**
    * 获取电池电量
    */
-  getBattery(): string {
-    return createCommand(CommandType.GET_BATTERY);
+  getBattery(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(CommandType.GET_BATTERY, [], model);
   },
 
   /**
    * 获取设备版本
    */
-  getVersion(): string {
-    return createCommand(CommandType.GET_VERSION);
+  getVersion(model: DeviceModel = DEFAULT_MODEL): string {
+    return createCommand(
+      CommandType.GET_VERSION,
+      CommandValue.GET_VERSION,
+      model,
+    );
   },
 };
 
 /**
- * 修复后的实现提供了两种创建命令的方法:
- * 1. createCommand: 使用Node.js Buffer API
- * 2. createCommandAlt: 使用原生JavaScript实现，不依赖Buffer
- *
  * 使用示例：
  *
- * import { Commands, BLE_UUID } from '../services/protocol';
+ * import { BLECommands, BLE_UUID, DeviceModel } from '../services/protocol';
  *
  * // 读取设备数据
  * const response = await BLEManager.readCharacteristic(
@@ -325,11 +388,41 @@ export const BLECommands = {
  *   BLE_UUID.CHARACTERISTIC_READ
  * );
  *
- * // 写入命令到设备
+ * // 写入命令到设备(使用默认1路设备)
  * await BLEManager.writeCharacteristic(
  *   deviceId,
  *   BLE_UUID.SERVICE,
  *   BLE_UUID.CHARACTERISTIC_WRITE,
- *   Commands.setIntensity(8)
+ *   BLECommands.setIntensity(8)
  * );
+ *
+ * // 写入命令到2路设备
+ * await BLEManager.writeCharacteristic(
+ *   deviceId,
+ *   BLE_UUID.SERVICE,
+ *   BLE_UUID.CHARACTERISTIC_WRITE,
+ *   BLECommands.setIntensity(8, DeviceModel.MODEL_2)
+ * );
+ *
+ * // 发送关机命令(需要发送两次)
+ * async function shutdownDevice(deviceId) {
+ *   // 第一次发送
+ *   await BLEManager.writeCharacteristic(
+ *     deviceId,
+ *     BLE_UUID.SERVICE,
+ *     BLE_UUID.CHARACTERISTIC_WRITE,
+ *     BLECommands.powerOff()
+ *   );
+ *
+ *   // 等待100ms
+ *   await new Promise(resolve => setTimeout(resolve, 100));
+ *
+ *   // 第二次发送
+ *   await BLEManager.writeCharacteristic(
+ *     deviceId,
+ *     BLE_UUID.SERVICE,
+ *     BLE_UUID.CHARACTERISTIC_WRITE,
+ *     BLECommands.powerOff()
+ *   );
+ * }
  */

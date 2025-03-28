@@ -1,4 +1,11 @@
-import {BleError, BleManager, Characteristic, Device, State, Subscription} from 'react-native-ble-plx';
+import {
+  BleError,
+  BleManager,
+  Characteristic,
+  Device,
+  State,
+  Subscription,
+} from 'react-native-ble-plx';
 import {PermissionsAndroid, Platform} from 'react-native';
 import {encodeBase64Value} from '../lib/utils';
 
@@ -330,41 +337,48 @@ class BLEManagerClass {
   ) {
     try {
       // 检查特性属性
-      const props = await this.checkCharacteristicProperties(
+      return await this.manager.writeCharacteristicWithoutResponseForDevice(
         deviceId,
         serviceUUID,
         characteristicUUID,
+        data,
       );
-      console.log('Characteristic properties:', props);
 
-      // 根据特性支持的写入模式选择写入方法
-      if (props.canWriteWithResponse) {
-        console.log(
-          'Using write with response for characteristic:',
-          characteristicUUID,
-        );
-        return await this.manager.writeCharacteristicWithResponseForDevice(
-          deviceId,
-          serviceUUID,
-          characteristicUUID,
-          data,
-        );
-      } else if (props.canWriteWithoutResponse) {
-        console.log(
-          'Using write without response for characteristic:',
-          characteristicUUID,
-        );
-        return await this.manager.writeCharacteristicWithoutResponseForDevice(
-          deviceId,
-          serviceUUID,
-          characteristicUUID,
-          data,
-        );
-      } else {
-        throw new Error(
-          `Characteristic ${characteristicUUID} does not support any write operations`,
-        );
-      }
+      // const props = await this.checkCharacteristicProperties(
+      //   deviceId,
+      //   serviceUUID,
+      //   characteristicUUID,
+      // );
+      // console.log('Characteristic properties:', props);
+      //
+      // // 根据特性支持的写入模式选择写入方法
+      // if (props.canWriteWithResponse) {
+      //   console.log(
+      //     'Using write with response for characteristic:',
+      //     characteristicUUID,
+      //   );
+      //   return await this.manager.writeCharacteristicWithResponseForDevice(
+      //     deviceId,
+      //     serviceUUID,
+      //     characteristicUUID,
+      //     data,
+      //   );
+      // } else if (props.canWriteWithoutResponse) {
+      //   console.log(
+      //     'Using write without response for characteristic:',
+      //     characteristicUUID,
+      //   );
+      //   return await this.manager.writeCharacteristicWithoutResponseForDevice(
+      //     deviceId,
+      //     serviceUUID,
+      //     characteristicUUID,
+      //     data,
+      //   );
+      // } else {
+      //   throw new Error(
+      //     `Characteristic ${characteristicUUID} does not support any write operations`,
+      //   );
+      // }
     } catch (error) {
       console.error('Error writing characteristic:', error);
       throw error;

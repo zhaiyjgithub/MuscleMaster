@@ -43,7 +43,10 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 
             // If device is new, add it to array
             // filter 'GuGeer' 开头的设备
-            if (device.name && device.name.toLowerCase().startsWith('gugeer')) {
+            if (
+              (device.name && device.name.toLowerCase().startsWith('gugeer')) ||
+              (device.name && device.name.toLowerCase().indexOf('d30') !== -1)
+            ) {
               return [
                 ...prevDevices,
                 {
@@ -55,8 +58,9 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
                   iconColor: '#1e88e5',
                 },
               ];
+            } else {
+              return prevDevices;
             }
-            return prevDevices;
           });
         },
         // 扫描完成回调
@@ -118,7 +122,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const handleRescan = useCallback(() => {
     if (bleReady) {
       // clear all previous devices
-      setDevices([])
+      setDevices([]);
       startScanning();
     } else {
       waitForBluetoothAndScan();
