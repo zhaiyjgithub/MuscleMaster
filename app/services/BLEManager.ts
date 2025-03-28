@@ -390,13 +390,10 @@ class BLEManagerClass {
     deviceId: string,
     serviceUUID: string,
     characteristicUUID: string,
-    value: any,
+    base64Data: any,
     forceWithResponse: boolean = false,
   ) {
     try {
-      // 使用 encodeBase64Value 工具方法编码数据
-      const data = encodeBase64Value(value);
-
       // 检查特性属性，以决定使用哪种写入方法
       if (forceWithResponse) {
         // 强制使用带响应的写入
@@ -404,14 +401,14 @@ class BLEManagerClass {
           deviceId,
           serviceUUID,
           characteristicUUID,
-          data,
+          base64Data,
         );
       } else {
         return await this.writeCharacteristicSmart(
           deviceId,
           serviceUUID,
           characteristicUUID,
-          data,
+          base64Data,
         );
       }
     } catch (error) {

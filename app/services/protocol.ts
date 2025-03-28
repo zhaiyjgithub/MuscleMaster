@@ -151,7 +151,7 @@ export function createCommand(
 
     // 不需要转base64，直接返回Buffer
     console.log('Command created:', frameBuffer);
-    return frameBuffer.toString();
+    return frameBuffer.toString('base64');
   } catch (error) {
     console.error('Error creating command:', error);
     throw new Error('Failed to create command');
