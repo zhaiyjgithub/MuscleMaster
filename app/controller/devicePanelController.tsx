@@ -1,34 +1,34 @@
-import React, {useState, useEffect, useRef} from 'react';
+import BottomSheet from '@gorhom/bottom-sheet';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-  ActivityIndicator,
-  Animated,
-  Alert,
-} from 'react-native';
-import {Subscription} from 'react-native-ble-plx';
-import {NavigationFunctionComponent} from 'react-native-navigation';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {BLEManager} from '../services/BLEManager';
-import {
+  Battery,
+  ChevronDown,
   ChevronRight,
   ChevronUp,
-  ChevronDown,
   Smartphone,
-  Battery,
 } from 'lucide-react-native';
-import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {Subscription} from 'react-native-ble-plx';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {NavigationFunctionComponent} from 'react-native-navigation';
 import {useNavigationComponentDidAppear} from 'react-native-navigation-hooks';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import ModeListActionSheet, {
   getIconByMode,
 } from '../components/mode-list-action-sheet/modeListActionSheet';
-import BottomSheet from '@gorhom/bottom-sheet';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
 import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
 import {decodeBase64Value} from '../lib/utils';
+import {BLEManager} from '../services/BLEManager';
 import {BLE_UUID, BLECommands, DeviceMode} from '../services/protocol';
 
 export interface DevicePanelControllerProps {
@@ -50,8 +50,8 @@ const DevicePanelController: NavigationFunctionComponent<
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [batteryLevel, setBatteryLevel] = useState('75');
-  const [intensityLevel, setIntensityLevel] = useState(7);
-  const [maxIntensity, setMaxIntensity] = useState(10);
+  const [intensityLevel, setIntensityLevel] = useState(50);
+  const [maxIntensity, setMaxIntensity] = useState(100);
   const [timerValue, setTimerValue] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(
@@ -271,9 +271,37 @@ const DevicePanelController: NavigationFunctionComponent<
     if (timerRunning) {
       // 如果计时器正在运行，暂停它
       pauseTimer();
+      if (selectedDevice) {
+        BLEManager.writeCharacteristic(
+          selectedDevice.id,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
+          BLECommands.stopTherapy(),
+        )
+          .then(() => {
+            console.log('Successfully stop device');
+          })
+          .catch(error => {
+            console.error('Error stop device:', error);
+          });
+      }
     } else {
       // 如果计时器未运行，启动它
       startTimer();
+      if (selectedDevice) {
+        BLEManager.writeCharacteristic(
+          selectedDevice.id,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
+          BLECommands.startTherapy(),
+        )
+          .then(() => {
+            console.log('Successfully start device');
+          })
+          .catch(error => {
+            console.error('Error start device:', error);
+          });
+      }
     }
   };
 
@@ -308,6 +336,22 @@ const DevicePanelController: NavigationFunctionComponent<
     setTimerValue(0);
     setTimerRunning(false);
     timePickerActionSheetRef.current?.expand();
+
+    // 停止设备
+    if (selectedDevice) {
+      BLEManager.writeCharacteristic(
+        selectedDevice.id,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_WRITE,
+        BLECommands.stopTherapy(),
+      )
+        .then(() => {
+          console.log('Successfully stop device');
+        })
+        .catch(error => {
+          console.error('Error stop device:', error);
+        });
+    }
   };
 
   // 在组件卸载时清除定时器
@@ -369,9 +413,9 @@ const DevicePanelController: NavigationFunctionComponent<
         [
           {
             text: 'Connect',
-            onPress: () => {
+            onPress: async () => {
               console.log('Connecting to device');
-              connectToDevice(selectedDevice);
+              await connectToDevice(selectedDevice);
             },
           },
         ],
@@ -414,10 +458,19 @@ const DevicePanelController: NavigationFunctionComponent<
           BLE_UUID.SERVICE,
           BLE_UUID.CHARACTERISTIC_WRITE,
           (error, characteristic) => {
-            console.log('Monitoring characteristic:', characteristic, error);
             if (error) {
               console.error('Characteristic monitoring error:', error);
             } else if (characteristic && characteristic.value) {
+              // const parsedResponse = parseResponse(characteristic.value);
+              //
+              // // 检查是否为有效响应
+              // if (parsedResponse.isValid) {
+              //   // 判断命令类型
+              //   console.log('Monitored characteristic value:', characteristic.value);
+              //
+              // }
+              //
+              // console.log('Monitored characteristic value:', characteristic.value);
               const decodedValue = decodeBase64Value(characteristic.value);
               console.log('Monitored characteristic value:', decodedValue);
             }
@@ -513,11 +566,11 @@ const DevicePanelController: NavigationFunctionComponent<
       setTimerValue(totalSeconds);
 
       // 使用短延迟确保 UI 更新
-      setTimeout(() => {
-        console.log('Starting timer with', totalSeconds, 'seconds');
-        // 创建一个直接使用 totalSeconds 的自定义启动函数
-        startTimerWithValue(totalSeconds);
-      }, 300);
+      // setTimeout(() => {
+      //   console.log('Starting timer with', totalSeconds, 'seconds');
+      //   // 创建一个直接使用 totalSeconds 的自定义启动函数
+      //   startTimerWithValue(totalSeconds);
+      // }, 300);
     }
   };
 
@@ -547,6 +600,23 @@ const DevicePanelController: NavigationFunctionComponent<
           setTimerInterval(null);
           // 可以添加提示音或振动
           console.log('Timer finished!');
+
+          // 停止设备
+          if (selectedDevice) {
+            BLEManager.writeCharacteristic(
+              selectedDevice.id,
+              BLE_UUID.SERVICE,
+              BLE_UUID.CHARACTERISTIC_WRITE,
+              BLECommands.stopTherapy(),
+            )
+              .then(() => {
+                console.log('Successfully stop device');
+              })
+              .catch(error => {
+                console.error('Error stop device:', error);
+              });
+          }
+
           return 0;
         }
         return prevTime - 1;
@@ -570,10 +640,9 @@ const DevicePanelController: NavigationFunctionComponent<
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes
+    return `${hours.toString().padStart(2, '0')}:${minutes
       .toString()
       .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    return formattedTime;
   };
 
   // 渲染设备状态指示器
@@ -746,7 +815,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 disabled={timerRunning}>
                 <Text
                   className={`text-5xl font-light ${
-                    timerRunning ? 'text-blue-500' : 'text-gray-800'
+                    timerRunning ? 'text-orange-500' : 'text-gray-600'
                   } pt-2`}>
                   {formatTime(timerValue)}
                 </Text>

@@ -15,13 +15,13 @@ export enum DataDirection {
 }
 
 // 设备型号枚举
-export enum DeviceModel {
+export enum DeviceChannel {
   // 1路设备
-  MODEL_1 = 0x01,
+  CHANEL_1 = 0x01,
   // 2路设备
-  MODEL_2 = 0x02,
+  CHANEL_2 = 0x02,
   // 4路设备
-  MODEL_4 = 0x04,
+  CHANEL_4 = 0x04,
 }
 
 // 命令类型枚举
@@ -29,12 +29,12 @@ export enum CommandType {
   // 设备控制命令
   POWER_ON = 0x01,
   POWER_OFF = 0x02,
-  SET_INTENSITY = 0x03,
-  GET_INTENSITY = 0x04,
-  SET_MODE = 0x05,
+  SET_INTENSITY = 0x05,
+  GET_INTENSITY = 0x05,
+  SET_MODE = 0x06,
   GET_MODE = 0x06,
-  START_THERAPY = 0x07,
-  STOP_THERAPY = 0x08,
+  START_THERAPY = 0x02,
+  STOP_THERAPY = 0x02,
   GET_BATTERY = 0x09,
   GET_VERSION = 0x01,
   UNKNOWN = 0xff,
@@ -43,6 +43,27 @@ export enum CommandType {
 
 export const CommandValue = {
   GET_VERSION: [0x00],
+  SET_START: (channel: DeviceChannel) => {
+    return [channel, 0x01];
+  },
+  SET_STOP: (channel: DeviceChannel) => {
+    return [channel, 0x02];
+  },
+  SET_INTENSITY: (intensity: number) => {
+    return [0x01, intensity];
+  },
+  SET_MODE: (mode: DeviceMode) => {
+    return [mode];
+  },
+  // 5A 01 01 03 03 01 00 05 68
+  //BYTE5:参数长度3，BYTE6:要控制的通道01，BYTE7+8:组成16位（1-65536）表示开机时长（分钟），目前先设置1-99
+  //BYTE9:校验和
+  SET_WORK_TIME: (channel: number = 0x01, time: number) => {
+    // 当前默认
+    const highByte = (time >> 8) & 0xff;
+    const lowByte = time & 0xff;
+    return [0x03, channel, highByte, lowByte];
+  },
 };
 
 // 工作模式枚举
@@ -81,20 +102,20 @@ export const BLE_UUID_SHORT = {
 
 // 协议帧格式定义
 const FRAME_HEADER = 0x5a; // 根据协议，包头固定为0x5A
-const DEFAULT_MODEL = DeviceModel.MODEL_1; // 默认使用1路设备
+const DEFAULT_CHANNEL = DeviceChannel.CHANEL_1; // 默认使用1路设备
 const MIN_FRAME_LENGTH = 6; // 包头+数据方向+型号+命令+数据长度+校验和(最小6字节)
 
 /**
  * 创建命令帧
  * @param command 命令类型
  * @param data 命令数据(可选)
- * @param model 设备型号(默认1路)
+ * @param channel 设备型号(默认1路)
  * @returns 命令字符串，可直接发送给BLEManager
  */
 export function createCommand(
   command: CommandType,
   data: number[] = [],
-  model: DeviceModel = DEFAULT_MODEL,
+  channel: DeviceChannel = DEFAULT_CHANNEL,
 ): string {
   try {
     // 创建包含包头、数据方向、型号、命令、数据长度的基础帧
@@ -105,7 +126,7 @@ export function createCommand(
     // 数据方向(APP到设备)
     frameBuffer[1] = DataDirection.APP_TO_DEVICE;
     // 型号
-    frameBuffer[2] = command === CommandType.GET_VERSION ? 0x00 : model;
+    frameBuffer[2] = command === CommandType.GET_VERSION ? 0x00 : channel;
     // 命令
     frameBuffer[3] = command;
     // 数据长度
@@ -147,7 +168,7 @@ export function createCommand(
 export function createCommandAlt(
   command: CommandType,
   data: number[] = [],
-  model: DeviceModel = DEFAULT_MODEL,
+  model: DeviceChannel = DEFAULT_CHANNEL,
 ): string {
   try {
     // 创建包含包头、数据方向、型号、命令、数据长度的基础帧
@@ -190,7 +211,7 @@ export function createCommandAlt(
  */
 export function parseResponse(responseBase64: string): {
   dataDirection: DataDirection;
-  model: DeviceModel;
+  model: DeviceChannel;
   command: CommandType;
   data: number[];
   isValid: boolean;
@@ -204,7 +225,7 @@ export function parseResponse(responseBase64: string): {
       console.warn('Response too short:', responseBuffer.length);
       return {
         dataDirection: DataDirection.DEVICE_TO_APP,
-        model: DEFAULT_MODEL,
+        model: DEFAULT_CHANNEL,
         command: CommandType.UNKNOWN,
         data: [],
         isValid: false,
@@ -216,7 +237,7 @@ export function parseResponse(responseBase64: string): {
       console.warn('Invalid frame header:', responseBuffer[0]);
       return {
         dataDirection: DataDirection.DEVICE_TO_APP,
-        model: DEFAULT_MODEL,
+        model: DEFAULT_CHANNEL,
         command: CommandType.UNKNOWN,
         data: [],
         isValid: false,
@@ -227,7 +248,7 @@ export function parseResponse(responseBase64: string): {
     const dataDirection = responseBuffer[1] as DataDirection;
 
     // 提取型号
-    const model = responseBuffer[2] as DeviceModel;
+    const model = responseBuffer[2] as DeviceChannel;
 
     // 提取命令
     const command = responseBuffer[3] as CommandType;
@@ -281,7 +302,7 @@ export function parseResponse(responseBase64: string): {
     console.error('Error parsing response:', error);
     return {
       dataDirection: DataDirection.DEVICE_TO_APP,
-      model: DEFAULT_MODEL,
+      model: DEFAULT_CHANNEL,
       command: CommandType.UNKNOWN,
       data: [],
       isValid: false,
@@ -292,32 +313,21 @@ export function parseResponse(responseBase64: string): {
 // 命令构建辅助函数
 export const BLECommands = {
   /**
-   * 打开设备电源
-   */
-  powerOn(model: DeviceModel = DEFAULT_MODEL): string {
-    return createCommand(CommandType.POWER_ON, [], model);
-  },
-
-  /**
-   * 关闭设备电源
-   * 根据透传协议，需要发送两次相同命令，间隔100ms
-   */
-  powerOff(model: DeviceModel = DEFAULT_MODEL): string {
-    return createCommand(CommandType.POWER_OFF, [], model);
-  },
-
-  /**
    * 设置强度等级
-   * @param level 强度等级(例如1-10)
+   * @param level 强度等级(例如1-100)
+   * @param channel
    */
-  setIntensity(level: number, model: DeviceModel = DEFAULT_MODEL): string {
-    return createCommand(CommandType.SET_INTENSITY, [level], model);
+  setIntensity(
+    level: number,
+    channel: DeviceChannel = DEFAULT_CHANNEL,
+  ): string {
+    return createCommand(CommandType.SET_INTENSITY, [channel, level], channel);
   },
 
   /**
    * 获取当前强度等级
    */
-  getIntensity(model: DeviceModel = DEFAULT_MODEL): string {
+  getIntensity(model: DeviceChannel = DEFAULT_CHANNEL): string {
     return createCommand(CommandType.GET_INTENSITY, [], model);
   },
 
@@ -325,49 +335,56 @@ export const BLECommands = {
    * 设置工作模式
    * @param mode 工作模式
    */
-  setMode(mode: DeviceMode, model: DeviceModel = DEFAULT_MODEL): string {
-    return createCommand(CommandType.SET_MODE, [mode], model);
+  setMode(mode: DeviceMode, channel: DeviceChannel = DEFAULT_CHANNEL): string {
+    return createCommand(
+      CommandType.SET_MODE,
+      CommandValue.SET_MODE(mode),
+      channel,
+    );
   },
 
   /**
    * 获取当前工作模式
    */
-  getMode(model: DeviceModel = DEFAULT_MODEL): string {
+  getMode(model: DeviceChannel = DEFAULT_CHANNEL): string {
     return createCommand(CommandType.GET_MODE, [], model);
   },
 
   /**
    * 开始治疗/按摩
-   * @param duration 持续时间(秒)
+   * @param channel
    */
-  startTherapy(
-    duration: number = 0,
-    model: DeviceModel = DEFAULT_MODEL,
-  ): string {
+  startTherapy(channel: DeviceChannel = DEFAULT_CHANNEL): string {
     // 持续时间需要两个字节(高字节在前)
-    const highByte = (duration >> 8) & 0xff;
-    const lowByte = duration & 0xff;
-    return createCommand(CommandType.START_THERAPY, [highByte, lowByte], model);
+    return createCommand(
+      CommandType.START_THERAPY,
+      CommandValue.SET_START(channel),
+      channel,
+    );
   },
 
   /**
    * 停止治疗/按摩
    */
-  stopTherapy(model: DeviceModel = DEFAULT_MODEL): string {
-    return createCommand(CommandType.STOP_THERAPY, [], model);
+  stopTherapy(channel: DeviceChannel = DEFAULT_CHANNEL): string {
+    return createCommand(
+      CommandType.STOP_THERAPY,
+      CommandValue.SET_STOP(channel),
+      channel,
+    );
   },
 
   /**
    * 获取电池电量
    */
-  getBattery(model: DeviceModel = DEFAULT_MODEL): string {
+  getBattery(model: DeviceChannel = DEFAULT_CHANNEL): string {
     return createCommand(CommandType.GET_BATTERY, [], model);
   },
 
   /**
    * 获取设备版本
    */
-  getVersion(model: DeviceModel = DEFAULT_MODEL): string {
+  getVersion(model: DeviceChannel = DEFAULT_CHANNEL): string {
     return createCommand(
       CommandType.GET_VERSION,
       CommandValue.GET_VERSION,
