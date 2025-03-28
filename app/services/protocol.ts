@@ -37,6 +37,7 @@ export enum CommandType {
   STOP_THERAPY = 0x02,
   GET_BATTERY = 0x09,
   GET_VERSION = 0x01,
+  SET_WORK_TIME = 0x03,
   UNKNOWN = 0xff,
   // 可以根据协议文档添加更多命令...
 }
@@ -62,7 +63,7 @@ export const CommandValue = {
     // 当前默认
     const highByte = (time >> 8) & 0xff;
     const lowByte = time & 0xff;
-    return [0x03, channel, highByte, lowByte];
+    return [channel, highByte, lowByte];
   },
 };
 
@@ -220,6 +221,7 @@ export function parseResponse(responseBase64: string): {
     // 将base64解码为Buffer
     const responseBuffer = Buffer.from(responseBase64, 'base64');
 
+    console.log('Response buffer:', responseBuffer);
     // 检查最小长度
     if (responseBuffer.length < MIN_FRAME_LENGTH) {
       console.warn('Response too short:', responseBuffer.length);
@@ -389,6 +391,15 @@ export const BLECommands = {
       CommandType.GET_VERSION,
       CommandValue.GET_VERSION,
       model,
+    );
+  },
+
+  // 设置工作时间
+  setWorkTime(time: number,channel: number = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.SET_WORK_TIME,
+      CommandValue.SET_WORK_TIME(channel, time),
+      channel,
     );
   },
 };

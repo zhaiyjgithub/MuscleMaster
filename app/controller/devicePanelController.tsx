@@ -29,7 +29,13 @@ import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
 import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
 import {decodeBase64Value} from '../lib/utils';
 import {BLEManager} from '../services/BLEManager';
-import {BLE_UUID, BLECommands, DeviceMode} from '../services/protocol';
+import {
+  BLE_UUID,
+  BLECommands,
+  CommandType,
+  DeviceMode,
+  parseResponse,
+} from '../services/protocol';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -461,18 +467,31 @@ const DevicePanelController: NavigationFunctionComponent<
             if (error) {
               console.error('Characteristic monitoring error:', error);
             } else if (characteristic && characteristic.value) {
-              // const parsedResponse = parseResponse(characteristic.value);
-              //
-              // // 检查是否为有效响应
-              // if (parsedResponse.isValid) {
-              //   // 判断命令类型
-              //   console.log('Monitored characteristic value:', characteristic.value);
-              //
-              // }
-              //
-              // console.log('Monitored characteristic value:', characteristic.value);
-              const decodedValue = decodeBase64Value(characteristic.value);
-              console.log('Monitored characteristic value:', decodedValue);
+              console.log('value ', characteristic.value);
+              const parsedResponse = parseResponse(characteristic.value);
+
+              // 检查是否为有效响应
+              if (parsedResponse.isValid) {
+                // 判断命令类型
+                console.log('Monitored characteristic value:', parsedResponse);
+                const {command, data} = parsedResponse;
+                if (command === CommandType.GET_VERSION) {
+                  // 设置设备版本信息
+                  if (data.length >= 2) {
+                    const deviceType = data[0];
+                    const vcode = data[1];
+                    console.log(
+                        `${deviceType.toString().padStart(2, '0')}` +
+                        ' - ' +
+                        vcode.toString().padStart(2, '0'))
+                    setDeviceVersion(
+                      `${deviceType.toString().padStart(2, '0')}` +
+                        ' - ' +
+                        vcode.toString().padStart(2, '0'),
+                    );
+                  }
+                }
+              }
             }
           },
         );
@@ -564,6 +583,22 @@ const DevicePanelController: NavigationFunctionComponent<
     if (totalSeconds > 0) {
       // 设置时间值
       setTimerValue(totalSeconds);
+
+      // 设置工作时间
+      if (selectedDevice) {
+        BLEManager.writeCharacteristic(
+          selectedDevice.id,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
+          BLECommands.setWorkTime(totalSeconds),
+        )
+          .then(() => {
+            console.log('Successfully set work time');
+          })
+          .catch(error => {
+            console.error('Error setting work time:', error);
+          });
+      }
 
       // 使用短延迟确保 UI 更新
       // setTimeout(() => {
