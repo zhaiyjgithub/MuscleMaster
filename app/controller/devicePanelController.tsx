@@ -7,7 +7,7 @@ import {
   ChevronUp,
   Smartphone,
 } from 'lucide-react-native';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,7 @@ import {
   parseResponse,
 } from '../services/protocol';
 import Slider from '@react-native-community/slider';
+import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -73,6 +74,8 @@ const DevicePanelController: NavigationFunctionComponent<
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
     null,
   );
+  const modeListActionSheetRef = useRef<BottomSheet>(null);
+  const deviceListActionSheetRef = useRef<BottomSheet>(null);
 
   const firstLoad = useRef(true);
   const subscriptionRef = useRef<Subscription | null>(null);
@@ -141,7 +144,7 @@ const DevicePanelController: NavigationFunctionComponent<
     return '#ef4444'; // 红色，未连接
   };
 
-  const modeListActionSheetRef = useRef<BottomSheet>(null);
+
 
   // 添加设备加载状态管理函数
   const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
@@ -664,6 +667,24 @@ const DevicePanelController: NavigationFunctionComponent<
     />
   );
 
+  
+
+  const handleDeviceSelect = useCallback((device: FoundDevice) => {
+    // Handle device selection logic here
+    console.log('Selected device:', device);
+  }, []);
+
+  const $deviceListActionSheet = (
+    <DeviceListActionSheet
+      ref={deviceListActionSheetRef}
+      devices={devices}
+      selectedDevice={selectedDevice}
+      isConnected={isConnected}
+      deviceLoadingStates={deviceLoadingStates}
+      handleDeviceSelect={handleDeviceSelect}
+    />
+  );
+
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -865,161 +886,10 @@ const DevicePanelController: NavigationFunctionComponent<
           </View>
         </View>
 
-        {/*/!* 设备选择弹窗 *!/*/}
-        {/*<Modal*/}
-        {/*  animationType="slide"*/}
-        {/*  transparent={true}*/}
-        {/*  visible={deviceModalVisible}*/}
-        {/*  onRequestClose={() => setDeviceModalVisible(false)}>*/}
-        {/*  <View className="flex-1 bg-black bg-opacity-40 justify-end">*/}
-        {/*    <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">*/}
-        {/*      <View className="flex-row justify-center mb-5 relative">*/}
-        {/*        <Text className="font-semibold text-lg">Select Device</Text>*/}
-        {/*        <TouchableOpacity*/}
-        {/*          onPress={() => setDeviceModalVisible(false)}*/}
-        {/*          className="absolute right-0 top-0">*/}
-        {/*          <Text className="text-2xl font-medium">×</Text>*/}
-        {/*        </TouchableOpacity>*/}
-        {/*      </View>*/}
-
-        {/*      <View className="mb-5">*/}
-        {/*        {devices.map(device => {*/}
-        {/*          const isLoading = deviceLoadingStates[device.id] || false;*/}
-        {/*          const isCurrentDevice = selectedDevice?.id === device.id;*/}
-        {/*          const isDeviceConnected = isCurrentDevice && isConnected;*/}
-
-        {/*          return (*/}
-        {/*            <TouchableOpacity*/}
-        {/*              key={device.id}*/}
-        {/*              className={`flex-row items-center p-4 rounded-xl mb-3 ${*/}
-        {/*                isCurrentDevice*/}
-        {/*                  ? 'bg-blue-50 border border-blue-200'*/}
-        {/*                  : 'bg-gray-100'*/}
-        {/*              }`}*/}
-        {/*              onPress={() => {}}*/}
-        {/*              disabled={isLoading}>*/}
-        {/*              <Smartphone size={24} color="#1e88e5" />*/}
-        {/*              <View className="flex-1 ml-3">*/}
-        {/*                <Text className="font-semibold text-base text-gray-800 mb-1">*/}
-        {/*                  {device.name}*/}
-        {/*                </Text>*/}
-        {/*                <View className="flex-row items-center">*/}
-        {/*                  {isLoading ? (*/}
-        {/*                    <View className="flex-row items-center">*/}
-        {/*                      <ActivityIndicator*/}
-        {/*                        size="small"*/}
-        {/*                        color="#f59e0b"*/}
-        {/*                      />*/}
-        {/*                      <Text className="text-sm text-yellow-500 ml-2">*/}
-        {/*                        Connecting...*/}
-        {/*                      </Text>*/}
-        {/*                    </View>*/}
-        {/*                  ) : (*/}
-        {/*                    <View className="flex-row items-center">*/}
-        {/*                      <View*/}
-        {/*                        className={`w-2 h-2 rounded-full mr-1.5 ${*/}
-        {/*                          isDeviceConnected*/}
-        {/*                            ? 'bg-green-500'*/}
-        {/*                            : 'bg-red-500'*/}
-        {/*                        }`}*/}
-        {/*                      />*/}
-        {/*                      <Text className="text-sm text-gray-600">*/}
-        {/*                        {isDeviceConnected*/}
-        {/*                          ? 'Connected'*/}
-        {/*                          : 'Disconnected'}*/}
-        {/*                      </Text>*/}
-        {/*                    </View>*/}
-        {/*                  )}*/}
-        {/*                </View>*/}
-        {/*              </View>*/}
-        {/*              <Text className="text-sm text-green-600 font-medium">*/}
-        {/*                {isDeviceConnected ? 'Selected' : 'Select'}*/}
-        {/*              </Text>*/}
-        {/*            </TouchableOpacity>*/}
-        {/*          );*/}
-        {/*        })}*/}
-        {/*      </View>*/}
-
-        {/*      <TouchableOpacity*/}
-        {/*        className="bg-blue-500 rounded-lg py-3.5 items-center"*/}
-        {/*        onPress={() => setDeviceModalVisible(false)}>*/}
-        {/*        <Text className="text-white font-medium text-base">*/}
-        {/*          Confirm*/}
-        {/*        </Text>*/}
-        {/*      </TouchableOpacity>*/}
-        {/*    </View>*/}
-        {/*  </View>*/}
-        {/*</Modal>*/}
-
-        {/*/!* Timer Section *!/*/}
-        {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
-        {/*  <View className="p-4 gap-y-4">*/}
-        {/*    <View className="flex-row items-center justify-between ">*/}
-        {/*      <TouchableOpacity*/}
-        {/*        className={`py-3 w-24 rounded-lg border items-center justify-center ${*/}
-        {/*          timerValue > 0 ? 'border-blue-500' : 'border-gray-300'*/}
-        {/*        }`}*/}
-        {/*        onPress={resetTimer}*/}
-        {/*        disabled={timerValue === 0}>*/}
-        {/*        <Text*/}
-        {/*          className={`font-semibold text-base ${*/}
-        {/*            timerValue > 0 ? 'text-blue-500' : 'text-gray-300'*/}
-        {/*          }`}>*/}
-        {/*          Cancel*/}
-        {/*        </Text>*/}
-        {/*      </TouchableOpacity>*/}
-
-        {/*      <TouchableOpacity*/}
-        {/*        className={`py-3 w-24 rounded-lg items-center justify-center ${*/}
-        {/*          timerValue > 0*/}
-        {/*            ? timerRunning*/}
-        {/*              ? 'bg-orange-500'*/}
-        {/*              : 'bg-green-500'*/}
-        {/*            : 'bg-gray-300'*/}
-        {/*        }`}*/}
-        {/*        onPress={toggleTimer}*/}
-        {/*        disabled={timerValue === 0}>*/}
-        {/*        <Text className="text-white font-semibold text-base">*/}
-        {/*          {timerRunning ? 'Pause' : 'Continue'}*/}
-        {/*        </Text>*/}
-        {/*      </TouchableOpacity>*/}
-        {/*    </View>*/}
-        {/*  </View>*/}
-        {/*</View>*/}
-
-        {/*/!* Mode Selection Section *!/*/}
-        {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
-        {/*  <View className="p-4">*/}
-        {/*    <View className="items-center mb-3.5 flex-col gap-y-2">*/}
-        {/*      {getIconByMode(selectedMode, 32, '#1e88e5')}*/}
-        {/*      <Text className="text-[22px] font-bold text-blue-500">*/}
-        {/*        {selectedMode}*/}
-        {/*      </Text>*/}
-        {/*    </View>*/}
-        {/*    <TouchableOpacity*/}
-        {/*      className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"*/}
-        {/*      onPress={() => {*/}
-        {/*        modeListActionSheetRef.current?.expand();*/}
-        {/*      }}>*/}
-        {/*      <Text className="font-medium text-base text-white">Mode</Text>*/}
-        {/*    </TouchableOpacity>*/}
-        {/*  </View>*/}
-        {/*</View>*/}
-
-        {/*/!* Intensity Control Section *!/*/}
-        {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
-        {/*  <View className="p-4">*/}
-        {/*    <View className="items-center mb-3.5">*/}
-        {/*      <Text className="text-[22px] font-bold text-blue-500">*/}
-        {/*        {intensityLevel} / {maxIntensity}*/}
-        {/*      </Text>*/}
-        {/*    </View>*/}
-        {/*  </View>*/}
-        {/*</View>*/}
-
-        {/* Mode Selection Modal */}
+    
         {$modeActionSheet}
         {$timePickerActionSheet}
+        {$deviceListActionSheet}
       </SafeAreaView>
     </GestureHandlerRootView>
   );

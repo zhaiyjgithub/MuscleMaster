@@ -216,5 +216,4 @@ const ModeListActionSheet = forwardRef<
   );
 });
 
-export { getIconByMode };
 export default ModeListActionSheet;
