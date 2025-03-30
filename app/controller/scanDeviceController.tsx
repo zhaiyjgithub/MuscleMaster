@@ -130,9 +130,8 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   }, [bleReady, startScanning, waitForBluetoothAndScan]);
 
   // 处理开始训练按钮
-  const handleStartTraining = useCallback(
-    (device: FoundDevice) => {
-      console.log('Start training pressed');
+  const handleStartTraining = (device: FoundDevice) => {
+      console.log('Start training pressed', devices);
       Navigation.push(componentId, {
         component: {
           name: 'DevicePanelController',
@@ -141,9 +140,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
           },
         },
       });
-    },
-    [componentId],
-  );
+    }
 
   // 更新设备连接状态
   const updateDeviceConnectionStatus = useCallback(

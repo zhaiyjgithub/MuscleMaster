@@ -63,9 +63,11 @@ const DevicePanelController: NavigationFunctionComponent<
   const [maxIntensity, setMaxIntensity] = useState(100);
   const [timerValue, setTimerValue] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(
-    null,
-  );
+  // 设备特定的定时器状态
+  const [deviceTimerValues, setDeviceTimerValues] = useState<Record<string, number>>({});
+  const [deviceTimerRunning, setDeviceTimerRunning] = useState<Record<string, boolean>>({});
+  const [deviceTimerIntervals, setDeviceTimerIntervals] = useState<Record<string, NodeJS.Timeout | null>>({});
+  
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<
     Record<string, boolean>
   >({});
@@ -179,6 +181,68 @@ const DevicePanelController: NavigationFunctionComponent<
     return deviceConnectionStates[deviceId] || false;
   };
 
+  // 获取设备特定的定时器值
+  const getDeviceTimerValue = (deviceId: string): number => {
+    return deviceTimerValues[deviceId] || 0;
+  };
+
+  // 获取设备特定的定时器运行状态
+  const isDeviceTimerRunning = (deviceId: string): boolean => {
+    return deviceTimerRunning[deviceId] || false;
+  };
+
+  // 设置设备特定的定时器值
+  const setDeviceTimerValue = (deviceId: string, value: number) => {
+    setDeviceTimerValues(prev => ({
+      ...prev,
+      [deviceId]: value,
+    }));
+    
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setTimerValue(value);
+    }
+  };
+
+  // 设置设备特定的定时器运行状态
+  const setDeviceTimerRunningState = (deviceId: string, isRunning: boolean) => {
+    setDeviceTimerRunning(prev => ({
+      ...prev,
+      [deviceId]: isRunning,
+    }));
+    
+    // 如果是当前选中的设备，同时更新 UI 显示的状态
+    if (selectedDevice?.id === deviceId) {
+      setTimerRunning(isRunning);
+    }
+  };
+
+  // 保存设备特定的定时器间隔
+  const setDeviceTimerInterval = (deviceId: string, interval: NodeJS.Timeout | null) => {
+    setDeviceTimerIntervals(prev => ({
+      ...prev,
+      [deviceId]: interval,
+    }));
+  
+  };
+
+  // 同步当前选中设备的定时器状态到 UI
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      // 同步定时器值和运行状态
+      console.log(`同步设备 ${deviceId} 定时器状态到 UI，当前值：${getDeviceTimerValue(deviceId)}，运行状态：${isDeviceTimerRunning(deviceId)}`);
+      setTimerValue(getDeviceTimerValue(deviceId));
+      setTimerRunning(isDeviceTimerRunning(deviceId));
+    }
+  }, [selectedDevice, deviceTimerValues, deviceTimerRunning]);
+
+  // 同步当前设备的连接状态
+  useEffect(() => {
+    if (selectedDevice) {
+      setIsConnected(getDeviceConnectionStatus(selectedDevice.id));
+    }
+  }, [selectedDevice, deviceConnectionStates]);
 
   useNavigationComponentDidAppear(async () => {
     if (firstLoad.current) {
@@ -264,14 +328,19 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   };
 
-  // Toggle timer state (start/pause)
+  // Toggle timer state (start/pause) for the selected device
   const toggleTimer = () => {
-    if (timerRunning) {
+    if (!selectedDevice) return;
+    
+    const deviceId = selectedDevice.id;
+    const isRunning = isDeviceTimerRunning(deviceId);
+    
+    if (isRunning) {
       // 如果计时器正在运行，暂停它
-      pauseTimer();
+      pauseTimer(deviceId);
       if (selectedDevice) {
         BLEManager.writeCharacteristic(
-          selectedDevice.id,
+          deviceId,
           BLE_UUID.SERVICE,
           BLE_UUID.CHARACTERISTIC_WRITE,
           BLECommands.stopTherapy(),
@@ -285,10 +354,10 @@ const DevicePanelController: NavigationFunctionComponent<
       }
     } else {
       // 如果计时器未运行，启动它
-      startTimer();
+      startTimer(deviceId);
       if (selectedDevice) {
         BLEManager.writeCharacteristic(
-          selectedDevice.id,
+          deviceId,
           BLE_UUID.SERVICE,
           BLE_UUID.CHARACTERISTIC_WRITE,
           BLECommands.startTherapy(),
@@ -303,63 +372,70 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   };
 
-  // 启动计时器
-  const startTimer = () => {
+  // 启动设备特定的计时器
+  const startTimer = (deviceId: string) => {
     // 只有当时间大于 0 时才启动计时器
+    const timerValue = getDeviceTimerValue(deviceId);
     if (timerValue <= 0) {
       console.log("Timer value is 0, can't start timer");
       return;
     }
 
-    // 使用通用启动方法，传入当前时间值
-    startTimerWithValue(timerValue);
+    // 使用通用启动方法，传入设备ID和当前时间值
+    startTimerWithValue(deviceId, timerValue);
   };
 
-  // 暂停计时器
-  const pauseTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
+  // 暂停设备特定的计时器
+  const pauseTimer = (deviceId: string) => {
+    const interval = deviceTimerIntervals[deviceId];
+    if (interval) {
+      clearInterval(interval);
+      setDeviceTimerInterval(deviceId, null);
     }
-    setTimerRunning(false);
+    setDeviceTimerRunningState(deviceId, false);
   };
 
-  // Reset timer
+  // Reset timer for a specific device
   const resetTimer = () => {
+    if (!selectedDevice) return;
+    
+    const deviceId = selectedDevice.id;
     // 停止计时器
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
+    const interval = deviceTimerIntervals[deviceId];
+    if (interval) {
+      clearInterval(interval);
+      setDeviceTimerInterval(deviceId, null);
     }
-    setTimerValue(0);
-    setTimerRunning(false);
+    setDeviceTimerValue(deviceId, 0);
+    setDeviceTimerRunningState(deviceId, false);
     timePickerActionSheetRef.current?.expand();
 
     // 停止设备
-    if (selectedDevice) {
-      BLEManager.writeCharacteristic(
-        selectedDevice.id,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_WRITE,
-        BLECommands.stopTherapy(),
-      )
-        .then(() => {
-          console.log('Successfully stop device');
-        })
-        .catch(error => {
-          console.error('Error stop device:', error);
-        });
-    }
+    BLEManager.writeCharacteristic(
+      deviceId,
+      BLE_UUID.SERVICE,
+      BLE_UUID.CHARACTERISTIC_WRITE,
+      BLECommands.stopTherapy(),
+    )
+      .then(() => {
+        console.log('Successfully stop device');
+      })
+      .catch(error => {
+        console.error('Error stop device:', error);
+      });
   };
 
-  // 在组件卸载时清除定时器
+  // 在组件卸载时清除所有设备的定时器
   useEffect(() => {
     return () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-      }
+      // 清除所有设备的定时器
+      Object.entries(deviceTimerIntervals).forEach(([_, interval]) => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      });
     };
-  }, [timerInterval]);
+  }, [deviceTimerIntervals]);
 
   // Handle device selection
   // 添加设备名称点击处理函数
@@ -558,42 +634,50 @@ const DevicePanelController: NavigationFunctionComponent<
   const timePickerActionSheetRef = useRef<BottomSheet>(null);
 
   const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
+    if (!selectedDevice) return;
+    
     console.log(`Time selected: ${hours}:${minutes}:${seconds}`);
     // 计算总秒数
     const totalSeconds = hours * 3600 + minutes * 60 + seconds;
 
     // 确保时间大于 0
     if (totalSeconds > 0) {
-      // 设置时间值
-      setTimerValue(totalSeconds);
+      // 设置设备特定的时间值
+      setDeviceTimerValue(selectedDevice.id, totalSeconds);
 
       // 设置工作时间
-      if (selectedDevice) {
-        BLEManager.writeCharacteristic(
-          selectedDevice.id,
-          BLE_UUID.SERVICE,
-          BLE_UUID.CHARACTERISTIC_WRITE,
-          BLECommands.setWorkTime(totalSeconds),
-        )
-          .then(() => {
-            console.log('Successfully set work time');
-          })
-          .catch(error => {
-            console.error('Error setting work time:', error);
-          });
-      }
-
-      // 使用短延迟确保 UI 更新
-      // setTimeout(() => {
-      //   console.log('Starting timer with', totalSeconds, 'seconds');
-      //   // 创建一个直接使用 totalSeconds 的自定义启动函数
-      //   startTimerWithValue(totalSeconds);
-      // }, 300);
+      BLEManager.writeCharacteristic(
+        selectedDevice.id,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_WRITE,
+        BLECommands.setWorkTime(totalSeconds),
+      )
+        .then(() => {
+          console.log('Successfully set work time');
+          
+          // 自动启动计时器和设备
+          startTimer(selectedDevice.id);
+          BLEManager.writeCharacteristic(
+            selectedDevice.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_WRITE,
+            BLECommands.startTherapy(),
+          )
+            .then(() => {
+              console.log('Successfully started device after setting time');
+            })
+            .catch(error => {
+              console.error('Error starting device after setting time:', error);
+            });
+        })
+        .catch(error => {
+          console.error('Error setting work time:', error);
+        });
     }
   };
 
-  // 启动计时器，使用指定的时间值
-  const startTimerWithValue = (seconds: number) => {
+  // 启动特定设备的计时器，使用指定的时间值
+  const startTimerWithValue = (deviceId: string, seconds: number) => {
     // 确认有时间可以倒计时
     if (seconds <= 0) {
       console.log("Timer value is 0, can't start timer");
@@ -601,47 +685,69 @@ const DevicePanelController: NavigationFunctionComponent<
     }
 
     // 如果已经有一个计时器在运行，先清除它
-    if (timerInterval) {
-      clearInterval(timerInterval);
+    const existingInterval = deviceTimerIntervals[deviceId];
+    if (existingInterval) {
+      clearInterval(existingInterval);
     }
 
     // 设置运行状态
-    setTimerRunning(true);
+    setDeviceTimerRunningState(deviceId, true);
 
     // 每秒减少一秒
     const interval = setInterval(() => {
-      setTimerValue(prevTime => {
+      setDeviceTimerValues(prev => {
+        const prevTime = prev[deviceId] || 0;
         if (prevTime <= 1) {
           // 时间到，停止计时器
           clearInterval(interval);
-          setTimerRunning(false);
-          setTimerInterval(null);
+          
+          // 更新状态
+          setDeviceTimerRunningState(deviceId, false);
+          setDeviceTimerInterval(deviceId, null);
+          
+          // 如果是当前选中的设备，直接更新UI显示的值
+          if (selectedDevice?.id === deviceId) {
+            setTimerValue(0);
+          }
+          
           // 可以添加提示音或振动
-          console.log('Timer finished!');
+          console.log('Timer finished for device:', deviceId);
 
           // 停止设备
-          if (selectedDevice) {
-            BLEManager.writeCharacteristic(
-              selectedDevice.id,
-              BLE_UUID.SERVICE,
-              BLE_UUID.CHARACTERISTIC_WRITE,
-              BLECommands.stopTherapy(),
-            )
-              .then(() => {
-                console.log('Successfully stop device');
-              })
-              .catch(error => {
-                console.error('Error stop device:', error);
-              });
-          }
+          BLEManager.writeCharacteristic(
+            deviceId,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_WRITE,
+            BLECommands.stopTherapy(),
+          )
+            .then(() => {
+              console.log('Successfully stopped device after timer finished');
+            })
+            .catch(error => {
+              console.error('Error stopping device after timer finished:', error);
+            });
 
-          return 0;
+          return {
+            ...prev,
+            [deviceId]: 0
+          };
         }
-        return prevTime - 1;
+        
+        const newValue = prevTime - 1;
+        
+        // 如果是当前选中的设备，直接更新 UI 显示的值
+        if (selectedDevice?.id === deviceId) {
+          setTimerValue(newValue);
+        }
+        
+        return {
+          ...prev,
+          [deviceId]: newValue
+        };
       });
     }, 1000);
 
-    setTimerInterval(interval);
+    setDeviceTimerInterval(deviceId, interval);
   };
 
   const $timePickerActionSheet = (
@@ -656,16 +762,26 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const handleDeviceSelect = useCallback((device: FoundDevice) => {
     console.log('Selected device:', device);
+    
+    // 保存之前设备的状态
+    if (selectedDevice) {
+      console.log(`离开设备 ${selectedDevice.id}，定时器值：${timerValue}，运行状态：${timerRunning}`);
+    }
+    
+    // 设置新的选中设备
     setSelectedDevice(device);
     
-    // 更新当前选中设备的连接状态显示
+    // 更新连接状态显示
     setIsConnected(getDeviceConnectionStatus(device.id));
+    
+    // 更新定时器显示（由 useEffect 处理详细同步）
+    console.log(`切换到设备 ${device.id}，定时器值：${getDeviceTimerValue(device.id)}，运行状态：${isDeviceTimerRunning(device.id)}`);
     
     // 如果设备未连接，则连接
     if (!getDeviceConnectionStatus(device.id)) {
       connectToDevice(device);
     }
-  }, [deviceConnectionStates]);
+  }, [deviceConnectionStates, deviceTimerValues, deviceTimerRunning, selectedDevice, timerValue, timerRunning]);
 
   const $deviceListActionSheet = (
     <DeviceListActionSheet
@@ -756,14 +872,8 @@ const DevicePanelController: NavigationFunctionComponent<
     </View>
   );
 
-  /*
-  *  font-size: 60px;
-            font-weight: 700;
-            color: #333;
-            letter-spacing: 2px;
-  * */
   const $timerValue = (
-    <View   >
+    <View className="flex-row items-center justify-center p-4">
       <TouchableOpacity
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() =>
@@ -772,7 +882,7 @@ const DevicePanelController: NavigationFunctionComponent<
       disabled={timerRunning}>
       <Text
         className={`text-8xl ${
-          timerRunning ? 'text-orange-500' : '#333'
+          timerRunning ? 'text-orange-500' : 'text-gray-700'
         } font-bold pt-4`}>
         {formatTime(timerValue)}
       </Text>
