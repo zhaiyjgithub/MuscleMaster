@@ -76,6 +76,8 @@ const DevicePanelController: NavigationFunctionComponent<
   >({});
   const [deviceVersion, setDeviceVersion] = useState('');
   useState<Subscription | null>(null);
+  // 存储每个设备的特性监控订阅
+  const [deviceSubscriptions, setDeviceSubscriptions] = useState<Record<string, Subscription | null>>({});
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
     null,
   );
@@ -114,29 +116,143 @@ const DevicePanelController: NavigationFunctionComponent<
     };
   }, [isConnecting, pulseAnim]);
 
+  // 修改为设备特定的连接监控
   useEffect(() => {
-    if (selectedDevice) {
-      const subscription = BLEManager.monitorDeviceConnection(
-        selectedDevice.id,
-        (device, isConnected, error) => {
-          if (error) {
-            console.error('Connection error:', error);
-          } else {
-            updateConnectionStatus(device.id, isConnected);
-            console.log(
-              `Device ${device.name} is now ${
-                isConnected ? 'connected' : 'disconnected'
-              }`,
-            );
-          }
-        },
-      );
+    // 为所有已连接设备创建连接监控
+    const setupConnectionMonitors = async () => {
+      // 获取所有已连接设备
+      const connectedDeviceIds = Object.entries(deviceConnectionStates)
+        .filter(([_, isConnected]) => isConnected)
+        .map(([id]) => id);
 
-      return () => {
-        subscription.remove();
-      };
+      // 防止重复创建相同的监控
+      for (const deviceId of connectedDeviceIds) {
+        // 如果已经有这个设备的监控，跳过
+        if (deviceSubscriptions[`conn_${deviceId}`]) {
+          continue;
+        }
+        
+        // 创建或更新设备的连接监控
+        const device = devices.find(d => d.id === deviceId);
+        if (device) {
+          const subscription = BLEManager.monitorDeviceConnection(
+            deviceId,
+            (device, isConnected, error) => {
+              if (error) {
+                console.error(`Connection error for device ${deviceId}:`, error);
+              } else {
+                // 使用函数形式的 setState 以避免依赖最新的 state
+                setDeviceConnectionStates(prev => ({
+                  ...prev,
+                  [device.id]: isConnected,
+                }));
+                
+                // 如果当前选中的设备状态改变，更新整体连接状态显示
+                if (selectedDevice && selectedDevice.id === device.id) {
+                  setIsConnected(isConnected);
+                }
+                
+                setIsConnecting(false);
+                console.log(
+                  `Device ${device.name} is now ${
+                    isConnected ? 'connected' : 'disconnected'
+                  }`,
+                );
+
+                // 如果设备断开连接，清理其特性监控
+                if (!isConnected) {
+                  cleanupDeviceSubscription(deviceId);
+                }
+              }
+            },
+          );
+
+          // 存储设备的连接监控订阅
+          setDeviceSubscriptions(prev => ({
+            ...prev,
+            [`conn_${deviceId}`]: subscription,
+          }));
+        }
+      }
+    };
+
+    setupConnectionMonitors();
+
+    // 组件卸载时清理所有监控
+    return () => {
+      console.log('Component unmounting, disconnecting from all devices');
+      Object.entries(deviceSubscriptions).forEach(([key, subscription]) => {
+        if (subscription) {
+          subscription.remove();
+        }
+      });
+    };
+  // 移除对 deviceConnectionStates 的依赖，只在 devices 或组件挂载时设置监控
+  }, [devices, deviceSubscriptions, selectedDevice]);
+
+  // 设备特性监控的创建函数
+  const setupCharacteristicMonitor = useCallback((deviceId: string) => {
+    // 如果已经有监控，不重复创建
+    if (deviceSubscriptions[`char_${deviceId}`]) {
+      return;
     }
-  }, [selectedDevice]);
+
+    const subscription = BLEManager.monitorCharacteristicForDevice(
+      deviceId,
+      BLE_UUID.SERVICE,
+      BLE_UUID.CHARACTERISTIC_WRITE,
+      (error, characteristic) => {
+        if (error) {
+          console.error(`Characteristic monitoring error for device ${deviceId}:`, error);
+        } else if (characteristic && characteristic.value) {
+          console.log(`Received value from device ${deviceId}:`, characteristic.value);
+          const parsedResponse = parseResponse(characteristic.value);
+
+          // 检查是否为有效响应
+          if (parsedResponse.isValid) {
+            // 判断命令类型
+            console.log('Monitored characteristic value:', parsedResponse);
+            const {command, data} = parsedResponse;
+            if (command === CommandType.GET_VERSION) {
+              // 设置设备版本信息
+              if (data.length >= 2) {
+                const deviceType = data[0];
+                const vcode = data[1];
+
+                // 只在选中设备时更新 UI 显示的版本
+                if (selectedDevice?.id === deviceId) {
+                  setDeviceVersion(
+                    `${deviceType.toString().padStart(2, '0')}` +
+                      ' - ' +
+                      vcode.toString().padStart(2, '0'),
+                  );
+                }
+              }
+            }
+          }
+        }
+      },
+    );
+
+    // 存储设备的特性监控订阅
+    setDeviceSubscriptions(prev => ({
+      ...prev,
+      [`char_${deviceId}`]: subscription,
+    }));
+  }, [deviceSubscriptions, selectedDevice]);
+
+  // 清理设备的特性监控
+  const cleanupDeviceSubscription = useCallback((deviceId: string) => {
+    const charSubscription = deviceSubscriptions[`char_${deviceId}`];
+    if (charSubscription) {
+      charSubscription.remove();
+      setDeviceSubscriptions(prev => {
+        const newState = {...prev};
+        delete newState[`char_${deviceId}`];
+        return newState;
+      });
+    }
+  }, [deviceSubscriptions]);
 
   // 获取设备状态颜色
   const getDeviceStatusColor = () => {
@@ -160,12 +276,19 @@ const DevicePanelController: NavigationFunctionComponent<
     }));
   };
 
-  // 添加连接状态更新函数
+  // 更新连接状态的函数也需修改
   const updateConnectionStatus = (deviceId: string, connected: boolean) => {
-    setDeviceConnectionStates(prev => ({
-      ...prev,
-      [deviceId]: connected,
-    }));
+    // 使用函数形式的 setState 以避免依赖最新的 state
+    setDeviceConnectionStates(prev => {
+      // 如果状态没有变化，返回原状态，避免不必要的重渲染
+      if (prev[deviceId] === connected) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [deviceId]: connected,
+      };
+    });
     
     // 如果当前选中的设备状态改变，更新整体连接状态显示
     if (selectedDevice && selectedDevice.id === deviceId) {
@@ -244,15 +367,20 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   }, [selectedDevice, deviceConnectionStates]);
 
-  useNavigationComponentDidAppear(async () => {
-    if (firstLoad.current) {
+  // 添加一个标记，确保自动连接只执行一次
+  const autoConnectExecuted = useRef(false);
+
+  useNavigationComponentDidAppear(async (e) => {
+    // 确保自动连接只执行一次
+    if (!autoConnectExecuted.current) {
       if (devices && devices.length > 0) {
+        console.log('Auto-connecting to first device', devices[0].name);
         setSelectedDevice(devices[0]);
 
         // 自动连接到第一个设备
         await connectToDevice(devices[0]);
       }
-      firstLoad.current = false;
+      autoConnectExecuted.current = true;
     }
   });
 
@@ -261,23 +389,35 @@ const DevicePanelController: NavigationFunctionComponent<
 
     // 返回清理函数，当组件即将卸载时执行
     return () => {
-      console.log('Component unmounting, disconnecting from device');
-
-      if (selectedDevice && isConnected) {
-        // 使用 Promise 而不是 await，因为清理函数不能是 async
-        BLEManager.disconnectDevice(selectedDevice.id)
-          .then(() => {
-            console.log('Successfully disconnected from device');
-          })
-          .catch(error => {
-            console.error('Error disconnecting from device:', error);
-          });
-
-        // 清理订阅
-        subscriptionRef.current?.remove();
-      }
+      console.log('Component unmounting cleanup');
+      
+      const disconnectDevices = async () => {
+        // 断开所有已连接设备
+        const connectedDeviceIds = Object.entries(deviceConnectionStates)
+          .filter(([_, isConnected]) => isConnected)
+          .map(([id]) => id);
+        
+        for (const deviceId of connectedDeviceIds) {
+          try {
+            await BLEManager.disconnectDevice(deviceId);
+            console.log(`Successfully disconnected from device ${deviceId}`);
+          } catch (error) {
+            console.error(`Error disconnecting from device ${deviceId}:`, error);
+          }
+        }
+      };
+      
+      // 异步执行断开连接，不要在清理函数中等待
+      disconnectDevices().catch(console.error);
+      
+      // 清理所有设备订阅 - 这里不要 setState，避免引起新的渲染循环
+      Object.entries(deviceSubscriptions).forEach(([key, subscription]) => {
+        if (subscription) {
+          subscription.remove();
+        }
+      });
     };
-  }, [isConnected, selectedDevice]); // 空依赖数组表示这个效果只在挂载和卸载时运行
+  }, []); // 空依赖数组，确保清理函数只在组件卸载时运行
 
   // Increase intensity level
   const increaseIntensity = () => {
@@ -499,12 +639,18 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   // 封装设备连接逻辑为可重用的函数
-  const connectToDevice = async (device: FoundDevice) => {
+  const connectToDevice = useCallback(async (device: FoundDevice) => {
     if (!device) {
       return;
     }
 
     try {
+      // 如果设备已经连接，不重复连接
+      if (deviceConnectionStates[device.id]) {
+        console.log(`设备 ${device.name} 已经连接，无需重复连接`);
+        return;
+      }
+
       // 设置连接中状态
       setIsConnecting(true);
       // 设置加载状态
@@ -521,39 +667,8 @@ const DevicePanelController: NavigationFunctionComponent<
         // 更新设备连接状态
         updateConnectionStatus(device.id, true);
 
-        subscriptionRef.current = BLEManager.monitorCharacteristicForDevice(
-          device.id,
-          BLE_UUID.SERVICE,
-          BLE_UUID.CHARACTERISTIC_WRITE,
-          (error, characteristic) => {
-            if (error) {
-              console.error('Characteristic monitoring error:', error);
-            } else if (characteristic && characteristic.value) {
-              console.log('value ', characteristic.value);
-              const parsedResponse = parseResponse(characteristic.value);
-
-              // 检查是否为有效响应
-              if (parsedResponse.isValid) {
-                // 判断命令类型
-                console.log('Monitored characteristic value:', parsedResponse);
-                const {command, data} = parsedResponse;
-                if (command === CommandType.GET_VERSION) {
-                  // 设置设备版本信息
-                  if (data.length >= 2) {
-                    const deviceType = data[0];
-                    const vcode = data[1];
-
-                    setDeviceVersion(
-                      `${deviceType.toString().padStart(2, '0')}` +
-                        ' - ' +
-                        vcode.toString().padStart(2, '0'),
-                    );
-                  }
-                }
-              }
-            }
-          },
-        );
+        // 为设备创建特性监控
+        setupCharacteristicMonitor(device.id);
 
         try {
           await BLEManager.writeCharacteristic(
@@ -565,26 +680,6 @@ const DevicePanelController: NavigationFunctionComponent<
         } catch (error) {
           console.error('Error reading device version:', error);
         }
-        // 遍历读取特性
-        // for (const service of serviceInfos) {
-        //   for (const characteristic of service.characteristicInfos) {
-        //     const value = await BLEManager.readCharacteristic(
-        //       device.id,
-        //       service.uuid,
-        //       characteristic.uuid,
-        //     );
-        //     console.log(
-        //       `service UUID: ${service.uuid} characteristic UUID: ${characteristic.uuid}`,
-        //     );
-        //     if (value) {
-        //       const decodedValue = decodeBase64Value(value);
-        //       console.log(
-        //         `Decoded value of ${characteristic.uuid}:`,
-        //         decodedValue,
-        //       );
-        //     }
-        //   }
-        // }
       }
     } catch (error) {
       console.error(
@@ -600,7 +695,7 @@ const DevicePanelController: NavigationFunctionComponent<
       setDeviceLoading(device.id, false);
       setIsConnecting(false);
     }
-  };
+  }, [deviceConnectionStates, setupCharacteristicMonitor]);
 
   // Handle mode selection
   const handleModeSelect = (mode: DeviceMode, name: string) => {
