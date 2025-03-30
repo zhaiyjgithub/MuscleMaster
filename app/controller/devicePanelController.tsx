@@ -469,6 +469,40 @@ const DevicePanelController: NavigationFunctionComponent<
     // 仅依赖设备 ID 和实际存储状态的变化
   }, [selectedDevice?.id, deviceTimerValues, deviceTimerRunning]);
 
+  // 同步当前选中设备的强度值到 UI
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      
+      // 从设备强度状态获取值
+      const currentIntensity = deviceIntensities[deviceId] || 50;
+      
+      console.log(
+        `同步设备 ${deviceId} 强度值到 UI，当前强度：${currentIntensity}`,
+      );
+      
+      // 直接设置 UI 状态，确保反映当前设备
+      setIntensityLevel(currentIntensity);
+    }
+  }, [selectedDevice?.id, deviceIntensities]);
+
+  // 同步当前选中设备的模式到 UI
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      
+      // 从设备模式状态获取值
+      const currentMode = deviceModes[deviceId] || 'Fitness';
+      
+      console.log(
+        `同步设备 ${deviceId} 模式到 UI，当前模式：${currentMode}`,
+      );
+      
+      // 直接设置 UI 状态，确保反映当前设备
+      setSelectedMode(currentMode);
+    }
+  }, [selectedDevice?.id, deviceModes]);
+
   // 单独处理计时器恢复逻辑
   useEffect(() => {
     if (selectedDevice) {
