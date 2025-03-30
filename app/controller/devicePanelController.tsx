@@ -69,6 +69,9 @@ const DevicePanelController: NavigationFunctionComponent<
   const [deviceLoadingStates, setDeviceLoadingStates] = useState<
     Record<string, boolean>
   >({});
+  const [deviceConnectionStates, setDeviceConnectionStates] = useState<
+    Record<string, boolean>
+  >({});
   const [deviceVersion, setDeviceVersion] = useState('');
   useState<Subscription | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
@@ -117,7 +120,7 @@ const DevicePanelController: NavigationFunctionComponent<
           if (error) {
             console.error('Connection error:', error);
           } else {
-            setIsConnected(isConnected);
+            updateConnectionStatus(device.id, isConnected);
             console.log(
               `Device ${device.name} is now ${
                 isConnected ? 'connected' : 'disconnected'
@@ -138,13 +141,14 @@ const DevicePanelController: NavigationFunctionComponent<
     if (isConnecting) {
       return '#f59e0b';
     } // 黄色，连接中
-    if (isConnected) {
+    
+    // 检查当前选中设备的连接状态
+    if (selectedDevice && getDeviceConnectionStatus(selectedDevice.id)) {
       return '#10b981';
     } // 绿色，已连接
+    
     return '#ef4444'; // 红色，未连接
   };
-
-
 
   // 添加设备加载状态管理函数
   const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
@@ -156,42 +160,25 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 添加连接状态更新函数
   const updateConnectionStatus = (deviceId: string, connected: boolean) => {
-    setIsConnected(connected);
+    setDeviceConnectionStates(prev => ({
+      ...prev,
+      [deviceId]: connected,
+    }));
+    
+    // 如果当前选中的设备状态改变，更新整体连接状态显示
+    if (selectedDevice && selectedDevice.id === deviceId) {
+      setIsConnected(connected);
+    }
+    
     setIsConnecting(false);
     console.log(`更新设备 ${deviceId} 连接状态为：${connected}`);
   };
 
-  // 添加服务和特性发现函数
-  const discoverServicesAndCharacteristics = async (
-    deviceId: string,
-  ): Promise<ServiceInfo[]> => {
-    try {
-      // 使用 BLEManager 发现所有服务和特性
-      await BLEManager.discoverAllServicesAndCharacteristics(deviceId);
-
-      // 获取服务
-      const services = await BLEManager.servicesForDevice(deviceId);
-      const serviceInfos: ServiceInfo[] = [];
-
-      // 对每个服务获取特性
-      for (const service of services) {
-        const characteristics = await BLEManager.characteristicsForDevice(
-          deviceId,
-          service.uuid,
-        );
-
-        serviceInfos.push({
-          uuid: service.uuid,
-          characteristicInfos: characteristics.map(char => ({uuid: char.uuid})),
-        });
-      }
-
-      return serviceInfos;
-    } catch (error) {
-      console.error('Error discovering services and characteristics:', error);
-      return [];
-    }
+  // 获取特定设备的连接状态
+  const getDeviceConnectionStatus = (deviceId: string): boolean => {
+    return deviceConnectionStates[deviceId] || false;
   };
+
 
   useNavigationComponentDidAppear(async () => {
     if (firstLoad.current) {
@@ -667,19 +654,25 @@ const DevicePanelController: NavigationFunctionComponent<
     />
   );
 
-  
-
   const handleDeviceSelect = useCallback((device: FoundDevice) => {
-    // Handle device selection logic here
     console.log('Selected device:', device);
-  }, []);
+    setSelectedDevice(device);
+    
+    // 更新当前选中设备的连接状态显示
+    setIsConnected(getDeviceConnectionStatus(device.id));
+    
+    // 如果设备未连接，则连接
+    if (!getDeviceConnectionStatus(device.id)) {
+      connectToDevice(device);
+    }
+  }, [deviceConnectionStates]);
 
   const $deviceListActionSheet = (
     <DeviceListActionSheet
       ref={deviceListActionSheetRef}
       devices={devices}
       selectedDevice={selectedDevice}
-      isConnected={isConnected}
+      deviceConnectionStates={deviceConnectionStates}
       deviceLoadingStates={deviceLoadingStates}
       handleDeviceSelect={handleDeviceSelect}
     />
@@ -696,6 +689,8 @@ const DevicePanelController: NavigationFunctionComponent<
   // 渲染设备状态指示器
   const renderDeviceStatusIndicator = () => {
     const statusColor = getDeviceStatusColor();
+    const isCurrentDeviceConnected = selectedDevice ? 
+      getDeviceConnectionStatus(selectedDevice.id) : false;
 
     if (isConnecting) {
       return (
@@ -728,9 +723,9 @@ const DevicePanelController: NavigationFunctionComponent<
         />
         <Text
           className={`text-xs ${
-            isConnected ? 'text-green-600' : 'text-red-500'
+            isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
           }`}>
-          {isConnected ? 'Connected' : 'Disconnected'}
+          {isCurrentDeviceConnected ? 'Connected' : 'Disconnected'}
         </Text>
       </View>
     );
@@ -743,7 +738,7 @@ const DevicePanelController: NavigationFunctionComponent<
       <TouchableOpacity
         className="flex-row justify-between items-center p-4"
         onPress={() => {
-          handleDeviceNamePress();
+          deviceListActionSheetRef.current?.expand();
         }}>
         <View className="flex-row items-center">
           {renderDeviceStatusIndicator()}
@@ -768,8 +763,9 @@ const DevicePanelController: NavigationFunctionComponent<
             letter-spacing: 2px;
   * */
   const $timerValue = (
-    <TouchableOpacity
-      className="p-4 flex flex-row items-center justify-center"
+    <View   >
+      <TouchableOpacity
+      className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() =>
         !timerRunning && timePickerActionSheetRef.current?.expand()
       }
@@ -777,19 +773,20 @@ const DevicePanelController: NavigationFunctionComponent<
       <Text
         className={`text-8xl ${
           timerRunning ? 'text-orange-500' : '#333'
-        } font-bold`}>
+        } font-bold pt-4`}>
         {formatTime(timerValue)}
       </Text>
     </TouchableOpacity>
+    </View>
   );
 
   const $intensityControl = (
-    <View className="flex-col border border-gray-200 rounded-2xl">
+    <View className="flex-col border-gray-200 rounded-2xl">
       <View className="flex-row justify-between items-center relative gap-x-3">
         <TouchableOpacity
-          className="h-14 w-14 rounded-full bg-white items-center justify-center"
+          className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
           onPress={decreaseIntensity}>
-          <ChevronLeft size={24} color="black" />
+          <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -803,9 +800,9 @@ const DevicePanelController: NavigationFunctionComponent<
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="h-14 w-14 rounded-full bg-white items-center justify-center"
+          className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
           onPress={increaseIntensity}>
-          <ChevronRight size={24} color="black" />
+          <ChevronRight size={24} color="white" />
         </TouchableOpacity>
       </View>
     </View>
@@ -824,9 +821,31 @@ const DevicePanelController: NavigationFunctionComponent<
         maximumValue={100}
         value={intensityLevel}
         step={1}
-        onValueChange={setIntensityLevel}
+        onValueChange={value => {
+          // 只更新本地状态，不触发设备通信
+          // setIntensityLevel(value);
+          console.log('intensityLevel', value);
+        }}
+        onSlidingComplete={value => {
+          // 滑动完成后，向设备发送新的强度值
+          setIntensityLevel(value);
+          if (selectedDevice) {
+            BLEManager.writeCharacteristic(
+              selectedDevice.id,
+              BLE_UUID.SERVICE,
+              BLE_UUID.CHARACTERISTIC_WRITE,
+              BLECommands.setIntensity(value),
+            )
+              .then(() => {
+                console.log('Successfully wrote intensity value:', value);
+              })
+              .catch(error => {
+                console.error('Error writing intensity:', error);
+              });
+          }
+        }}
         minimumTrackTintColor="#1e88e5"
-        maximumTrackTintColor="#FFF"
+        maximumTrackTintColor="#f5f5f5"
       />
 
       <View className="flex-row items-center justify-between ">
@@ -871,22 +890,23 @@ const DevicePanelController: NavigationFunctionComponent<
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>
-      <SafeAreaView className="flex-1 bg-gray-200">
+      <SafeAreaView className="flex-1 bg-[#f5f5f5]">
         <View className={'flex flex-1 flex-col justify-between p-4'}>
           {$deviceInfo}
-          <View className={'flex flex-1 flex-col  justify-around'}>
+          <View className={'flex flex-1 flex-col gap-y-6 mt-8'}>
             {$timerValue}
-            {$intensityControl}
-            {$intensityControlSlider}
+            <View className="flex-col gap-y-4 p-4 bg-white rounded-2xl">
+              {$intensityControl}
+              {$intensityControlSlider}
+            </View>
           </View>
 
-          <View className="flex-col gap-y-4">
+          <View className="flex-col gap-y-6">
             {$startAndPauseActivity}
             {$cancelActivity}
           </View>
         </View>
 
-    
         {$modeActionSheet}
         {$timePickerActionSheet}
         {$deviceListActionSheet}
@@ -899,15 +919,15 @@ DevicePanelController.options = {
   topBar: {
     visible: true,
     title: {
-      text: 'GuGeer Device',
+      text: 'Panel',
     },
-    rightButtons: [
-      {
-        id: 'settings',
-        icon: require('../assets/settings.png'),
-        color: 'white',
-      },
-    ],
+    // rightButtons: [
+    //   {
+    //     id: 'settings',
+    //     icon: require('../assets/settings.png'),
+    //     color: 'white',
+    //   },
+    // ],
   },
 };
 

@@ -137,7 +137,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
         component: {
           name: 'DevicePanelController',
           passProps: {
-            devices: [device],
+            devices: devices,
           },
         },
       });
@@ -170,7 +170,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-200">
+    <SafeAreaView className="flex-1 bg-[#f5f5f5]">
       <View className="flex-1 relative">
         <ScrollView className="flex-1 pb-20">
           <ScanSection
@@ -179,19 +179,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
             isScanning={isScanning}
             isBleReady={bleReady}
           />
-          <TouchableOpacity
-            onPress={() => {
-              handleStartTraining({
-                name: 'GuGeer D30',
-                id: '123456',
-                signalStrength: 'good',
-                connected: false,
-                icon: '💪',
-                iconColor: '#1e88e5',
-              });
-            }}>
-            <Text>Hello</Text>
-          </TouchableOpacity>
+
           <ScanFoundDeviceList
             devices={devices}
             updateConnectionStatus={updateDeviceConnectionStatus}
