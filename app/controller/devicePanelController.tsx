@@ -449,21 +449,48 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   };
 
-  // 同步当前选中设备的模式和强度到 UI
+  // 同步当前选中设备的定时器状态到 UI
   useEffect(() => {
     if (selectedDevice) {
       const deviceId = selectedDevice.id;
-      // 同步模式和强度
+
+      // 明确从设备状态获取值，强制更新 UI
+      const currentTimerValue = deviceTimerValues[deviceId] || 0;
+      const currentTimerRunning = deviceTimerRunning[deviceId] || false;
+
       console.log(
-        `同步设备 ${deviceId} 模式和强度到 UI，模式：${getDeviceMode(
-          deviceId,
-        )}，强度：${getDeviceIntensity(deviceId)}`,
+        `同步设备 ${deviceId} 定时器状态到 UI，当前值：${currentTimerValue}，运行状态：${currentTimerRunning}`,
       );
-      setSelectedMode(getDeviceMode(deviceId));
-      setIntensityLevel(getDeviceIntensity(deviceId));
+
+      // 直接设置 UI 状态，确保反映当前设备
+      setTimerValue(currentTimerValue);
+      setTimerRunning(currentTimerRunning);
     }
-    // 仅依赖于 selectedDevice 和获取函数的变化
-  }, [selectedDevice, getDeviceMode, getDeviceIntensity]);
+    // 仅依赖设备 ID 和实际存储状态的变化
+  }, [selectedDevice?.id, deviceTimerValues, deviceTimerRunning]);
+
+  // 单独处理计时器恢复逻辑
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      // 检查并恢复计时器
+      if (
+        deviceTimerRunning[deviceId] &&
+        deviceTimerValues[deviceId] > 0 &&
+        !deviceTimerIntervals[deviceId]
+      ) {
+        console.log(
+          `设备 ${deviceId} 需要恢复计时器，当前值：${deviceTimerValues[deviceId]}`,
+        );
+        startTimerWithValue(deviceId, deviceTimerValues[deviceId]);
+      }
+    }
+  }, [
+    selectedDevice?.id,
+    deviceTimerRunning,
+    deviceTimerValues,
+    deviceTimerIntervals,
+  ]);
 
   // 修改强度增加逻辑
   const increaseIntensity = () => {
@@ -723,7 +750,7 @@ const DevicePanelController: NavigationFunctionComponent<
   // 修改设备选择回调函数
   const handleDeviceSelect = async (device: FoundDevice) => {
     console.log('Selected device:', device);
-// 重置 UI 显示的计时器值
+    // 重置 UI 显示的计时器值
     setTimerValue(0);
     // 设置新的选中设备
     setSelectedDevice(device);
