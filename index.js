@@ -6,6 +6,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {Navigation} from 'react-native-navigation';
 import React from 'react';
 import './global.css';
+import { ToastProvider } from 'react-native-toast-notifications'
 /**
  * @format
  */
@@ -17,9 +18,12 @@ Navigation.registerComponent(
     return (
       <NavigationProvider value={{componentId: props.componentId}}>
         <GestureHandlerRootView>
-          <SafeAreaProvider>
-            <ScanDeviceController {...props} />
-          </SafeAreaProvider>
+          <ToastProvider>
+            <SafeAreaProvider>
+              <ScanDeviceController {...props} />
+            </SafeAreaProvider>
+          </ToastProvider>
+
         </GestureHandlerRootView>
       </NavigationProvider>
     );
@@ -32,9 +36,11 @@ Navigation.registerComponent(
   () => props => {
     return (
       <NavigationProvider value={{componentId: props.componentId}}>
-        <SafeAreaProvider>
-          <DevicePanelController {...props} />
-        </SafeAreaProvider>
+        <ToastProvider>
+          <SafeAreaProvider>
+            <DevicePanelController {...props} />
+          </SafeAreaProvider>
+        </ToastProvider>
       </NavigationProvider>
     );
   },

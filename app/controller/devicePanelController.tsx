@@ -11,6 +11,7 @@ import {
   useNavigationComponentDidDisappear,
 } from 'react-native-navigation-hooks';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useToast} from 'react-native-toast-notifications';
 import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
 import ModeListActionSheet from '../components/mode-list-action-sheet/modeListActionSheet';
 import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
@@ -71,6 +72,8 @@ const DevicePanelController: NavigationFunctionComponent<
   const modeListActionSheetRef = useRef<BottomSheet>(null);
   const deviceListActionSheetRef = useRef<BottomSheet>(null);
   const timePickerActionSheetRef = useRef<BottomSheet>(null);
+
+  const toast = useToast();
 
   // 创建一个动画值用于状态指示器的呼吸效果
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -136,6 +139,16 @@ const DevicePanelController: NavigationFunctionComponent<
 
             // 可以添加提示音或振动
             console.log('Timer finished for device:', deviceId);
+
+            /*
+             *   toast
+             * */
+            // 显示设备名称 - 活动已经完成
+            toast.show(`${selectedDevice?.name} - Activity completed`, {
+              type: 'success',
+              placement: 'top',
+              duration: 4000,
+            });
 
             // 停止设备
             BLEManager.writeCharacteristic(
@@ -473,14 +486,14 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     if (selectedDevice) {
       const deviceId = selectedDevice.id;
-      
+
       // 从设备强度状态获取值
       const currentIntensity = deviceIntensities[deviceId] || 50;
-      
+
       console.log(
         `同步设备 ${deviceId} 强度值到 UI，当前强度：${currentIntensity}`,
       );
-      
+
       // 直接设置 UI 状态，确保反映当前设备
       setIntensityLevel(currentIntensity);
     }
@@ -490,14 +503,12 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     if (selectedDevice) {
       const deviceId = selectedDevice.id;
-      
+
       // 从设备模式状态获取值
       const currentMode = deviceModes[deviceId] || 'Fitness';
-      
-      console.log(
-        `同步设备 ${deviceId} 模式到 UI，当前模式：${currentMode}`,
-      );
-      
+
+      console.log(`同步设备 ${deviceId} 模式到 UI，当前模式：${currentMode}`);
+
       // 直接设置 UI 状态，确保反映当前设备
       setSelectedMode(currentMode);
     }
@@ -1100,15 +1111,12 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   useNavigationComponentDidAppear(async () => {
-    console.log('自动连接到第一个设备', devices[0].name);
+    const initialDevice = devices[0];
+    console.log('自动连接到第一个设备', initialDevice.name);
     // 连接设备并等待成功
     console.log('开始连接设备...');
-    await connectToDevice(devices[0]);
-    console.log('设备连接成功，开始设置监控');
-    // 仅在设备成功连接后才设置监控
-    await setupConnectionMonitor(devices[0].id);
-
-    setSelectedDevice(devices[0]);
+    await connectToDevice(initialDevice);
+    setSelectedDevice(initialDevice);
 
     const checkAllDeviceTimers = () => {
       console.log('检查所有设备的计时器状态');
