@@ -765,26 +765,28 @@ const DevicePanelController: NavigationFunctionComponent<
   const $intensityControl = (
     <View className="flex-col border border-gray-200 rounded-2xl">
       <View className="flex-row justify-between items-center relative gap-x-3">
-      <TouchableOpacity
-        className="h-14 w-14 rounded-full bg-white items-center justify-center"
-        onPress={decreaseIntensity}>
-        <ChevronLeft size={24} color="black" />
-      </TouchableOpacity>
+        <TouchableOpacity
+          className="h-14 w-14 rounded-full bg-white items-center justify-center"
+          onPress={decreaseIntensity}>
+          <ChevronLeft size={24} color="black" />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        className="flex-1 py-4 rounded-xl bg-white items-center justify-center"
-        onPress={() => {
-          modeListActionSheetRef.current?.expand();
-        }}>
-        <Text className="font-semibold text-lg text-black">{selectedMode}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-1 py-4 rounded-xl bg-white items-center justify-center"
+          onPress={() => {
+            modeListActionSheetRef.current?.expand();
+          }}>
+          <Text className="font-semibold text-2xl text-black">
+            {selectedMode}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        className="h-14 w-14 rounded-full bg-white items-center justify-center"
-        onPress={increaseIntensity}>
-        <ChevronRight size={24} color="black" />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          className="h-14 w-14 rounded-full bg-white items-center justify-center"
+          onPress={increaseIntensity}>
+          <ChevronRight size={24} color="black" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -800,6 +802,7 @@ const DevicePanelController: NavigationFunctionComponent<
         minimumValue={0}
         maximumValue={100}
         value={intensityLevel}
+        step={1}
         onValueChange={setIntensityLevel}
         minimumTrackTintColor="#1e88e5"
         maximumTrackTintColor="#FFF"
@@ -823,7 +826,7 @@ const DevicePanelController: NavigationFunctionComponent<
       }`}
       onPress={toggleTimer}
       disabled={timerValue === 0}>
-      <Text className="text-white font-semibold text-base">
+      <Text className="text-white font-semibold text-xl">
         {timerRunning ? 'Pause' : 'Continue'}
       </Text>
     </TouchableOpacity>
