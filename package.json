@@ -13,6 +13,7 @@
   "dependencies": {
     "@frsource/base64": "^1.0.132",
     "@gorhom/bottom-sheet": "^5",
+    "@react-native-community/slider": "^4.5.6",
     "@react-native-picker/picker": "^2.11.0",
     "clsx": "^2.1.1",
     "lucide-react-native": "^0.482.0",

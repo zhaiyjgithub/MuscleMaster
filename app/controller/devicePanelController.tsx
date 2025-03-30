@@ -1,7 +1,7 @@
 import BottomSheet from '@gorhom/bottom-sheet';
 import {
   Battery,
-  ChevronDown,
+  ChevronDown, ChevronLeft,
   ChevronRight,
   ChevronUp,
   Smartphone,
@@ -453,12 +453,6 @@ const DevicePanelController: NavigationFunctionComponent<
         // 更新设备连接状态
         updateConnectionStatus(device.id, true);
 
-        // 发现服务和特性
-        const serviceInfos = await discoverServicesAndCharacteristics(
-          device.id,
-        );
-        console.log(`Service infos: ${JSON.stringify(serviceInfos)}`);
-
         subscriptionRef.current = BLEManager.monitorCharacteristicForDevice(
           device.id,
           BLE_UUID.SERVICE,
@@ -480,10 +474,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   if (data.length >= 2) {
                     const deviceType = data[0];
                     const vcode = data[1];
-                    console.log(
-                        `${deviceType.toString().padStart(2, '0')}` +
-                        ' - ' +
-                        vcode.toString().padStart(2, '0'))
+
                     setDeviceVersion(
                       `${deviceType.toString().padStart(2, '0')}` +
                         ' - ' +
@@ -672,12 +663,11 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes
+    return `${minutes.toString().padStart(2, '0')}:${seconds
       .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      .padStart(2, '0')}`;
   };
 
   // 渲染设备状态指示器
@@ -725,213 +715,268 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const [deviceModalVisible, setDeviceModalVisible] = useState(false);
 
+  const $deviceInfo = (
+    <View className="bg-white rounded-2xl shadow-sm">
+      <TouchableOpacity
+        className="flex-row justify-between items-center p-4"
+        onPress={() => {
+          handleDeviceNamePress();
+        }}>
+        <View className="flex-row items-center">
+          {renderDeviceStatusIndicator()}
+          <Text className="text-base font-semibold text-gray-800 ml-2">
+            {selectedDevice?.name || 'No device selected'}
+            {deviceVersion && ` (${deviceVersion})`}
+          </Text>
+        </View>
+        <View className="flex-row items-center">
+          <Battery size={16} color="#777" />
+          <Text className="text-sm text-gray-500 ml-1">{batteryLevel}%</Text>
+          <ChevronRight size={20} color="#777" className="ml-2" />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const $timerValue = (
+    <TouchableOpacity
+      className="p-4 flex flex-row items-center justify-center"
+      onPress={() =>
+        !timerRunning && timePickerActionSheetRef.current?.expand()
+      }
+      disabled={timerRunning}>
+      <Text
+        className={`text-8xl font-light ${
+          timerRunning ? 'text-orange-500' : 'text-gray-600'
+        } pt-2 font-bold`}>
+        {formatTime(timerValue)}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const $intensityControl = (
+    <View className="flex-row justify-between items-center relative gap-x-3">
+      <TouchableOpacity
+        className="h-14 w-14 rounded-full bg-white items-center justify-center"
+        onPress={increaseIntensity}>
+        <ChevronLeft size={24} color="black" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        className="flex-1 h-14 rounded-xl bg-white items-center justify-center"
+        onPress={() => {
+          modeListActionSheetRef.current?.expand();
+        }}>
+        <Text className="font-semibold text-lg text-black">Mode</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        className="h-14 w-14 rounded-full bg-white items-center justify-center"
+        onPress={decreaseIntensity}>
+        <ChevronRight size={24} color="black" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const $startAndPauseActivity = (
+    <TouchableOpacity
+      className={`py-4 rounded-lg items-center justify-center ${
+        timerValue > 0
+          ? timerRunning
+            ? 'bg-orange-500'
+            : 'bg-green-500'
+          : 'bg-gray-400'
+      }`}
+      onPress={toggleTimer}
+      disabled={timerValue === 0}>
+      <Text className="text-white font-semibold text-base">
+        {timerRunning ? 'Pause' : 'Continue'}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const $cancelActivity = (
+    <TouchableOpacity
+      className={`items-center justify-center ${
+        timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
+      }`}
+      onPress={resetTimer}
+      disabled={timerValue === 0}>
+      <Text
+        className={`font-semibold text-base ${
+          timerValue > 0 ? 'text-blue-500' : 'text-gray-500'
+        }`}>
+        Cancel
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaView className="flex-1 bg-gray-200">
-        <ScrollView className="flex-1 p-4">
-          {/* Current Device Section */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-            <TouchableOpacity
-              className="flex-row justify-between items-center p-4"
-              onPress={() => {
-                handleDeviceNamePress();
-              }}>
-              <View className="flex-row items-center">
-                {renderDeviceStatusIndicator()}
-                <Text className="text-base font-semibold text-gray-800 ml-2">
-                  {selectedDevice?.name || 'No device selected'}
-                  {deviceVersion && ` (${deviceVersion})`}
-                </Text>
-              </View>
-              <View className="flex-row items-center">
-                <Battery size={16} color="#777" />
-                <Text className="text-sm text-gray-500 ml-1">
-                  {batteryLevel}%
-                </Text>
-                <ChevronRight size={20} color="#777" className="ml-2" />
-              </View>
-            </TouchableOpacity>
+        <View className={'flex flex-1 flex-col justify-between p-4'}>
+          <View className={'flex flex-1 flex-col'}>
+            {$deviceInfo}
+            {$timerValue}
+            {$intensityControl}
           </View>
-
-          {/* 设备选择弹窗 */}
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={deviceModalVisible}
-            onRequestClose={() => setDeviceModalVisible(false)}>
-            <View className="flex-1 bg-black bg-opacity-40 justify-end">
-              <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">
-                <View className="flex-row justify-center mb-5 relative">
-                  <Text className="font-semibold text-lg">Select Device</Text>
-                  <TouchableOpacity
-                    onPress={() => setDeviceModalVisible(false)}
-                    className="absolute right-0 top-0">
-                    <Text className="text-2xl font-medium">×</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View className="mb-5">
-                  {devices.map(device => {
-                    const isLoading = deviceLoadingStates[device.id] || false;
-                    const isCurrentDevice = selectedDevice?.id === device.id;
-                    const isDeviceConnected = isCurrentDevice && isConnected;
-
-                    return (
-                      <TouchableOpacity
-                        key={device.id}
-                        className={`flex-row items-center p-4 rounded-xl mb-3 ${
-                          isCurrentDevice
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'bg-gray-100'
-                        }`}
-                        onPress={() => {}}
-                        disabled={isLoading}>
-                        <Smartphone size={24} color="#1e88e5" />
-                        <View className="flex-1 ml-3">
-                          <Text className="font-semibold text-base text-gray-800 mb-1">
-                            {device.name}
-                          </Text>
-                          <View className="flex-row items-center">
-                            {isLoading ? (
-                              <View className="flex-row items-center">
-                                <ActivityIndicator
-                                  size="small"
-                                  color="#f59e0b"
-                                />
-                                <Text className="text-sm text-yellow-500 ml-2">
-                                  Connecting...
-                                </Text>
-                              </View>
-                            ) : (
-                              <View className="flex-row items-center">
-                                <View
-                                  className={`w-2 h-2 rounded-full mr-1.5 ${
-                                    isDeviceConnected
-                                      ? 'bg-green-500'
-                                      : 'bg-red-500'
-                                  }`}
-                                />
-                                <Text className="text-sm text-gray-600">
-                                  {isDeviceConnected
-                                    ? 'Connected'
-                                    : 'Disconnected'}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                        <Text className="text-sm text-green-600 font-medium">
-                          {isDeviceConnected ? 'Selected' : 'Select'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <TouchableOpacity
-                  className="bg-blue-500 rounded-lg py-3.5 items-center"
-                  onPress={() => setDeviceModalVisible(false)}>
-                  <Text className="text-white font-medium text-base">
-                    Confirm
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-
-          {/* Timer Section */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-            <View className="p-4 gap-y-4">
-              <TouchableOpacity
-                className="p-4 flex flex-row items-center justify-center"
-                onPress={() =>
-                  !timerRunning && timePickerActionSheetRef.current?.expand()
-                }
-                disabled={timerRunning}>
-                <Text
-                  className={`text-5xl font-light ${
-                    timerRunning ? 'text-orange-500' : 'text-gray-600'
-                  } pt-2`}>
-                  {formatTime(timerValue)}
-                </Text>
-              </TouchableOpacity>
-              <View className="flex-row items-center justify-between ">
-                <TouchableOpacity
-                  className={`py-3 w-24 rounded-lg border items-center justify-center ${
-                    timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
-                  }`}
-                  onPress={resetTimer}
-                  disabled={timerValue === 0}>
-                  <Text
-                    className={`font-semibold text-base ${
-                      timerValue > 0 ? 'text-blue-500' : 'text-gray-300'
-                    }`}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  className={`py-3 w-24 rounded-lg items-center justify-center ${
-                    timerValue > 0
-                      ? timerRunning
-                        ? 'bg-orange-500'
-                        : 'bg-green-500'
-                      : 'bg-gray-300'
-                  }`}
-                  onPress={toggleTimer}
-                  disabled={timerValue === 0}>
-                  <Text className="text-white font-semibold text-base">
-                    {timerRunning ? 'Pause' : 'Continue'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+          <View className="flex-col gap-y-4">
+            {$startAndPauseActivity}
+            {$cancelActivity}
           </View>
+        </View>
 
-          {/* Mode Selection Section */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-            <View className="p-4">
-              <View className="items-center mb-3.5 flex-col gap-y-2">
-                {getIconByMode(selectedMode, 32, '#1e88e5')}
-                <Text className="text-[22px] font-bold text-blue-500">
-                  {selectedMode}
-                </Text>
-              </View>
-              <TouchableOpacity
-                className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"
-                onPress={() => {
-                  modeListActionSheetRef.current?.expand();
-                }}>
-                <Text className="font-medium text-base text-white">Mode</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/*/!* 设备选择弹窗 *!/*/}
+          {/*<Modal*/}
+          {/*  animationType="slide"*/}
+          {/*  transparent={true}*/}
+          {/*  visible={deviceModalVisible}*/}
+          {/*  onRequestClose={() => setDeviceModalVisible(false)}>*/}
+          {/*  <View className="flex-1 bg-black bg-opacity-40 justify-end">*/}
+          {/*    <View className="bg-white rounded-t-2xl p-5 max-h-[80%]">*/}
+          {/*      <View className="flex-row justify-center mb-5 relative">*/}
+          {/*        <Text className="font-semibold text-lg">Select Device</Text>*/}
+          {/*        <TouchableOpacity*/}
+          {/*          onPress={() => setDeviceModalVisible(false)}*/}
+          {/*          className="absolute right-0 top-0">*/}
+          {/*          <Text className="text-2xl font-medium">×</Text>*/}
+          {/*        </TouchableOpacity>*/}
+          {/*      </View>*/}
 
-          {/* Intensity Control Section */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">
-            <View className="p-4">
-              <View className="items-center mb-3.5">
-                <Text className="text-[22px] font-bold text-blue-500">
-                  {intensityLevel} / {maxIntensity}
-                </Text>
-              </View>
-              <View className="flex-row justify-between relative">
-                <TouchableOpacity
-                  className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center"
-                  onPress={increaseIntensity}>
-                  <ChevronUp size={24} color="white" />
-                  <Text className="font-semibold mt-0.5 text-white">Up</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="w-[90px] py-4 rounded-lg bg-blue-500 items-center justify-center"
-                  onPress={decreaseIntensity}>
-                  <ChevronDown size={24} color="white" />
-                  <Text className="font-semibold mt-0.5 text-white">Down</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+          {/*      <View className="mb-5">*/}
+          {/*        {devices.map(device => {*/}
+          {/*          const isLoading = deviceLoadingStates[device.id] || false;*/}
+          {/*          const isCurrentDevice = selectedDevice?.id === device.id;*/}
+          {/*          const isDeviceConnected = isCurrentDevice && isConnected;*/}
+
+          {/*          return (*/}
+          {/*            <TouchableOpacity*/}
+          {/*              key={device.id}*/}
+          {/*              className={`flex-row items-center p-4 rounded-xl mb-3 ${*/}
+          {/*                isCurrentDevice*/}
+          {/*                  ? 'bg-blue-50 border border-blue-200'*/}
+          {/*                  : 'bg-gray-100'*/}
+          {/*              }`}*/}
+          {/*              onPress={() => {}}*/}
+          {/*              disabled={isLoading}>*/}
+          {/*              <Smartphone size={24} color="#1e88e5" />*/}
+          {/*              <View className="flex-1 ml-3">*/}
+          {/*                <Text className="font-semibold text-base text-gray-800 mb-1">*/}
+          {/*                  {device.name}*/}
+          {/*                </Text>*/}
+          {/*                <View className="flex-row items-center">*/}
+          {/*                  {isLoading ? (*/}
+          {/*                    <View className="flex-row items-center">*/}
+          {/*                      <ActivityIndicator*/}
+          {/*                        size="small"*/}
+          {/*                        color="#f59e0b"*/}
+          {/*                      />*/}
+          {/*                      <Text className="text-sm text-yellow-500 ml-2">*/}
+          {/*                        Connecting...*/}
+          {/*                      </Text>*/}
+          {/*                    </View>*/}
+          {/*                  ) : (*/}
+          {/*                    <View className="flex-row items-center">*/}
+          {/*                      <View*/}
+          {/*                        className={`w-2 h-2 rounded-full mr-1.5 ${*/}
+          {/*                          isDeviceConnected*/}
+          {/*                            ? 'bg-green-500'*/}
+          {/*                            : 'bg-red-500'*/}
+          {/*                        }`}*/}
+          {/*                      />*/}
+          {/*                      <Text className="text-sm text-gray-600">*/}
+          {/*                        {isDeviceConnected*/}
+          {/*                          ? 'Connected'*/}
+          {/*                          : 'Disconnected'}*/}
+          {/*                      </Text>*/}
+          {/*                    </View>*/}
+          {/*                  )}*/}
+          {/*                </View>*/}
+          {/*              </View>*/}
+          {/*              <Text className="text-sm text-green-600 font-medium">*/}
+          {/*                {isDeviceConnected ? 'Selected' : 'Select'}*/}
+          {/*              </Text>*/}
+          {/*            </TouchableOpacity>*/}
+          {/*          );*/}
+          {/*        })}*/}
+          {/*      </View>*/}
+
+          {/*      <TouchableOpacity*/}
+          {/*        className="bg-blue-500 rounded-lg py-3.5 items-center"*/}
+          {/*        onPress={() => setDeviceModalVisible(false)}>*/}
+          {/*        <Text className="text-white font-medium text-base">*/}
+          {/*          Confirm*/}
+          {/*        </Text>*/}
+          {/*      </TouchableOpacity>*/}
+          {/*    </View>*/}
+          {/*  </View>*/}
+          {/*</Modal>*/}
+
+          {/*/!* Timer Section *!/*/}
+          {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
+          {/*  <View className="p-4 gap-y-4">*/}
+          {/*    <View className="flex-row items-center justify-between ">*/}
+          {/*      <TouchableOpacity*/}
+          {/*        className={`py-3 w-24 rounded-lg border items-center justify-center ${*/}
+          {/*          timerValue > 0 ? 'border-blue-500' : 'border-gray-300'*/}
+          {/*        }`}*/}
+          {/*        onPress={resetTimer}*/}
+          {/*        disabled={timerValue === 0}>*/}
+          {/*        <Text*/}
+          {/*          className={`font-semibold text-base ${*/}
+          {/*            timerValue > 0 ? 'text-blue-500' : 'text-gray-300'*/}
+          {/*          }`}>*/}
+          {/*          Cancel*/}
+          {/*        </Text>*/}
+          {/*      </TouchableOpacity>*/}
+
+          {/*      <TouchableOpacity*/}
+          {/*        className={`py-3 w-24 rounded-lg items-center justify-center ${*/}
+          {/*          timerValue > 0*/}
+          {/*            ? timerRunning*/}
+          {/*              ? 'bg-orange-500'*/}
+          {/*              : 'bg-green-500'*/}
+          {/*            : 'bg-gray-300'*/}
+          {/*        }`}*/}
+          {/*        onPress={toggleTimer}*/}
+          {/*        disabled={timerValue === 0}>*/}
+          {/*        <Text className="text-white font-semibold text-base">*/}
+          {/*          {timerRunning ? 'Pause' : 'Continue'}*/}
+          {/*        </Text>*/}
+          {/*      </TouchableOpacity>*/}
+          {/*    </View>*/}
+          {/*  </View>*/}
+          {/*</View>*/}
+
+          {/*/!* Mode Selection Section *!/*/}
+          {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
+          {/*  <View className="p-4">*/}
+          {/*    <View className="items-center mb-3.5 flex-col gap-y-2">*/}
+          {/*      {getIconByMode(selectedMode, 32, '#1e88e5')}*/}
+          {/*      <Text className="text-[22px] font-bold text-blue-500">*/}
+          {/*        {selectedMode}*/}
+          {/*      </Text>*/}
+          {/*    </View>*/}
+          {/*    <TouchableOpacity*/}
+          {/*      className="h-[50px] rounded-xl bg-blue-500 items-center justify-center mt-3"*/}
+          {/*      onPress={() => {*/}
+          {/*        modeListActionSheetRef.current?.expand();*/}
+          {/*      }}>*/}
+          {/*      <Text className="font-medium text-base text-white">Mode</Text>*/}
+          {/*    </TouchableOpacity>*/}
+          {/*  </View>*/}
+          {/*</View>*/}
+
+          {/*/!* Intensity Control Section *!/*/}
+          {/*<View className="bg-white rounded-2xl overflow-hidden mb-4 shadow-sm">*/}
+          {/*  <View className="p-4">*/}
+          {/*    <View className="items-center mb-3.5">*/}
+          {/*      <Text className="text-[22px] font-bold text-blue-500">*/}
+          {/*        {intensityLevel} / {maxIntensity}*/}
+          {/*      </Text>*/}
+          {/*    </View>*/}
+          {/*  </View>*/}
+          {/*</View>*/}
 
         {/* Mode Selection Modal */}
         {$modeActionSheet}

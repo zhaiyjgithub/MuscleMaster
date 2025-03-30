@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, ScrollView} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Text} from 'react-native';
 import {Navigation, NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
@@ -179,6 +179,19 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
             isScanning={isScanning}
             isBleReady={bleReady}
           />
+          <TouchableOpacity
+            onPress={() => {
+              handleStartTraining({
+                name: 'GuGeer D30',
+                id: '123456',
+                signalStrength: 'good',
+                connected: false,
+                icon: '💪',
+                iconColor: '#1e88e5',
+              });
+            }}>
+            <Text>Hello</Text>
+          </TouchableOpacity>
           <ScanFoundDeviceList
             devices={devices}
             updateConnectionStatus={updateDeviceConnectionStatus}
