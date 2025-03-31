@@ -132,11 +132,11 @@ export const Modes: ModeItem[] = [
     name: 'Capillary',
     icon: <Activity size={24} color="#1e88e5" />,
   },
-  {
-    id: DeviceMode.VIP,
-    name: 'Vip',
-    icon: <Crown size={24} color="#1e88e5" />,
-  },
+  // {
+  //   id: DeviceMode.VIP,
+  //   name: 'Vip',
+  //   icon: <Crown size={24} color="#1e88e5" />,
+  // },
 ];
 
 export interface ModeListActionSheetActionSheetProps {

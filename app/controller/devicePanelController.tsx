@@ -13,7 +13,9 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useToast} from 'react-native-toast-notifications';
 import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
-import ModeListActionSheet from '../components/mode-list-action-sheet/modeListActionSheet';
+import ModeListActionSheet, {
+  Modes,
+} from '../components/mode-list-action-sheet/modeListActionSheet';
 import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
 import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
 import {BLEManager} from '../services/BLEManager';
@@ -832,7 +834,7 @@ const DevicePanelController: NavigationFunctionComponent<
     }
 
     // 更新设备版本信息，电量等等
-    setDeviceVersion("")
+    setDeviceVersion('');
     try {
       await BLEManager.writeCharacteristic(
         device.id,
@@ -949,12 +951,26 @@ const DevicePanelController: NavigationFunctionComponent<
     </TouchableOpacity>
   );
 
+  const changeToNextMode = () => {
+    const currentIndex = Modes.findIndex(m => m.name === selectedMode);
+    const nextIndex = (currentIndex + 1) % Modes.length;
+    const nextMode = Modes[nextIndex];
+    handleModeSelect(nextMode.id, nextMode.name);
+  };
+
+  const changeToPreviousMode = () => {
+    const currentIndex = Modes.findIndex(m => m.name === selectedMode);
+    const previousIndex = (currentIndex - 1 + Modes.length) % Modes.length;
+    const previousMode = Modes[previousIndex];
+    handleModeSelect(previousMode.id, previousMode.name);
+  };
+
   const $intensityControl = (
     <View className="flex-col border-gray-200 rounded-2xl">
       <View className="flex-row justify-between items-center relative gap-x-3">
         <TouchableOpacity
           className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
-          onPress={decreaseIntensity}>
+          onPress={changeToPreviousMode}>
           <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
 
@@ -970,7 +986,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
         <TouchableOpacity
           className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
-          onPress={increaseIntensity}>
+          onPress={changeToNextMode}>
           <ChevronRight size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -1093,6 +1109,22 @@ const DevicePanelController: NavigationFunctionComponent<
               isConnected ? '已连接' : '已断开'
             } 状态`,
           );
+
+          if (!isConnected) {
+            // show toast
+            toast.show(`${device.name} - Disconnected`, {
+              type: 'danger',
+              placement: 'top',
+              duration: 4000,
+            });
+          } else {
+            // show toast
+            toast.show(`${device.name} - Connected`, {
+              type: 'success',
+              placement: 'top',
+              duration: 4000,
+            });
+          }
 
           // 如果设备断开连接，清理其特性监控但保持计时器状态
           if (!isConnected) {
