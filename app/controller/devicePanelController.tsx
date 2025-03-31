@@ -31,9 +31,6 @@ export interface DevicePanelControllerProps {
   devices: FoundDevice[];
 }
 
-const maxIntensity = 100;
-const batteryLevel = '75';
-
 const DevicePanelController: NavigationFunctionComponent<
   DevicePanelControllerProps
 > = ({devices}) => {
@@ -69,8 +66,13 @@ const DevicePanelController: NavigationFunctionComponent<
   >({});
   const [deviceVersion, setDeviceVersion] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<FoundDevice | null>(
-    null,
+    devices.length > 0 ? devices[0] : null,
   );
+  const [deviceStatus, setDeviceStatus] = useState<{
+    deviceId: string;
+    status: number;
+  }>({deviceId: '', status: 0});
+
   const modeListActionSheetRef = useRef<BottomSheet>(null);
   const deviceListActionSheetRef = useRef<BottomSheet>(null);
   const timePickerActionSheetRef = useRef<BottomSheet>(null);
@@ -84,6 +86,13 @@ const DevicePanelController: NavigationFunctionComponent<
   const subscriptionsRef = useRef<Record<string, Subscription | null>>({});
   const connectionMonitorsActive = useRef<Record<string, boolean>>({});
   const timerCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 使用 ref 跟踪已处理的设备状态，避免循环处理
+  const processedDeviceStatusRef = useRef<{
+    deviceId: string;
+    status: number;
+    timestamp: number;
+  } | null>(null);
 
   // 设置设备特定的定时器运行状态
   const setDeviceTimerRunningState = useCallback(
@@ -198,7 +207,13 @@ const DevicePanelController: NavigationFunctionComponent<
       // 存储新的计时器 interval
       setDeviceTimerInterval(deviceId, interval);
     },
-    [deviceTimerIntervals, selectedDevice?.id, setDeviceTimerRunningState],
+    [
+      deviceTimerIntervals,
+      selectedDevice?.id,
+      selectedDevice?.name,
+      setDeviceTimerRunningState,
+      toast,
+    ],
   );
 
   // 状态指示器的呼吸动画
@@ -392,6 +407,24 @@ const DevicePanelController: NavigationFunctionComponent<
                   )
                     .then(() => {
                       console.log('Successfully reply device status:', status);
+
+                      // 只有当状态与当前不同时才更新，避免不必要的重渲染
+                      if (
+                        deviceStatus.deviceId !== deviceId ||
+                        deviceStatus.status !== status
+                      ) {
+                        console.log(
+                          `设备状态发生变化：设备 ${deviceId}, 状态从 ${deviceStatus.status} 变为 ${status}`,
+                        );
+                        setDeviceStatus({
+                          deviceId: deviceId,
+                          status: status,
+                        });
+                      } else {
+                        console.log(
+                          `设备状态未变化，跳过更新：设备 ${deviceId}, 状态 ${status}`,
+                        );
+                      }
                     })
                     .catch(error => {
                       console.error('Error reply device status:', error);
@@ -520,14 +553,20 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   // 获取设备特定的定时器值
-  const getDeviceTimerValue = (deviceId: string): number => {
-    return deviceTimerValues[deviceId] || 0;
-  };
+  const getDeviceTimerValue = useCallback(
+    (deviceId: string): number => {
+      return deviceTimerValues[deviceId] || 0;
+    },
+    [deviceTimerValues],
+  );
 
   // 获取设备特定的定时器运行状态
-  const isDeviceTimerRunning = (deviceId: string): boolean => {
-    return deviceTimerRunning[deviceId] || false;
-  };
+  const isDeviceTimerRunning = useCallback(
+    (deviceId: string): boolean => {
+      return deviceTimerRunning[deviceId] || false;
+    },
+    [deviceTimerRunning],
+  );
 
   // 设置设备特定的定时器值
   const setDeviceTimerValue = (deviceId: string, value: number) => {
@@ -552,22 +591,6 @@ const DevicePanelController: NavigationFunctionComponent<
       [deviceId]: interval,
     }));
   };
-
-  // 获取设备特定的模式
-  const getDeviceMode = useCallback(
-    (deviceId: string): string => {
-      return deviceModes[deviceId] || 'Fitness';
-    },
-    [deviceModes],
-  );
-
-  // 获取设备特定的强度
-  const getDeviceIntensity = useCallback(
-    (deviceId: string): number => {
-      return deviceIntensities[deviceId] || 50;
-    },
-    [deviceIntensities],
-  );
 
   // 设置设备特定的模式
   const setDeviceMode = (deviceId: string, mode: string) => {
@@ -613,7 +636,12 @@ const DevicePanelController: NavigationFunctionComponent<
       setTimerRunning(currentTimerRunning);
     }
     // 仅依赖设备 ID 和实际存储状态的变化
-  }, [selectedDevice?.id, deviceTimerValues, deviceTimerRunning]);
+  }, [
+    selectedDevice?.id,
+    deviceTimerValues,
+    deviceTimerRunning,
+    selectedDevice,
+  ]);
 
   // 同步当前选中设备的强度值到 UI
   useEffect(() => {
@@ -630,7 +658,7 @@ const DevicePanelController: NavigationFunctionComponent<
       // 直接设置 UI 状态，确保反映当前设备
       setIntensityLevel(currentIntensity);
     }
-  }, [selectedDevice?.id, deviceIntensities]);
+  }, [selectedDevice?.id, deviceIntensities, selectedDevice]);
 
   // 同步当前选中设备的模式到 UI
   useEffect(() => {
@@ -645,7 +673,7 @@ const DevicePanelController: NavigationFunctionComponent<
       // 直接设置 UI 状态，确保反映当前设备
       setSelectedMode(currentMode);
     }
-  }, [selectedDevice?.id, deviceModes]);
+  }, [selectedDevice?.id, deviceModes, selectedDevice]);
 
   // 单独处理计时器恢复逻辑
   useEffect(() => {
@@ -668,69 +696,9 @@ const DevicePanelController: NavigationFunctionComponent<
     deviceTimerRunning,
     deviceTimerValues,
     deviceTimerIntervals,
+    selectedDevice,
+    startTimerWithValue,
   ]);
-
-  // 修改强度增加逻辑
-  const increaseIntensity = () => {
-    if (!selectedDevice) {
-      return;
-    }
-
-    const deviceId = selectedDevice.id;
-    const currentIntensity = getDeviceIntensity(deviceId);
-
-    if (currentIntensity < maxIntensity) {
-      const newIntensity = currentIntensity + 1;
-
-      // 更新设备强度
-      setDeviceIntensity(deviceId, newIntensity);
-
-      // 写入强度到设备
-      BLEManager.writeCharacteristic(
-        deviceId,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_WRITE,
-        BLECommands.setIntensity(newIntensity),
-      )
-        .then(() => {
-          console.log('Successfully wrote intensity value:', newIntensity);
-        })
-        .catch(error => {
-          console.error('Error writing intensity:', error);
-        });
-    }
-  };
-
-  // 修改强度减少逻辑
-  const decreaseIntensity = () => {
-    if (!selectedDevice) {
-      return;
-    }
-
-    const deviceId = selectedDevice.id;
-    const currentIntensity = getDeviceIntensity(deviceId);
-
-    if (currentIntensity > 1) {
-      const newIntensity = currentIntensity - 1;
-
-      // 更新设备强度
-      setDeviceIntensity(deviceId, newIntensity);
-
-      // 写入强度到设备
-      BLEManager.writeCharacteristic(
-        deviceId,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_WRITE,
-        BLECommands.setIntensity(newIntensity),
-      )
-        .then(() => {
-          console.log('Successfully wrote intensity value:', newIntensity);
-        })
-        .catch(error => {
-          console.error('Error writing intensity:', error);
-        });
-    }
-  };
 
   // 修改模式选择逻辑
   const handleModeSelect = (mode: DeviceMode, name: string) => {
@@ -760,36 +728,63 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   // 启动设备特定的计时器
-  const startTimer = (deviceId: string) => {
-    // 只有当时间大于 0 时才启动计时器
-    const timerValue = getDeviceTimerValue(deviceId);
-    if (timerValue <= 0) {
-      console.log("Timer value is 0, can't start timer");
-      return;
-    }
+  const startTimer = useCallback(
+    (deviceId: string) => {
+      // 只有当时间大于 0 时才启动计时器
+      const timerValue = getDeviceTimerValue(deviceId);
+      if (timerValue <= 0) {
+        console.log("Timer value is 0, can't start timer");
+        return;
+      }
 
-    // 使用通用启动方法，传入设备ID和当前时间值
-    startTimerWithValue(deviceId, timerValue);
-  };
+      // 使用通用启动方法，传入设备ID和当前时间值
+      startTimerWithValue(deviceId, timerValue);
+    },
+    [getDeviceTimerValue, startTimerWithValue],
+  );
 
   // 暂停设备特定的计时器
-  const pauseTimer = (deviceId: string) => {
-    const interval = deviceTimerIntervals[deviceId];
-    if (interval) {
-      console.log(
-        `暂停设备 ${deviceId} 的计时器，当前值：${getDeviceTimerValue(
-          deviceId,
-        )}`,
-      );
-      clearInterval(interval);
-      setDeviceTimerInterval(deviceId, null);
-    }
-    setDeviceTimerRunningState(deviceId, false);
-  };
+  const pauseTimer = useCallback(
+    (deviceId: string) => {
+      const interval = deviceTimerIntervals[deviceId];
+      if (interval) {
+        console.log(
+          `暂停设备 ${deviceId} 的计时器，当前值：${getDeviceTimerValue(
+            deviceId,
+          )}`,
+        );
+        clearInterval(interval);
+        setDeviceTimerInterval(deviceId, null);
+      }
+      setDeviceTimerRunningState(deviceId, false);
+    },
+    [deviceTimerIntervals, getDeviceTimerValue, setDeviceTimerRunningState],
+  );
+
+  const toggleTimerByDevice = useCallback(
+    (isPause: boolean) => {
+      if (!selectedDevice) {
+        console.log('no device');
+        return;
+      }
+
+      const deviceId = selectedDevice.id;
+
+      if (isPause) {
+        // 如果计时器正在运行，暂停它
+        pauseTimer(deviceId);
+      } else {
+        // 如果计时器未运行，启动它
+        startTimer(deviceId);
+      }
+    },
+    [pauseTimer, selectedDevice, startTimer],
+  );
 
   // Toggle timer state (start/pause) for the selected device
-  const toggleTimer = () => {
+  const toggleTimer = useCallback(() => {
     if (!selectedDevice) {
+      console.log('no device');
       return;
     }
 
@@ -827,7 +822,37 @@ const DevicePanelController: NavigationFunctionComponent<
           console.error('Error start device:', error);
         });
     }
-  };
+  }, [isDeviceTimerRunning, pauseTimer, selectedDevice, startTimer]);
+
+  useEffect(() => {
+    console.log('device status change', deviceStatus);
+
+    // 检查是否需要处理此状态
+    const shouldProcess =
+      // 设备 ID 和状态有效
+      deviceStatus.deviceId.length > 0 &&
+      // 确保不是处理同一个状态
+      (processedDeviceStatusRef.current === null ||
+        processedDeviceStatusRef.current.deviceId !== deviceStatus.deviceId ||
+        processedDeviceStatusRef.current.status !== deviceStatus.status ||
+        // 如果是同一个设备和状态，确保过了至少 5 秒才再次处理
+        Date.now() - processedDeviceStatusRef.current.timestamp > 5000);
+
+    if (shouldProcess) {
+      console.log('处理设备状态变化', deviceStatus);
+
+      // 记录已处理的状态
+      processedDeviceStatusRef.current = {
+        ...deviceStatus,
+        timestamp: Date.now(),
+      };
+
+      // 调用 toggleTimer
+      toggleTimerByDevice(deviceStatus.status === 0);
+    } else {
+      console.log('跳过重复的设备状态处理');
+    }
+  }, [deviceStatus, toggleTimerByDevice]);
 
   // Reset timer for a specific device
   const resetTimer = () => {
@@ -1265,7 +1290,6 @@ const DevicePanelController: NavigationFunctionComponent<
     // 连接设备并等待成功
     console.log('开始连接设备...');
     await connectToDevice(initialDevice);
-    setSelectedDevice(initialDevice);
 
     const checkAllDeviceTimers = () => {
       console.log('检查所有设备的计时器状态');
