@@ -896,7 +896,7 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   const $deviceInfo = (
-    <View className="bg-white rounded-2xl border border-gray-200">
+    <View className="bg-white rounded-2xl">
       <TouchableOpacity
         className="flex-row justify-between items-center p-4"
         onPress={() => {
@@ -971,7 +971,7 @@ const DevicePanelController: NavigationFunctionComponent<
       </View>
       <Slider
         className="w-full"
-        minimumValue={0}
+        minimumValue={1}
         maximumValue={100}
         value={intensityLevel}
         step={1}
