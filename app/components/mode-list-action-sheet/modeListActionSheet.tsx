@@ -58,8 +58,8 @@ export const getIconByMode = (
       return <Zap size={size} color={color} />;
     case 'Capillary':
       return <Activity size={size} color={color} />;
-    case 'Vip':
-      return <Crown size={size} color={color} />;
+    // case 'Vip':
+    //   return <Crown size={size} color={color} />;
     default:
       return null;
   }
@@ -70,6 +70,74 @@ interface ModeItem {
   name: string;
   icon: any;
 }
+
+export const Modes: ModeItem[] = [
+  {
+    id: DeviceMode.FITNESS,
+    name: 'Fitness',
+    icon: <Dumbbell size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.WARM_UP,
+    name: 'Warm up',
+    icon: <Flame size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.CARDIO,
+    name: 'Cardio',
+    icon: <Heart size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.RELAX,
+    name: 'Relax',
+    icon: <Smile size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.DERMAL,
+    name: 'Dermal',
+    icon: <User size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.DRAINAGE,
+    name: 'Drainage',
+    icon: <Droplet size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.CELLULITE,
+    name: 'Cellulite',
+    icon: <Scan size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.METABOLIC,
+    name: 'Metabolic',
+    icon: <Activity size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.SLIM,
+    name: 'Slim',
+    icon: <Scissors size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.RESISTANCE,
+    name: 'Resistance',
+    icon: <Shield size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.CONTRACTURES,
+    name: 'Contractures',
+    icon: <Zap size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.CAPILLARY,
+    name: 'Capillary',
+    icon: <Activity size={24} color="#1e88e5" />,
+  },
+  {
+    id: DeviceMode.VIP,
+    name: 'Vip',
+    icon: <Crown size={24} color="#1e88e5" />,
+  },
+];
 
 export interface ModeListActionSheetActionSheetProps {
   selectedMode: string;
@@ -100,77 +168,11 @@ const ModeListActionSheet = forwardRef<
     [],
   );
 
-  const modes: ModeItem[] = [
-    {
-      id: DeviceMode.FITNESS,
-      name: 'Fitness',
-      icon: <Dumbbell size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.WARM_UP,
-      name: 'Warm up',
-      icon: <Flame size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.CARDIO,
-      name: 'Cardio',
-      icon: <Heart size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.RELAX,
-      name: 'Relax',
-      icon: <Smile size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.DERMAL,
-      name: 'Dermal',
-      icon: <User size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.DRAINAGE,
-      name: 'Drainage',
-      icon: <Droplet size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.CELLULITE,
-      name: 'Cellulite',
-      icon: <Scan size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.METABOLIC,
-      name: 'Metabolic',
-      icon: <Activity size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.SLIM,
-      name: 'Slim',
-      icon: <Scissors size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.RESISTANCE,
-      name: 'Resistance',
-      icon: <Shield size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.CONTRACTURES,
-      name: 'Contractures',
-      icon: <Zap size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.CAPILLARY,
-      name: 'Capillary',
-      icon: <Activity size={24} color="#1e88e5" />,
-    },
-    {
-      id: DeviceMode.VIP,
-      name: 'Vip',
-      icon: <Crown size={24} color="#1e88e5" />,
-    },
-  ];
+
 
   const $modeList = (
     <View className="flex-row flex-wrap gap-y-2">
-      {modes.map((mode, index) => (
+      {Modes.map((mode, index) => (
         <View
           key={index}
           className="w-1/3 flex flex-col items-center justify-center">

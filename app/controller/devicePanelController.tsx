@@ -1065,19 +1065,6 @@ const DevicePanelController: NavigationFunctionComponent<
   // 为单个设备设置连接监控
   const setupConnectionMonitor = async (deviceId: string) => {
     console.log(`为设备 ${deviceId} 设置连接监控`);
-
-    // 如果设备未连接，则不设置监控
-    if (!deviceConnectionStates[deviceId]) {
-      console.log(`设备 ${deviceId} 未连接，跳过设置监控`);
-      return;
-    }
-
-    // 如果已经有这个设备的监控，跳过
-    if (connectionMonitorsActive.current[`conn_${deviceId}`]) {
-      console.log(`已存在设备 ${deviceId} 的连接监控，跳过创建`);
-      return;
-    }
-
     // 找到设备
     const device = devices.find(d => d.id === deviceId);
     if (!device) {
