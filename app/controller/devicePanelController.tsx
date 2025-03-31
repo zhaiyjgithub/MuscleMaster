@@ -1044,7 +1044,7 @@ const DevicePanelController: NavigationFunctionComponent<
             });
         }}
         minimumTrackTintColor="#1e88e5"
-        maximumTrackTintColor="#f5f5f5"
+        maximumTrackTintColor="#6B7280"
       />
 
       <View className="flex-row items-center justify-between ">
