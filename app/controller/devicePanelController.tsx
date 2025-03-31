@@ -249,61 +249,60 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   // 设备特性监控的创建函数
-  const setupCharacteristicMonitor = useCallback(
-    (deviceId: string) => {
-      // 如果已经有监控，不重复创建
-      if (subscriptionsRef.current[`char_${deviceId}`]) {
-        return;
-      }
+  const setupCharacteristicMonitor = (deviceId: string) => {
+    // 如果已经有监控，不重复创建
+    if (subscriptionsRef.current[`char_${deviceId}`]) {
+      return;
+    }
 
-      const subscription = BLEManager.monitorCharacteristicForDevice(
-        deviceId,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_WRITE,
-        (error, characteristic) => {
-          if (error) {
-            console.error(
-              `Characteristic monitoring error for device ${deviceId}:`,
-              error,
-            );
-          } else if (characteristic && characteristic.value) {
-            console.log(
-              `Received value from device ${deviceId}:`,
-              characteristic.value,
-            );
-            const parsedResponse = parseResponse(characteristic.value);
+    const subscription = BLEManager.monitorCharacteristicForDevice(
+      deviceId,
+      BLE_UUID.SERVICE,
+      BLE_UUID.CHARACTERISTIC_WRITE,
+      (error, characteristic) => {
+        if (error) {
+          console.error(
+            `Characteristic monitoring error for device ${deviceId}:`,
+            error,
+          );
+        } else if (characteristic && characteristic.value) {
+          console.log(
+            `Received value from device ${deviceId}:`,
+            characteristic.value,
+          );
+          const parsedResponse = parseResponse(characteristic.value);
 
-            // 检查是否为有效响应
-            if (parsedResponse.isValid) {
-              // 判断命令类型
-              console.log('Monitored characteristic value:', parsedResponse);
-              const {command, data} = parsedResponse;
-              if (command === CommandType.GET_VERSION) {
-                // 设置设备版本信息
-                if (data.length >= 2) {
-                  const deviceType = data[0];
-                  const vcode = data[1];
+          // 检查是否为有效响应
+          if (parsedResponse.isValid) {
+            // 判断命令类型
+            console.log('Monitored characteristic value:', parsedResponse);
+            const {command, data} = parsedResponse;
+            if (command === CommandType.GET_VERSION) {
+              // 设置设备版本信息
+              if (data.length >= 2) {
+                const deviceType = data[0];
+                const vcode = data[1];
 
-                  // 只在选中设备时更新 UI 显示的版本
-                  if (selectedDevice?.id === deviceId) {
-                    setDeviceVersion(
-                      `${deviceType.toString().padStart(2, '0')}` +
-                        ' - ' +
-                        vcode.toString().padStart(2, '0'),
-                    );
-                  }
-                }
+                // 格式化版本号
+                const formattedVersion =
+                  `${deviceType.toString().padStart(2, '0')}` +
+                  ' - ' +
+                  vcode.toString().padStart(2, '0');
+
+                setDeviceVersion(prev => {
+                  console.log('prev', prev, devices, selectedDevice);
+                  return formattedVersion;
+                });
               }
             }
           }
-        },
-      );
+        }
+      },
+    );
 
-      // 只存储在 ref 中，不再使用状态
-      subscriptionsRef.current[`char_${deviceId}`] = subscription;
-    },
-    [selectedDevice],
-  );
+    // 只存储在 ref 中，不再使用状态
+    subscriptionsRef.current[`char_${deviceId}`] = subscription;
+  };
 
   // 封装设备连接逻辑为可重用的函数
   const connectToDevice = async (device: FoundDevice) => {
@@ -333,6 +332,9 @@ const DevicePanelController: NavigationFunctionComponent<
 
         // 更新设备连接状态
         updateConnectionStatus(device.id, true);
+
+        // 为设备监控连接状态
+        await setupConnectionMonitor(device.id);
 
         // 为设备创建特性监控
         setupCharacteristicMonitor(device.id);
@@ -828,6 +830,19 @@ const DevicePanelController: NavigationFunctionComponent<
       // 更新 UI 显示的时间值
       setTimerValue(getDeviceTimerValue(device.id));
     }
+
+    // 更新设备版本信息，电量等等
+    setDeviceVersion("")
+    try {
+      await BLEManager.writeCharacteristic(
+        device.id,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_READ,
+        BLECommands.getVersion(),
+      );
+    } catch (error) {
+      console.error('Error reading device version:', error);
+    }
   };
 
   const $deviceListActionSheet = (
@@ -1026,7 +1041,7 @@ const DevicePanelController: NavigationFunctionComponent<
       onPress={toggleTimer}
       disabled={timerValue === 0}>
       <Text className="text-white font-semibold text-xl">
-        {timerRunning ? 'Pause' : 'Continue'}
+        {timerRunning ? 'Pause' : 'Start'}
       </Text>
     </TouchableOpacity>
   );
