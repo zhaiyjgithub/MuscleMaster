@@ -146,11 +146,14 @@ const DevicePanelController: NavigationFunctionComponent<
              *   toast
              * */
             // 显示设备名称 - 活动已经完成
-            toast.show(`${selectedDevice?.name} - Activity completed`, {
-              type: 'success',
-              placement: 'top',
-              duration: 4000,
-            });
+            toast.show(
+              `${selectedDevice?.name ?? 'Device'} - Activity completed`,
+              {
+                type: 'success',
+                placement: 'top',
+                duration: 4000,
+              },
+            );
 
             // 停止设备
             BLEManager.writeCharacteristic(
@@ -355,7 +358,7 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       } else if (err) {
         if (err.message?.indexOf('time out')) {
-          toast.show(`${device.name} Connection time out`, {
+          toast.show(`${device.name ?? 'Device'} Connection time out`, {
             type: 'danger',
             placement: 'top',
             duration: 4000,
@@ -365,7 +368,7 @@ const DevicePanelController: NavigationFunctionComponent<
     } catch (error) {
       const msg = `Failed to ${
         device.connected ? 'disconnect from' : 'connect to'
-      } ${device.name}`;
+      } ${device.name ?? 'Device'}`;
       console.error(
         `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${
           device.name
@@ -1103,7 +1106,6 @@ const DevicePanelController: NavigationFunctionComponent<
         if (error) {
           console.error(`设备 ${deviceId} 连接错误:`, error);
         } else {
-          // 使用函数形式的 setState 以避免依赖最新的 state
           setDeviceConnectionStates(prev => ({
             ...prev,
             [device.id]: isConnected,
@@ -1116,16 +1118,16 @@ const DevicePanelController: NavigationFunctionComponent<
             } 状态`,
           );
 
-          if (!isConnecting && !isConnected) {
-            // show toast
-            toast.show(`${device.name} - Disconnected`, {
+          const msgName = device.name ? device.name : 'Device';
+          if (!isConnected) {
+            toast.show(`${msgName} - Disconnected`, {
               type: 'danger',
               placement: 'top',
               duration: 4000,
             });
           } else if (isConnected) {
             // show toast
-            toast.show(`${device.name} - Connected`, {
+            toast.show(`${msgName} - Connected`, {
               type: 'success',
               placement: 'top',
               duration: 4000,
