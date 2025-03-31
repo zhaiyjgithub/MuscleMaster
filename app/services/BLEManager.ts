@@ -72,7 +72,7 @@ class BLEManagerClass {
         );
 
         return allGranted;
-      } else {
+    } else {
         // Android 11 或更低版本
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
@@ -102,8 +102,8 @@ class BLEManagerClass {
         if (onScanComplete) {
           onScanComplete();
         }
-        return;
-      }
+      return;
+    }
 
       // 检查蓝牙是否已启用
       const bleState = await this.manager.state();
@@ -165,8 +165,8 @@ class BLEManagerClass {
             if (onScanComplete) {
               onScanComplete();
             }
-            return;
-          }
+      return;
+    }
 
           if (device && device.name) {
             // 只处理有名称的设备
@@ -185,7 +185,7 @@ class BLEManagerClass {
           onScanComplete();
         }
       }, 15000);
-    } catch (error) {
+        } catch (error) {
       console.error('Failed to start scan:', error);
       this.isScanning = false;
       if (onScanComplete) {
@@ -311,7 +311,7 @@ class BLEManagerClass {
     try {
       // 读取特性以获取其属性
       const characteristic = await this.manager.readCharacteristicForDevice(
-        deviceId,
+      deviceId,
         serviceUUID,
         characteristicUUID,
       );
@@ -342,7 +342,7 @@ class BLEManagerClass {
     try {
       // 检查特性属性
       return await this.manager.writeCharacteristicWithoutResponseForDevice(
-        deviceId,
+          deviceId,
         serviceUUID,
         characteristicUUID,
         data,
@@ -402,14 +402,14 @@ class BLEManagerClass {
       if (forceWithResponse) {
         // 强制使用带响应的写入
         return await this.manager.writeCharacteristicWithResponseForDevice(
-          deviceId,
+        deviceId,
           serviceUUID,
           characteristicUUID,
           base64Data,
         );
-      } else {
+    } else {
         return await this.writeCharacteristicSmart(
-          deviceId,
+        deviceId,
           serviceUUID,
           characteristicUUID,
           base64Data,
@@ -435,8 +435,8 @@ class BLEManagerClass {
       (error, characteristic) => {
         if (error) {
           listener(null, error);
-          return;
-        }
+      return;
+    }
         if (characteristic && characteristic.value) {
           listener(characteristic.value);
         }
