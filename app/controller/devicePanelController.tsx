@@ -299,6 +299,70 @@ const DevicePanelController: NavigationFunctionComponent<
                   return formattedVersion;
                 });
               }
+            } else if (command === CommandType.GET_DEVICE_INFO) {
+              const subCommand = data[0];
+              console.log('subCommand', subCommand);
+              if (subCommand === CommandType.GET_INTENSITY) {
+                // 设置设备强度 返回强度：5A 02 01 09 03 05 01 32 A1
+                if (data.length >= 3) {
+                  const intensity = data[2];
+                  setDeviceIntensity(deviceId, intensity);
+
+                  // reply intensity
+                  BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyIntensity(intensity),
+                  )
+                    .then(() => {
+                      console.log(
+                        'Successfully reply intensity value:',
+                        intensity,
+                      );
+                    })
+                    .catch(error => {
+                      console.error('Error reply intensity:', error);
+                    });
+                }
+              } else if (subCommand === CommandType.GET_MODE) {
+                // 设置设备工作时间 返回工作时间：5A 02 01 09 02 06 0C 7A
+                if (data.length >= 2) {
+                  const modeId = data[1];
+                  const mode = Modes.find(m => m.id === modeId);
+                  if (mode) {
+                    setDeviceMode(deviceId, mode.name);
+                  }
+                }
+              } else if (subCommand === CommandType.GET_WORK_TIME) {
+                // 设置设备工作时间 返回工作时间：5A 02 01 09 03 03 00 14 80
+                if (data.length >= 3) {
+                  const highByte = data[1];
+                  const lowByte = data[2];
+                  const workTime = (highByte << 8) | lowByte;
+
+                  console.log('workTime', workTime);
+
+                  setDeviceTimerValue(deviceId, workTime);
+
+                  // reply work time
+                  BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyWorkTime(workTime),
+                  )
+                    .then(() => {
+                      console.log(
+                        'Successfully reply work time value:',
+                        workTime,
+                      );
+                    })
+                    .catch(error => {
+                      console.error('Error reply work time:', error);
+                    });
+                }
+              }
             }
           }
         }
@@ -352,6 +416,14 @@ const DevicePanelController: NavigationFunctionComponent<
             BLE_UUID.SERVICE,
             BLE_UUID.CHARACTERISTIC_READ,
             BLECommands.getVersion(),
+          );
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await BLEManager.writeCharacteristic(
+            device.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
+            BLECommands.getDeviceInfo(),
           );
         } catch (error) {
           console.error('Error reading device version:', error);

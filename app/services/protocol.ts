@@ -38,6 +38,8 @@ export enum CommandType {
   GET_BATTERY = 0x09,
   GET_VERSION = 0x01,
   SET_WORK_TIME = 0x03,
+  GET_WORK_TIME = 0x03,
+  GET_DEVICE_INFO = 0x09,
   UNKNOWN = 0xff,
   // 可以根据协议文档添加更多命令...
 }
@@ -59,11 +61,21 @@ export const CommandValue = {
   // 5A 01 01 03 03 01 00 05 68
   //BYTE5:参数长度3，BYTE6:要控制的通道01，BYTE7+8:组成16位（1-65536）表示开机时长（分钟），目前先设置1-99
   //BYTE9:校验和
-  SET_WORK_TIME: (channel: number = 0x01, time: number) => {
+  SET_WORK_TIME: (channel: DeviceChannel = 0x01, time: number) => {
     // 当前默认
     const highByte = (time >> 8) & 0xff;
     const lowByte = time & 0xff;
     return [channel, highByte, lowByte];
+  },
+  GET_DEVICE_INFO: () => {
+    return [0x00];
+  },
+
+  // reply 剩余时间
+  REPLY_WORK_TIME: (time: number) => {
+    const highByte = (time >> 8) & 0xff;
+    const lowByte = time & 0xff;
+    return [CommandType.SET_WORK_TIME, highByte, lowByte];
   },
 };
 
@@ -150,7 +162,7 @@ export function createCommand(
     frameBuffer[frameBuffer.length - 1] = checksum;
 
     // 不需要转base64，直接返回Buffer
-    console.log('Command created:', frameBuffer);
+    console.log('Command created:', frameBuffer.toString('hex'));
     return frameBuffer.toString('base64');
   } catch (error) {
     console.error('Error creating command:', error);
@@ -379,26 +391,63 @@ export const BLECommands = {
   /**
    * 获取电池电量
    */
-  getBattery(model: DeviceChannel = DEFAULT_CHANNEL): string {
-    return createCommand(CommandType.GET_BATTERY, [], model);
+  getBattery(channel: DeviceChannel = DEFAULT_CHANNEL): string {
+    return createCommand(CommandType.GET_BATTERY, [], channel);
   },
 
   /**
    * 获取设备版本
    */
-  getVersion(model: DeviceChannel = DEFAULT_CHANNEL): string {
+  getVersion(channel: DeviceChannel = DEFAULT_CHANNEL): string {
     return createCommand(
       CommandType.GET_VERSION,
       CommandValue.GET_VERSION,
-      model,
+      channel,
     );
   },
 
   // 设置工作时间
-  setWorkTime(time: number,channel: number = DEFAULT_CHANNEL) {
+  setWorkTime(time: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
       CommandType.SET_WORK_TIME,
       CommandValue.SET_WORK_TIME(channel, time),
+      channel,
+    );
+  },
+
+  // 获取设备信息
+  getDeviceInfo(chanel: DeviceChannel = DEFAULT_CHANNEL) {
+    //5A 01 01 09 01 00 66
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      CommandValue.GET_DEVICE_INFO(),
+      chanel,
+    );
+  },
+
+  // 回复强度
+  replyIntensity(level: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      [CommandType.GET_INTENSITY, channel, level],
+      channel,
+    );
+  },
+
+  // 回复模式
+  replyMode(mode: DeviceMode, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      [CommandType.GET_MODE, mode],
+      channel,
+    );
+  },
+
+  // 回复剩余时间 5A 02 01 09 03 03 00 14 80
+  replyWorkTime(duration: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      CommandValue.REPLY_WORK_TIME(duration),
       channel,
     );
   },
