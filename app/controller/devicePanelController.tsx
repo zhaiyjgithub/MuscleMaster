@@ -328,7 +328,9 @@ const DevicePanelController: NavigationFunctionComponent<
       BLEManager.stopScan();
 
       // 连接设备
-      const connectedDevice = await BLEManager.connectToDevice(device.id);
+      const {connectedDevice, err} = await BLEManager.connectToDevice(
+        device.id,
+      );
       if (connectedDevice) {
         console.log(`Successfully connected to ${device.name}`);
 
@@ -350,6 +352,14 @@ const DevicePanelController: NavigationFunctionComponent<
           );
         } catch (error) {
           console.error('Error reading device version:', error);
+        }
+      } else if (err) {
+        if (err.message?.indexOf('time out')) {
+          toast.show(`${device.name} Connection time out`, {
+            type: 'danger',
+            placement: 'top',
+            duration: 4000,
+          });
         }
       }
     } catch (error) {
@@ -1113,7 +1123,7 @@ const DevicePanelController: NavigationFunctionComponent<
               placement: 'top',
               duration: 4000,
             });
-          } else {
+          } else if (isConnected) {
             // show toast
             toast.show(`${device.name} - Connected`, {
               type: 'success',

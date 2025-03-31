@@ -206,7 +206,9 @@ class BLEManagerClass {
   }
 
   // 连接到设备
-  async connectToDevice(deviceId: string): Promise<Device | null> {
+  async connectToDevice(
+    deviceId: string,
+  ): Promise<{connectedDevice: Device | null; err: Error | null}> {
     try {
       const device = await this.manager.connectToDevice(deviceId, {
         autoConnect: true,
@@ -235,10 +237,10 @@ class BLEManagerClass {
         this.notifyConnectionChange(disconnectedDevice, false, error);
       });
 
-      return device;
+      return {connectedDevice: device, err: null};
     } catch (error) {
       console.error('Connection error:', error);
-      return null;
+      return {connectedDevice: null, err: (error as Error) ?? null};
     }
   }
 
