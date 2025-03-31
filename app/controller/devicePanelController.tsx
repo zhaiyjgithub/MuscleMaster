@@ -332,6 +332,20 @@ const DevicePanelController: NavigationFunctionComponent<
                   const mode = Modes.find(m => m.id === modeId);
                   if (mode) {
                     setDeviceMode(deviceId, mode.name);
+
+                    // reply mode
+                    BLEManager.writeCharacteristic(
+                      deviceId,
+                      BLE_UUID.SERVICE,
+                      BLE_UUID.CHARACTERISTIC_READ,
+                      BLECommands.replyMode(modeId),
+                    )
+                      .then(() => {
+                        console.log('Successfully reply mode value:', modeId);
+                      })
+                      .catch(error => {
+                        console.error('Error reply mode:', error);
+                      });
                   }
                 }
               } else if (subCommand === CommandType.GET_WORK_TIME) {
@@ -360,6 +374,27 @@ const DevicePanelController: NavigationFunctionComponent<
                     })
                     .catch(error => {
                       console.error('Error reply work time:', error);
+                    });
+                }
+              } else if (subCommand === CommandType.DEVICE_STATUS) {
+                // 设备活动状态：5A 02 01 09 03 02 01 00 46C
+                if (data.length >= 3) {
+                  const channel = data[1];
+                  const status = data[2];
+
+                  console.log('channel', channel, 'status', status);
+                  // reply
+                  BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyDeviceStatus(status, channel),
+                  )
+                    .then(() => {
+                      console.log('Successfully reply device status:', status);
+                    })
+                    .catch(error => {
+                      console.error('Error reply device status:', error);
                     });
                 }
               }

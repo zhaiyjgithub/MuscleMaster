@@ -33,6 +33,7 @@ export enum CommandType {
   GET_INTENSITY = 0x05,
   SET_MODE = 0x06,
   GET_MODE = 0x06,
+  DEVICE_STATUS = 0x02,
   START_THERAPY = 0x02,
   STOP_THERAPY = 0x02,
   GET_BATTERY = 0x09,
@@ -448,6 +449,15 @@ export const BLECommands = {
     return createCommand(
       CommandType.GET_DEVICE_INFO,
       CommandValue.REPLY_WORK_TIME(duration),
+      channel,
+    );
+  },
+
+  // 回复设备活动状态
+  replyDeviceStatus(status: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      [CommandType.DEVICE_STATUS, channel, status],
       channel,
     );
   },
