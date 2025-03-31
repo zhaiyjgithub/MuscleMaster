@@ -208,7 +208,10 @@ class BLEManagerClass {
   // 连接到设备
   async connectToDevice(deviceId: string): Promise<Device | null> {
     try {
-      const device = await this.manager.connectToDevice(deviceId);
+      const device = await this.manager.connectToDevice(deviceId, {
+        autoConnect: true,
+        timeout: 15000, // 15s
+      });
       console.log('Connected to device:', device.name);
 
       // 添加到已连接设备列表

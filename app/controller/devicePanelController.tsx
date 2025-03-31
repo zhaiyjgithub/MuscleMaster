@@ -353,12 +353,21 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
     } catch (error) {
+      const msg = `Failed to ${
+        device.connected ? 'disconnect from' : 'connect to'
+      } ${device.name}`;
       console.error(
         `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${
           device.name
         }:`,
         error,
       );
+
+      toast.show(msg, {
+        type: 'danger',
+        placement: 'top',
+        duration: 4000,
+      });
       // 更新设备连接状态为断开
       updateConnectionStatus(device.id, false);
     } finally {
@@ -832,19 +841,6 @@ const DevicePanelController: NavigationFunctionComponent<
       // 更新 UI 显示的时间值
       setTimerValue(getDeviceTimerValue(device.id));
     }
-
-    // 更新设备版本信息，电量等等
-    setDeviceVersion('');
-    try {
-      await BLEManager.writeCharacteristic(
-        device.id,
-        BLE_UUID.SERVICE,
-        BLE_UUID.CHARACTERISTIC_READ,
-        BLECommands.getVersion(),
-      );
-    } catch (error) {
-      console.error('Error reading device version:', error);
-    }
   };
 
   const $deviceListActionSheet = (
@@ -927,9 +923,7 @@ const DevicePanelController: NavigationFunctionComponent<
           </Text>
         </View>
         <View className="flex-row items-center">
-          <Battery size={16} color="#777" />
-          <Text className="text-sm text-gray-500 ml-1">{batteryLevel}%</Text>
-          <ChevronRight size={20} color="#777" className="ml-2" />
+          <ChevronRight size={20} color="black" className="ml-2" />
         </View>
       </TouchableOpacity>
     </View>
@@ -979,9 +973,11 @@ const DevicePanelController: NavigationFunctionComponent<
           onPress={() => {
             modeListActionSheetRef.current?.expand();
           }}>
-          <Text className="font-semibold text-2xl text-black">
-            {selectedMode}
-          </Text>
+          <View className={'border-b-2 border-blue-500'}>
+            <Text className="font-semibold text-3xl text-blue-500">
+              {selectedMode}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1110,7 +1106,7 @@ const DevicePanelController: NavigationFunctionComponent<
             } 状态`,
           );
 
-          if (!isConnected) {
+          if (!isConnecting && !isConnected) {
             // show toast
             toast.show(`${device.name} - Disconnected`, {
               type: 'danger',
