@@ -846,10 +846,10 @@ const DevicePanelController: NavigationFunctionComponent<
         ...deviceStatus,
         timestamp: Date.now(),
       };
-      2// 调用 toggleTimer
+      // 2; // 调用 toggleTimer
       const {status} = deviceStatus;
       if (status === CommandType.DEVICE_STATUS_CANCEL) {
-        resetTimer();
+        resetTimerByDevice();
       } else {
         toggleTimerByDevice(status === CommandType.DEVICE_STATUS_STOP);
       }
@@ -857,6 +857,23 @@ const DevicePanelController: NavigationFunctionComponent<
       console.log('跳过重复的设备状态处理');
     }
   }, [deviceStatus, toggleTimerByDevice]);
+
+  // Reset timer for a specific device
+  const resetTimerByDevice = () => {
+    if (!selectedDevice) {
+      return;
+    }
+
+    const deviceId = selectedDevice.id;
+    // 停止计时器
+    const interval = deviceTimerIntervals[deviceId];
+    if (interval) {
+      clearInterval(interval);
+      setDeviceTimerInterval(deviceId, null);
+    }
+    setDeviceTimerValue(deviceId, 0);
+    setDeviceTimerRunningState(deviceId, false);
+  };
 
   // Reset timer for a specific device
   const resetTimer = () => {
