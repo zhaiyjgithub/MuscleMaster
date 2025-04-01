@@ -306,7 +306,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 // 格式化版本号
                 const formattedVersion =
                   `${deviceType.toString().padStart(2, '0')}` +
-                  ' - ' +
+                  ' - V' +
                   vcode.toString().padStart(2, '0');
 
                 setDeviceVersion(prev => {
@@ -836,7 +836,7 @@ const DevicePanelController: NavigationFunctionComponent<
         processedDeviceStatusRef.current.deviceId !== deviceStatus.deviceId ||
         processedDeviceStatusRef.current.status !== deviceStatus.status ||
         // 如果是同一个设备和状态，确保过了至少 5 秒才再次处理
-        Date.now() - processedDeviceStatusRef.current.timestamp > 5000);
+        Date.now() - processedDeviceStatusRef.current.timestamp > 3000);
 
     if (shouldProcess) {
       console.log('处理设备状态变化', deviceStatus);
@@ -846,9 +846,13 @@ const DevicePanelController: NavigationFunctionComponent<
         ...deviceStatus,
         timestamp: Date.now(),
       };
-
-      // 调用 toggleTimer
-      toggleTimerByDevice(deviceStatus.status === 0);
+      2// 调用 toggleTimer
+      const {status} = deviceStatus;
+      if (status === CommandType.DEVICE_STATUS_CANCEL) {
+        resetTimer();
+      } else {
+        toggleTimerByDevice(status === CommandType.DEVICE_STATUS_STOP);
+      }
     } else {
       console.log('跳过重复的设备状态处理');
     }
