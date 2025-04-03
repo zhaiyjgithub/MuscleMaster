@@ -54,13 +54,14 @@ const DevicePanelController: NavigationFunctionComponent<
   const [deviceTimerRunning, setDeviceTimerRunning] = useState<
     Record<string, boolean>
   >({});
-  const [deviceTimerIntervals, setDeviceTimerIntervals] = useState<
-    Record<string, NodeJS.Timeout | null>
-  >({});
+  const deviceTimerIntervalsRef = useRef<Record<string, NodeJS.Timeout | null>>({});
 
-  const [deviceLoadingStates, setDeviceLoadingStates] = useState<
-    Record<string, boolean>
-  >({});
+  // 将 deviceLoadingStates 从 state 改为 ref
+  const deviceLoadingStatesRef = useRef<Record<string, boolean>>({});
+  
+  // 添加备用计时器值存储，避免状态更新时机问题
+  const deviceTimerBackupRef = useRef<Record<string, number>>({});
+
   const [deviceConnectionStates, setDeviceConnectionStates] = useState<
     Record<string, boolean>
   >({});
@@ -72,6 +73,9 @@ const DevicePanelController: NavigationFunctionComponent<
     deviceId: string;
     status: number;
   }>({deviceId: '', status: 0});
+
+  // 添加一个计时器保护期记录，刚启动的计时器不会被 CANCEL 命令立即取消
+  const timerProtectionRef = useRef<Record<string, number>>({});
 
   const modeListActionSheetRef = useRef<BottomSheet>(null);
   const deviceListActionSheetRef = useRef<BottomSheet>(null);
@@ -86,13 +90,6 @@ const DevicePanelController: NavigationFunctionComponent<
   const subscriptionsRef = useRef<Record<string, Subscription | null>>({});
   const connectionMonitorsActive = useRef<Record<string, boolean>>({});
   const timerCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 使用 ref 跟踪已处理的设备状态，避免循环处理
-  const processedDeviceStatusRef = useRef<{
-    deviceId: string;
-    status: number;
-    timestamp: number;
-  } | null>(null);
 
   // 设置设备特定的定时器运行状态
   const setDeviceTimerRunningState = useCallback(
@@ -119,19 +116,43 @@ const DevicePanelController: NavigationFunctionComponent<
         return;
       }
 
-      // 如果已经有一个计时器在运行，先清除它
-      const existingInterval = deviceTimerIntervals[deviceId];
+      // 检查是否已有计时器在运行
+      const existingInterval = deviceTimerIntervalsRef.current[deviceId];
       if (existingInterval) {
+        console.log(`设备 ${deviceId} 已有计时器在运行，先清除它`);
         clearInterval(existingInterval);
+        deviceTimerIntervalsRef.current[deviceId] = null;
+      }
+
+      // 检查运行状态 - 避免重复启动
+      const isAlreadyRunning = deviceTimerRunning[deviceId] || false;
+      if (isAlreadyRunning) {
+        console.log(`设备 ${deviceId} 计时器已经在运行中，避免重复启动`);
+        return;
       }
 
       // 设置运行状态
       setDeviceTimerRunningState(deviceId, true);
+      
+      // 设置计时器保护期，防止刚启动的计时器被立即取消
+      timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3秒保护期
+      console.log(`设置设备 ${deviceId} 计时器保护期至 ${new Date(timerProtectionRef.current[deviceId]).toISOString()}`);
 
       console.log(`启动设备 ${deviceId} 的计时器，初始值: ${seconds} 秒`);
 
+      // 记录上次更新时间，确保间隔约为1秒
+      const lastUpdateTimeRef = {current: Date.now()};
+
       // 每秒减少一秒
       const interval = setInterval(() => {
+        // 验证间隔时间
+        const now = Date.now();
+        const elapsed = now - lastUpdateTimeRef.current;
+        lastUpdateTimeRef.current = now;
+        
+        // 记录实际间隔时间用于调试
+        console.log(`计时器间隔：${elapsed}ms`);
+        
         setDeviceTimerValues(prev => {
           const prevTime = prev[deviceId] || 0;
           if (prevTime <= 1) {
@@ -140,7 +161,8 @@ const DevicePanelController: NavigationFunctionComponent<
 
             // 更新状态 - 只影响当前设备
             setDeviceTimerRunningState(deviceId, false);
-            setDeviceTimerInterval(deviceId, null);
+            // 更新ref而不是state
+            deviceTimerIntervalsRef.current[deviceId] = null;
 
             // 如果是当前选中的设备，直接更新UI显示的值
             if (selectedDevice?.id === deviceId) {
@@ -152,8 +174,8 @@ const DevicePanelController: NavigationFunctionComponent<
             console.log('Timer finished for device:', deviceId);
 
             /*
-             *   toast
-             * */
+              *   toast
+              * */
             // 显示设备名称 - 活动已经完成
             toast.show(
               `${selectedDevice?.name ?? 'Device'} - Activity completed`,
@@ -204,14 +226,14 @@ const DevicePanelController: NavigationFunctionComponent<
         });
       }, 1000);
 
-      // 存储新的计时器 interval
-      setDeviceTimerInterval(deviceId, interval);
+      // 存储新的计时器 interval (在 ref 中)
+      deviceTimerIntervalsRef.current[deviceId] = interval;
     },
     [
-      deviceTimerIntervals,
       selectedDevice?.id,
       selectedDevice?.name,
       setDeviceTimerRunningState,
+      deviceTimerRunning,
       toast,
     ],
   );
@@ -244,10 +266,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 添加设备加载状态管理函数
   const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
-    setDeviceLoadingStates(prev => ({
-      ...prev,
-      [deviceId]: isLoading,
-    }));
+    deviceLoadingStatesRef.current[deviceId] = isLoading;
   };
 
   // 更新连接状态的函数也需修改
@@ -392,13 +411,161 @@ const DevicePanelController: NavigationFunctionComponent<
                     });
                 }
               } else if (subCommand === CommandType.DEVICE_STATUS) {
-                // 设备活动状态：5A 02 01 09 03 02 01 00 46C
                 if (data.length >= 3) {
                   const channel = data[1];
                   const status = data[2];
-
+                  
                   console.log('channel', channel, 'status', status);
-                  // reply
+                  
+                  // 检查是否在计时器保护期内
+                  const protectionEndTime = timerProtectionRef.current[deviceId] || 0;
+                  const isProtected = Date.now() < protectionEndTime;
+                  
+                  // 获取设备计时器信息 - 直接从deviceTimerValues获取，不依赖getDeviceTimerValue
+                  const deviceLastValue = deviceTimerValues[deviceId] || 0;
+                  const isRunning = deviceTimerRunning[deviceId] || false;
+                  
+                  console.log(`处理设备状态：设备=${deviceId}, 状态=${status}, 暂存计时器值=${deviceLastValue}, 运行状态=${isRunning}`);
+                  
+                  // 直接在这里处理状态变化，无需经过状态更新和useEffect
+                  if (status === CommandType.DEVICE_STATUS_CANCEL) {
+                    if (isProtected && isRunning) {
+                      console.log('收到CANCEL状态，但计时器处于保护期内，忽略此命令');
+                    } else {
+                      console.log('收到CANCEL状态，取消倒计时');
+                      
+                      // 注意：这里需要处理指定设备的计时器，而不是selectedDevice
+                      // 如果当前设备就是selectedDevice，则可以直接使用resetTimerByDevice
+                      if (selectedDevice && selectedDevice.id === deviceId) {
+                        resetTimerByDevice(); // 这个函数内部会使用selectedDevice.id
+                      } else {
+                        // 否则手动清除指定设备的计时器
+                        const interval = deviceTimerIntervalsRef.current[deviceId];
+                        if (interval) {
+                          clearInterval(interval);
+                          deviceTimerIntervalsRef.current[deviceId] = null;
+                        }
+                        setDeviceTimerValue(deviceId, 0);
+                        setDeviceTimerRunningState(deviceId, false);
+                      }
+                    }
+                  } else {
+                    // 处理启动/暂停命令
+                    const isPause = status === CommandType.DEVICE_STATUS_STOP;
+                    
+                    if (isPause) {
+                      // 处理暂停命令
+                      if (isRunning) {
+                        console.log(`处理设备 ${deviceId} 暂停命令`);
+                        
+                        if (selectedDevice && selectedDevice.id === deviceId) {
+                          pauseTimer(deviceId);
+                        } else {
+                          // 否则手动处理指定设备的计时器
+                          const interval = deviceTimerIntervalsRef.current[deviceId];
+                          if (interval) {
+                            clearInterval(interval);
+                            deviceTimerIntervalsRef.current[deviceId] = null;
+                          }
+                          setDeviceTimerRunningState(deviceId, false);
+                        }
+                      } else {
+                        // 即使计时器未运行，也应该处理暂停命令，确保状态同步
+                        console.log(`收到暂停命令，设备 ${deviceId} 计时器未运行，但仍设置状态为暂停`);
+                        
+                        // 备份当前计时器值，以防万一
+                        const currentValue = deviceTimerValues[deviceId] || 0;
+                        if (currentValue > 0) {
+                          deviceTimerBackupRef.current[deviceId] = currentValue;
+                          console.log(`已保存设备 ${deviceId} 的计时器值：${currentValue} 到备用存储中`);
+                        }
+                        
+                        // 确保设置运行状态为 false
+                        setDeviceTimerRunningState(deviceId, false);
+                        
+                        // 清理可能存在的计时器
+                        const interval = deviceTimerIntervalsRef.current[deviceId];
+                        if (interval) {
+                          console.log(`发现设备 ${deviceId} 有活动的计时器但状态为非运行，清除计时器`);
+                          clearInterval(interval);
+                          deviceTimerIntervalsRef.current[deviceId] = null;
+                        }
+                      }
+                    } else {
+                      // 处理启动命令 - 总是检查 deviceTimerValues
+                      // 首先检查是否已有计时器在运行
+                      const isAlreadyRunning = deviceTimerRunning[deviceId] || false;
+                      const existingInterval = deviceTimerIntervalsRef.current[deviceId];
+                      
+                      if (isAlreadyRunning && existingInterval) {
+                        console.log(`收到启动命令，但设备 ${deviceId} 计时器已经在运行中，忽略此命令`);
+                      } else if (isAlreadyRunning && !existingInterval) {
+                        // 状态不一致：状态为运行但没有活动计时器
+                        console.log(`状态不一致：设备 ${deviceId} 状态为运行但没有活动计时器，尝试恢复`);
+                        
+                        // 查找有效的计时器值
+                        const timerValue = getValidTimerValue(deviceId);
+                        if (timerValue > 0) {
+                          console.log(`找到有效的计时器值 ${timerValue}，恢复计时器`);
+                          if (selectedDevice && selectedDevice.id === deviceId) {
+                            setDeviceTimerValue(deviceId, timerValue);
+                            startTimer(deviceId, timerValue);
+                          } else {
+                            startTimerWithValue(deviceId, timerValue);
+                          }
+                        } else {
+                          console.log(`无法找到有效的计时器值，将状态设为非运行`);
+                          setDeviceTimerRunningState(deviceId, false);
+                        }
+                      } else {
+                        // 常规启动逻辑（设备未运行）
+                        if (deviceLastValue > 0) {
+                          console.log(`处理设备 ${deviceId} 启动命令，使用暂存计时器值 ${deviceLastValue}`);
+                          
+                          if (selectedDevice && selectedDevice.id === deviceId) {
+                            // 确保计时器值正确设置
+                            setDeviceTimerValue(deviceId, deviceLastValue);
+                            startTimer(deviceId, deviceLastValue);
+                          } else {
+                            // 手动启动指定设备的计时器
+                            startTimerWithValue(deviceId, deviceLastValue);
+                          }
+                        } else {
+                          // 检查是否存在最新的计时器值 (直接查询 deviceTimerValues 而不是依赖缓存值)
+                          console.log(`设备启动命令检测：deviceTimerValues 完整内容:`, JSON.stringify(deviceTimerValues));
+                          const latestTimerValue = deviceTimerValues[deviceId];
+                          
+                          // 检查备用存储
+                          const backupValue = deviceTimerBackupRef.current[deviceId];
+                          console.log(`备用存储中的计时器值：${backupValue || 0}`);
+                          
+                          // 使用备用存储或状态中的值，优先使用备用存储
+                          const finalValue = (backupValue && backupValue > 0) ? backupValue : 
+                                            (latestTimerValue && latestTimerValue > 0) ? latestTimerValue : 0;
+                          
+                          if (finalValue > 0) {
+                            console.log(`发现设备 ${deviceId} 有有效的计时器值：${finalValue}，将使用该值启动`);
+                            
+                            if (selectedDevice && selectedDevice.id === deviceId) {
+                              setDeviceTimerValue(deviceId, finalValue);
+                              // 直接传入 finalValue 作为覆盖值
+                              startTimer(deviceId, finalValue);
+                            } else {
+                              // 直接使用找到的值启动计时器
+                              startTimerWithValue(deviceId, finalValue);
+                            }
+                          } else {
+                            console.log(`收到启动命令，但设备 ${deviceId} 没有有效的计时器值，无法启动`);
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  // 更新设备状态 (仅用于记录)
+                  setDeviceStatus({deviceId, status});
+                  
+                  // 回复设备
                   BLEManager.writeCharacteristic(
                     deviceId,
                     BLE_UUID.SERVICE,
@@ -407,24 +574,6 @@ const DevicePanelController: NavigationFunctionComponent<
                   )
                     .then(() => {
                       console.log('Successfully reply device status:', status);
-
-                      // 只有当状态与当前不同时才更新，避免不必要的重渲染
-                      if (
-                        deviceStatus.deviceId !== deviceId ||
-                        deviceStatus.status !== status
-                      ) {
-                        console.log(
-                          `设备状态发生变化：设备 ${deviceId}, 状态从 ${deviceStatus.status} 变为 ${status}`,
-                        );
-                        setDeviceStatus({
-                          deviceId: deviceId,
-                          status: status,
-                        });
-                      } else {
-                        console.log(
-                          `设备状态未变化，跳过更新：设备 ${deviceId}, 状态 ${status}`,
-                        );
-                      }
                     })
                     .catch(error => {
                       console.error('Error reply device status:', error);
@@ -569,27 +718,28 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   // 设置设备特定的定时器值
-  const setDeviceTimerValue = (deviceId: string, value: number) => {
-    setDeviceTimerValues(prev => ({
-      ...prev,
-      [deviceId]: value,
-    }));
+  const setDeviceTimerValue = useCallback(
+    (deviceId: string, value: number) => {
+      setDeviceTimerValues(prev => ({
+        ...prev,
+        [deviceId]: value,
+      }));
 
-    // 如果是当前选中的设备，同时更新 UI 显示的值
-    if (selectedDevice?.id === deviceId) {
-      setTimerValue(value);
-    }
-  };
+      // 如果是当前选中的设备，同时更新 UI 显示的值
+      if (selectedDevice?.id === deviceId) {
+        console.log('set current device timer value', value)
+        setTimerValue(value);
+      }
+    },
+    [selectedDevice?.id],
+  );
 
   // 保存设备特定的定时器间隔
   const setDeviceTimerInterval = (
     deviceId: string,
     interval: NodeJS.Timeout | null,
   ) => {
-    setDeviceTimerIntervals(prev => ({
-      ...prev,
-      [deviceId]: interval,
-    }));
+    deviceTimerIntervalsRef.current[deviceId] = interval;
   };
 
   // 设置设备特定的模式
@@ -683,19 +833,19 @@ const DevicePanelController: NavigationFunctionComponent<
       if (
         deviceTimerRunning[deviceId] &&
         deviceTimerValues[deviceId] > 0 &&
-        !deviceTimerIntervals[deviceId]
+        !deviceTimerIntervalsRef.current[deviceId]
       ) {
+        const valueToUse = deviceTimerValues[deviceId];
         console.log(
-          `设备 ${deviceId} 需要恢复计时器，当前值：${deviceTimerValues[deviceId]}`,
+          `设备 ${deviceId} 需要恢复计时器，当前值：${valueToUse}`,
         );
-        startTimerWithValue(deviceId, deviceTimerValues[deviceId]);
+        startTimerWithValue(deviceId, valueToUse);
       }
     }
   }, [
     selectedDevice?.id,
     deviceTimerRunning,
     deviceTimerValues,
-    deviceTimerIntervals,
     selectedDevice,
     startTimerWithValue,
   ]);
@@ -707,7 +857,6 @@ const DevicePanelController: NavigationFunctionComponent<
     }
 
     const deviceId = selectedDevice.id;
-
     // 更新设备模式
     setDeviceMode(deviceId, name);
     modeListActionSheetRef.current?.close();
@@ -729,36 +878,57 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 启动设备特定的计时器
   const startTimer = useCallback(
-    (deviceId: string) => {
+    (deviceId: string, overrideValue?: number) => {
+      // 使用传入的覆盖值或从状态获取
+      const timerValueToUse = overrideValue !== undefined 
+        ? overrideValue 
+        : getDeviceTimerValue(deviceId);
+        
       // 只有当时间大于 0 时才启动计时器
-      const timerValue = getDeviceTimerValue(deviceId);
-      if (timerValue <= 0) {
+      if (timerValueToUse <= 0) {
         console.log("Timer value is 0, can't start timer");
         return;
       }
 
+      console.log(`startTimer: 设备=${deviceId}, 使用计时器值=${timerValueToUse}`);
       // 使用通用启动方法，传入设备ID和当前时间值
-      startTimerWithValue(deviceId, timerValue);
+      startTimerWithValue(deviceId, timerValueToUse);
     },
     [getDeviceTimerValue, startTimerWithValue],
   );
 
-  // 暂停设备特定的计时器
+  // 修改pauseTimer确保不丢失计时器值
   const pauseTimer = useCallback(
     (deviceId: string) => {
-      const interval = deviceTimerIntervals[deviceId];
+      const interval = deviceTimerIntervalsRef.current[deviceId];
       if (interval) {
+        // 记录当前计时器值
+        const currentValue = getDeviceTimerValue(deviceId);
         console.log(
-          `暂停设备 ${deviceId} 的计时器，当前值：${getDeviceTimerValue(
-            deviceId,
-          )}`,
+          `暂停设备 ${deviceId} 的计时器，当前值：${currentValue}`,
         );
         clearInterval(interval);
-        setDeviceTimerInterval(deviceId, null);
+        deviceTimerIntervalsRef.current[deviceId] = null;
+        
+        // 直接更新 deviceTimerValues 确保值被保存
+        if (currentValue > 0) {
+          // 使用非函数形式直接设置，确保立即更新
+          const updatedValues = {
+            ...deviceTimerValues,
+            [deviceId]: currentValue,
+          };
+          setDeviceTimerValues(updatedValues);
+          
+          // 同时在备用存储中保存值
+          deviceTimerBackupRef.current[deviceId] = currentValue;
+          
+          // 添加额外日志确认值已保存
+          console.log(`已保存设备 ${deviceId} 的计时器值：${currentValue} 到设备状态和备用存储中`);
+        }
       }
       setDeviceTimerRunningState(deviceId, false);
     },
-    [deviceTimerIntervals, getDeviceTimerValue, setDeviceTimerRunningState],
+    [deviceTimerValues, getDeviceTimerValue, setDeviceTimerRunningState],
   );
 
   const toggleTimerByDevice = useCallback(
@@ -789,10 +959,11 @@ const DevicePanelController: NavigationFunctionComponent<
     }
 
     const deviceId = selectedDevice.id;
-    const isRunning = isDeviceTimerRunning(deviceId);
+    const isRunning = deviceTimerRunning[deviceId] || false;
 
     if (isRunning) {
       // 如果计时器正在运行，暂停它
+      console.log(`UI 触发暂停命令，当前运行状态：${isRunning}`);
       pauseTimer(deviceId);
       BLEManager.writeCharacteristic(
         deviceId,
@@ -807,8 +978,41 @@ const DevicePanelController: NavigationFunctionComponent<
           console.error('Error stop device:', error);
         });
     } else {
+      // 即使计时器已经是停止状态，也确保清理任何可能存在的定时器
+      const existingInterval = deviceTimerIntervalsRef.current[deviceId];
+      if (existingInterval) {
+        console.log(`设备 ${deviceId} 状态为非运行，但发现活动的计时器，先停止再重启`);
+        clearInterval(existingInterval);
+        deviceTimerIntervalsRef.current[deviceId] = null;
+      }
+      
       // 如果计时器未运行，启动它
-      startTimer(deviceId);
+      // 先检查常规计时器值
+      let timerValueToUse = getDeviceTimerValue(deviceId);
+      
+      // 如果计时器值为 0，检查备份存储
+      if (timerValueToUse <= 0) {
+        const backupValue = deviceTimerBackupRef.current[deviceId];
+        if (backupValue > 0) {
+          console.log(`toggleTimer: 使用备用存储中的计时器值 ${backupValue}`);
+          timerValueToUse = backupValue;
+          // 同时更新常规计时器值
+          setDeviceTimerValue(deviceId, backupValue);
+        }
+      }
+      
+      // 检查是否有可用的计时器值
+      if (timerValueToUse <= 0) {
+        console.log(`无法启动计时器，找不到有效的计时器值`);
+        // 可以在这里打开时间选择器
+        timePickerActionSheetRef.current?.expand();
+        return;
+      }
+      
+      console.log(`toggleTimer: 启动计时器，值=${timerValueToUse}`);
+      startTimer(deviceId, timerValueToUse);
+      // 设置计时器保护期，3 秒内不会被 CANCEL 命令取消
+      timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
       BLEManager.writeCharacteristic(
         deviceId,
         BLE_UUID.SERVICE,
@@ -822,68 +1026,40 @@ const DevicePanelController: NavigationFunctionComponent<
           console.error('Error start device:', error);
         });
     }
-  }, [isDeviceTimerRunning, pauseTimer, selectedDevice, startTimer]);
-
-  useEffect(() => {
-    console.log('device status change', deviceStatus);
-
-    // 检查是否需要处理此状态
-    const shouldProcess =
-      // 设备 ID 和状态有效
-      deviceStatus.deviceId.length > 0 &&
-      // 确保不是处理同一个状态
-      (processedDeviceStatusRef.current === null ||
-        processedDeviceStatusRef.current.deviceId !== deviceStatus.deviceId ||
-        processedDeviceStatusRef.current.status !== deviceStatus.status ||
-        // 如果是同一个设备和状态，确保过了至少 5 秒才再次处理
-        Date.now() - processedDeviceStatusRef.current.timestamp > 3000);
-
-    if (shouldProcess) {
-      console.log('处理设备状态变化', deviceStatus);
-
-      // 记录已处理的状态
-      processedDeviceStatusRef.current = {
-        ...deviceStatus,
-        timestamp: Date.now(),
-      };
-      // 2; // 调用 toggleTimer
-      const {status} = deviceStatus;
-      if (status === CommandType.DEVICE_STATUS_CANCEL) {
-        resetTimerByDevice();
-      } else {
-        toggleTimerByDevice(status === CommandType.DEVICE_STATUS_STOP);
-      }
-    } else {
-      console.log('跳过重复的设备状态处理');
-    }
-  }, [deviceStatus, toggleTimerByDevice]);
+  }, [deviceTimerRunning, getDeviceTimerValue, pauseTimer, selectedDevice, setDeviceTimerValue, startTimer, timePickerActionSheetRef]);
 
   // Reset timer for a specific device
-  const resetTimerByDevice = () => {
+  const resetTimerByDevice = useCallback(() => {
+    console.log('reset timer by device');
     if (!selectedDevice) {
       return;
     }
 
     const deviceId = selectedDevice.id;
     // 停止计时器
-    const interval = deviceTimerIntervals[deviceId];
+    const interval = deviceTimerIntervalsRef.current[deviceId];
     if (interval) {
       clearInterval(interval);
       setDeviceTimerInterval(deviceId, null);
     }
     setDeviceTimerValue(deviceId, 0);
     setDeviceTimerRunningState(deviceId, false);
-  };
+  }, [
+    selectedDevice,
+    setDeviceTimerRunningState,
+    setDeviceTimerValue,
+  ]);
 
   // Reset timer for a specific device
   const resetTimer = () => {
+    console.log('reset timer');
     if (!selectedDevice) {
       return;
     }
 
     const deviceId = selectedDevice.id;
     // 停止计时器
-    const interval = deviceTimerIntervals[deviceId];
+    const interval = deviceTimerIntervalsRef.current[deviceId];
     if (interval) {
       clearInterval(interval);
       setDeviceTimerInterval(deviceId, null);
@@ -907,6 +1083,141 @@ const DevicePanelController: NavigationFunctionComponent<
       });
   };
 
+  // 为单个设备设置连接监控
+  const setupConnectionMonitor = async (deviceId: string) => {
+    console.log(`为设备 ${deviceId} 设置连接监控`);
+    // 找到设备
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) {
+      console.log(`找不到设备 ID 为 ${deviceId} 的设备`);
+      return;
+    }
+
+    console.log(`创建设备 ${deviceId} 的连接监控`);
+
+    // 创建设备的连接监控
+    const subscription = BLEManager.monitorDeviceConnection(
+      deviceId,
+      (device, isConnected, error) => {
+        if (error) {
+          console.error(`设备 ${deviceId} 连接错误:`, error);
+        } else {
+          setDeviceConnectionStates(prev => ({
+            ...prev,
+            [device.id]: isConnected,
+          }));
+
+          setIsConnecting(false);
+          console.log(
+            `设备 ${device.name} 现在是 ${
+              isConnected ? '已连接' : '已断开'
+            } 状态`,
+          );
+
+          const msgName = device.name ? device.name : 'Device';
+          if (!isConnected) {
+            toast.show(`${msgName} - Disconnected`, {
+              type: 'danger',
+              placement: 'top',
+              duration: 4000,
+            });
+          } else if (isConnected) {
+            // show toast
+            toast.show(`${msgName} - Connected`, {
+              type: 'success',
+              placement: 'top',
+              duration: 4000,
+            });
+          }
+
+          // 如果设备断开连接，清理其特性监控但保持计时器状态
+          if (!isConnected) {
+            const charSubscription =
+              subscriptionsRef.current[`char_${deviceId}`];
+            if (charSubscription) {
+              charSubscription.remove();
+              delete subscriptionsRef.current[`char_${deviceId}`];
+            }
+          }
+        }
+      },
+    );
+
+    // 在 ref 中存储监控状态
+    connectionMonitorsActive.current[`conn_${deviceId}`] = true;
+    subscriptionsRef.current[`conn_${deviceId}`] = subscription;
+  };
+
+  useNavigationComponentDidAppear(async () => {
+    const initialDevice = devices[0];
+    console.log('自动连接到第一个设备', initialDevice.name);
+    // 连接设备并等待成功
+    console.log('开始连接设备...');
+    await connectToDevice(initialDevice);
+
+    const checkAllDeviceTimers = () => {
+      // console.log('检查所有设备的计时器状态');
+
+      Object.entries(deviceTimerRunning).forEach(([deviceId, isRunning]) => {
+        // 检查标记为运行中但没有活动 interval 的设备
+        if (
+          isRunning &&
+          !deviceTimerIntervalsRef.current[deviceId] &&
+          deviceTimerValues[deviceId] > 0
+        ) {
+          console.log(
+            `检测到设备 ${deviceId} 的计时器状态异常：标记为运行但没有活动的 interval，正在恢复...`,
+          );
+
+          // 恢复计时器
+          startTimerWithValue(deviceId, deviceTimerValues[deviceId]);
+        }
+      });
+    };
+
+    timerCheckIntervalRef.current = setInterval(checkAllDeviceTimers, 5000);
+  });
+
+  useNavigationComponentDidDisappear(async () => {
+    // 断开所有设备连接
+    const disconnectAllDevices = async () => {
+      const connectedDeviceIds = Object.entries(deviceConnectionStates)
+        .filter(([_, isConnected]) => isConnected)
+        .map(([id]) => id);
+
+      for (const deviceId of connectedDeviceIds) {
+        try {
+          await BLEManager.disconnectDevice(deviceId);
+          console.log(`成功断开设备 ${deviceId} 连接`);
+        } catch (error) {
+          console.error(`断开设备 ${deviceId} 连接出错:`, error);
+        }
+      }
+    };
+
+    // 异步执行断开连接
+    disconnectAllDevices().catch(console.error);
+
+    // 清理所有订阅
+    Object.values(subscriptionsRef.current).forEach(subscription => {
+      if (subscription) {
+        subscription.remove();
+      }
+    });
+
+    // 清除所有计时器
+    Object.entries(deviceTimerIntervalsRef.current).forEach(([_, interval]) => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    });
+
+    console.log('DevicePanelController 清理：断开连接并清理监控');
+    if (timerCheckIntervalRef.current) {
+      clearInterval(timerCheckIntervalRef.current);
+    }
+  });
+
   const $modeActionSheet = (
     <ModeListActionSheet
       selectedMode={selectedMode}
@@ -918,6 +1229,7 @@ const DevicePanelController: NavigationFunctionComponent<
   // 定义时间选择回调函数
   const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
     if (!selectedDevice) {
+      console.log('No device selected');
       return;
     }
 
@@ -927,9 +1239,14 @@ const DevicePanelController: NavigationFunctionComponent<
 
     // 确保时间大于 0
     if (totalSeconds > 0) {
-      // 设置设备特定的时间值
+      // 设置计时器保护期，以防设置时间后立即收到 CANCEL 命令
+      const deviceId = selectedDevice.id;
+      timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
+      console.log(`设置设备 ${deviceId} 计时器保护期至 ${new Date(timerProtectionRef.current[deviceId]).toISOString()}`);
+      
+      // 设置设备特定的时间值，但不触发额外的状态变化
       setDeviceTimerValue(selectedDevice.id, totalSeconds);
-
+      
       // 设置工作时间
       BLEManager.writeCharacteristic(
         selectedDevice.id,
@@ -939,21 +1256,6 @@ const DevicePanelController: NavigationFunctionComponent<
       )
         .then(() => {
           console.log('Successfully set work time');
-
-          // 自动启动计时器和设备
-          startTimer(selectedDevice.id);
-          BLEManager.writeCharacteristic(
-            selectedDevice.id,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_WRITE,
-            BLECommands.startTherapy(),
-          )
-            .then(() => {
-              console.log('Successfully started device after setting time');
-            })
-            .catch(error => {
-              console.error('Error starting device after setting time:', error);
-            });
         })
         .catch(error => {
           console.error('Error setting work time:', error);
@@ -974,38 +1276,51 @@ const DevicePanelController: NavigationFunctionComponent<
   // 修改设备选择回调函数
   const handleDeviceSelect = async (device: FoundDevice) => {
     console.log('Selected device:', device);
-    // 重置 UI 显示的计时器值
-    setTimerValue(0);
+    
+    // 先检查设备是否已在运行计时器
+    const isTimerRunning = deviceTimerRunning[device.id] || false;
+    const currentTimerValue = deviceTimerValues[device.id] || 0;
+    const hasActiveInterval = !!deviceTimerIntervalsRef.current[device.id];
+    
     // 设置新的选中设备
     setSelectedDevice(device);
+    
     // 如果设备未连接，则连接
     if (!getDeviceConnectionStatus(device.id)) {
       await connectToDevice(device);
     }
-
-    // 无论如何，都检查并恢复计时器状态，不仅仅在 interval 为 null 时
-    if (isDeviceTimerRunning(device.id) && deviceTimerValues[device.id] > 0) {
-      console.log(
-        `恢复设备 ${device.id} 的计时器，当前值：${getDeviceTimerValue(
-          device.id,
-        )}，尝试重新确保计时器在运行`,
-      );
-
-      // 先停止可能存在的计时器，然后重新开始
-      const existingInterval = deviceTimerIntervals[device.id];
-      if (existingInterval) {
-        clearInterval(existingInterval);
-        setDeviceTimerInterval(device.id, null);
+    
+    // 检查计时器状态
+    if (isTimerRunning) {
+      // 计时器标记为运行
+      console.log(`选择的设备 ${device.id} 计时器状态为运行，当前值：${currentTimerValue}`);
+      
+      if (!hasActiveInterval) {
+        // 计时器标记为运行但没有活动计时器 - 需要恢复
+        console.log(`计时器标记为运行但没有活动间隔，需要恢复计时器`);
+        
+        // 获取计时器值，优先使用备用存储的值
+        const backupValue = deviceTimerBackupRef.current[device.id];
+        const timerValue = backupValue > 0 ? 
+            backupValue : 
+            currentTimerValue;
+            
+        if (timerValue > 0) {
+          console.log(`恢复设备 ${device.id} 的计时器，使用值：${timerValue}`);
+          startTimerWithValue(device.id, timerValue);
+        } else {
+          console.log(`无法恢复计时器，没有有效的计时器值`);
+          setDeviceTimerRunningState(device.id, false);
+        }
+      } else {
+        // 计时器已经在运行，不需要任何操作
+        console.log(`设备 ${device.id} 计时器已经在运行中，值为 ${currentTimerValue}，不进行重置`);
       }
-
-      // 重新开始计时器
-      startTimerWithValue(device.id, getDeviceTimerValue(device.id));
     } else {
-      console.log(
-        `设备 ${device.id} 的计时器未运行或时间值为 0，不需要恢复计时器`,
-      );
+      // 计时器未运行
+      console.log(`设备 ${device.id} 的计时器未运行，同步 UI 显示值为 ${currentTimerValue}`);
       // 更新 UI 显示的时间值
-      setTimerValue(getDeviceTimerValue(device.id));
+      setTimerValue(currentTimerValue);
     }
   };
 
@@ -1015,7 +1330,7 @@ const DevicePanelController: NavigationFunctionComponent<
       devices={devices}
       selectedDevice={selectedDevice}
       deviceConnectionStates={deviceConnectionStates}
-      deviceLoadingStates={deviceLoadingStates}
+      deviceLoadingStates={deviceLoadingStatesRef.current}
       handleDeviceSelect={handleDeviceSelect}
     />
   );
@@ -1098,9 +1413,12 @@ const DevicePanelController: NavigationFunctionComponent<
   const $timerValue = (
     <TouchableOpacity
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
-      onPress={() =>
-        !timerRunning && timePickerActionSheetRef.current?.expand()
-      }
+      onPress={() => {
+        // 只有在计时器未运行且没有设置时间值时才允许打开时间选择器
+        if (!timerRunning && !timerValue) {
+          timePickerActionSheetRef.current?.expand();
+        }
+      }}
       disabled={timerRunning}>
       <Text
         className={`text-8xl ${
@@ -1240,140 +1558,29 @@ const DevicePanelController: NavigationFunctionComponent<
     </TouchableOpacity>
   );
 
-  // 为单个设备设置连接监控
-  const setupConnectionMonitor = async (deviceId: string) => {
-    console.log(`为设备 ${deviceId} 设置连接监控`);
-    // 找到设备
-    const device = devices.find(d => d.id === deviceId);
-    if (!device) {
-      console.log(`找不到设备 ID 为 ${deviceId} 的设备`);
-      return;
-    }
-
-    console.log(`创建设备 ${deviceId} 的连接监控`);
-
-    // 创建设备的连接监控
-    const subscription = BLEManager.monitorDeviceConnection(
-      deviceId,
-      (device, isConnected, error) => {
-        if (error) {
-          console.error(`设备 ${deviceId} 连接错误:`, error);
-        } else {
-          setDeviceConnectionStates(prev => ({
-            ...prev,
-            [device.id]: isConnected,
-          }));
-
-          setIsConnecting(false);
-          console.log(
-            `设备 ${device.name} 现在是 ${
-              isConnected ? '已连接' : '已断开'
-            } 状态`,
-          );
-
-          const msgName = device.name ? device.name : 'Device';
-          if (!isConnected) {
-            toast.show(`${msgName} - Disconnected`, {
-              type: 'danger',
-              placement: 'top',
-              duration: 4000,
-            });
-          } else if (isConnected) {
-            // show toast
-            toast.show(`${msgName} - Connected`, {
-              type: 'success',
-              placement: 'top',
-              duration: 4000,
-            });
-          }
-
-          // 如果设备断开连接，清理其特性监控但保持计时器状态
-          if (!isConnected) {
-            const charSubscription =
-              subscriptionsRef.current[`char_${deviceId}`];
-            if (charSubscription) {
-              charSubscription.remove();
-              delete subscriptionsRef.current[`char_${deviceId}`];
-            }
-          }
-        }
-      },
-    );
-
-    // 在 ref 中存储监控状态
-    connectionMonitorsActive.current[`conn_${deviceId}`] = true;
-    subscriptionsRef.current[`conn_${deviceId}`] = subscription;
-  };
-
-  useNavigationComponentDidAppear(async () => {
-    const initialDevice = devices[0];
-    console.log('自动连接到第一个设备', initialDevice.name);
-    // 连接设备并等待成功
-    console.log('开始连接设备...');
-    await connectToDevice(initialDevice);
-
-    const checkAllDeviceTimers = () => {
-      console.log('检查所有设备的计时器状态');
-
-      Object.entries(deviceTimerRunning).forEach(([deviceId, isRunning]) => {
-        // 检查标记为运行中但没有活动 interval 的设备
-        if (
-          isRunning &&
-          !deviceTimerIntervals[deviceId] &&
-          deviceTimerValues[deviceId] > 0
-        ) {
-          console.log(
-            `检测到设备 ${deviceId} 的计时器状态异常：标记为运行但没有活动的 interval，正在恢复...`,
-          );
-
-          // 恢复计时器
-          startTimerWithValue(deviceId, deviceTimerValues[deviceId]);
-        }
-      });
-    };
-
-    timerCheckIntervalRef.current = setInterval(checkAllDeviceTimers, 5000);
-  });
-
-  useNavigationComponentDidDisappear(async () => {
-    // 断开所有设备连接
-    const disconnectAllDevices = async () => {
-      const connectedDeviceIds = Object.entries(deviceConnectionStates)
-        .filter(([_, isConnected]) => isConnected)
-        .map(([id]) => id);
-
-      for (const deviceId of connectedDeviceIds) {
-        try {
-          await BLEManager.disconnectDevice(deviceId);
-          console.log(`成功断开设备 ${deviceId} 连接`);
-        } catch (error) {
-          console.error(`断开设备 ${deviceId} 连接出错:`, error);
-        }
+  // 获取特定设备的有效计时器值，综合检查所有可能的存储位置
+  const getValidTimerValue = useCallback(
+    (deviceId: string): number => {
+      // 首先检查常规状态值
+      const stateValue = deviceTimerValues[deviceId] || 0;
+      if (stateValue > 0) {
+        console.log(`从状态中获取到计时器值：${stateValue}`);
+        return stateValue;
       }
-    };
-
-    // 异步执行断开连接
-    disconnectAllDevices().catch(console.error);
-
-    // 清理所有订阅
-    Object.values(subscriptionsRef.current).forEach(subscription => {
-      if (subscription) {
-        subscription.remove();
+      
+      // 检查备用存储
+      const backupValue = deviceTimerBackupRef.current[deviceId] || 0;
+      if (backupValue > 0) {
+        console.log(`从备用存储中获取到计时器值：${backupValue}`);
+        return backupValue;
       }
-    });
-
-    // 清除所有计时器
-    Object.entries(deviceTimerIntervals).forEach(([_, interval]) => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    });
-
-    console.log('DevicePanelController 清理：断开连接并清理监控');
-    if (timerCheckIntervalRef.current) {
-      clearInterval(timerCheckIntervalRef.current);
-    }
-  });
+      
+      // 找不到有效值
+      console.log(`无法为设备 ${deviceId} 找到有效的计时器值`);
+      return 0;
+    },
+    [deviceTimerValues],
+  );
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>
