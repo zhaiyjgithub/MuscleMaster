@@ -206,6 +206,13 @@ ScanDeviceController.options = {
     title: {
       text: 'GuGeer',
     },
+    rightButtons: [
+      {
+        id: 'settings',
+        color: 'white',
+        text: 'V0.0.1',
+      },
+    ],
   },
 };
 
