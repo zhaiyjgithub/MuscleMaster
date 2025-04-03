@@ -425,11 +425,11 @@ const DevicePanelController: NavigationFunctionComponent<
                     }
                     
                     // 设置计时器保护期
-                    timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3秒保护期
+                    timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
                   } else {
-                    // 如果工作时间为0且计时器在运行，停止计时器
+                    // 如果工作时间为 0 且计时器在运行，停止计时器
                     if (isRunning && hasActiveInterval) {
-                      console.log(`设备 ${deviceId} 接收到0倒计时，停止计时器`);
+                      console.log(`设备 ${deviceId} 接收到 0 倒计时，停止计时器`);
                       const interval = deviceTimerIntervalsRef.current[deviceId];
                       if (interval) {
                         clearInterval(interval);
@@ -1136,27 +1136,29 @@ const DevicePanelController: NavigationFunctionComponent<
 
           const msgName = device.name ? device.name : 'Device';
           if (!isConnected) {
-            // 设备断开连接时，取消正在运行的倒计时
-            const isTimerRunning = deviceTimerRunning[device.id] || false;
-            if (isTimerRunning) {
-              console.log(`设备 ${device.id} 断开连接，取消倒计时`);
-              
-              // 停止计时器
-              const interval = deviceTimerIntervalsRef.current[device.id];
-              if (interval) {
-                clearInterval(interval);
-                deviceTimerIntervalsRef.current[device.id] = null;
-              }
-              
-              // 更新计时器状态
-              setDeviceTimerValue(device.id, 0);
-              setDeviceTimerRunningState(device.id, false);
-              
-              // 如果是当前选中的设备，直接更新 UI 显示
-              if (selectedDevice?.id === device.id) {
-                setTimerValue(0);
-                setTimerRunning(false);
-              }
+            // 设备断开连接时，无条件取消任何可能的倒计时
+            console.log(`设备 ${device.id} 断开连接，取消任何可能的倒计时`);
+            
+            // 停止计时器
+            const interval = deviceTimerIntervalsRef.current[device.id];
+            if (interval) {
+              clearInterval(interval);
+              deviceTimerIntervalsRef.current[device.id] = null;
+            }
+            
+            // 清除备份存储的计时器值
+            if (deviceTimerBackupRef.current[device.id]) {
+              deviceTimerBackupRef.current[device.id] = 0;
+            }
+            
+            // 更新计时器状态
+            setDeviceTimerValue(device.id, 0);
+            setDeviceTimerRunningState(device.id, false);
+            
+            // 如果是当前选中的设备，直接更新 UI 显示
+            if (selectedDevice?.id === device.id) {
+              setTimerValue(0);
+              setTimerRunning(false);
             }
             
             // 清理设备的特性监控
@@ -1617,6 +1619,35 @@ const DevicePanelController: NavigationFunctionComponent<
     },
     [deviceTimerValues],
   );
+
+  // 监听当前选中设备的连接状态，当设备断开时取消计时器
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      const isConnected = deviceConnectionStates[deviceId] || false;
+      
+      // 检查当前选择的设备是否已断开
+      if (!isConnected) {
+        console.log(`检测到当前选中设备 ${deviceId} 已断开连接，取消计时器`);
+        
+        // 停止计时器
+        const interval = deviceTimerIntervalsRef.current[deviceId];
+        if (interval) {
+          clearInterval(interval);
+          deviceTimerIntervalsRef.current[deviceId] = null;
+        }
+        
+        // 清除备份计时器值
+        if (deviceTimerBackupRef.current[deviceId]) {
+          deviceTimerBackupRef.current[deviceId] = 0;
+        }
+        
+        // 更新状态
+        setDeviceTimerValue(deviceId, 0);
+        setDeviceTimerRunningState(deviceId, false);
+      }
+    }
+  }, [selectedDevice, deviceConnectionStates, setDeviceTimerValue, setDeviceTimerRunningState]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
