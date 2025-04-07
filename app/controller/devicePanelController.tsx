@@ -2,7 +2,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Battery, BatteryFull, BatteryLow, BatteryMedium, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Text, TouchableOpacity, View, AppState } from 'react-native';
+import { Animated, Text, TouchableOpacity, View, AppState, ActivityIndicator } from 'react-native';
 import { Subscription } from 'react-native-ble-plx';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationFunctionComponent } from 'react-native-navigation';
@@ -97,6 +97,16 @@ const DevicePanelController: NavigationFunctionComponent<
   const subscriptionsRef = useRef<Record<string, Subscription | null>>({});
   const connectionMonitorsActive = useRef<Record<string, boolean>>({});
   const timerCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Add loading state variables
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const initialLoadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track received device parameters
+  const receivedParamsRef = useRef({
+    workTime: false,
+    intensity: false,
+    mode: false
+  });
 
   // 设置设备特定的定时器运行状态
   const setDeviceTimerRunningState = useCallback(
@@ -316,6 +326,31 @@ const DevicePanelController: NavigationFunctionComponent<
     return '#ef4444'; // 红色，未连接
   };
 
+  // Function to check if all required parameters are received
+  const checkAllParamsReceived = useCallback(() => {
+    const { workTime, intensity, mode } = receivedParamsRef.current;
+    
+    if (workTime && intensity && mode) {
+      console.log('All required device parameters received, hiding loading');
+      // Clear timeout if it exists
+      if (initialLoadingTimeoutRef.current) {
+        clearTimeout(initialLoadingTimeoutRef.current);
+        initialLoadingTimeoutRef.current = null;
+      }
+      // Hide loading
+      setIsInitialLoading(false);
+    }
+  }, []);
+
+  // Reset received params when selecting a new device
+  const resetReceivedParams = () => {
+    receivedParamsRef.current = {
+      workTime: false,
+      intensity: false,
+      mode: false
+    };
+  };
+
   // 设备特性监控的创建函数
   const setupCharacteristicMonitor = (deviceId: string) => {
     // 如果已经有监控，先移除它，确保不会有重复的监控
@@ -387,6 +422,10 @@ const DevicePanelController: NavigationFunctionComponent<
                   const intensity = data[2];
                   setDeviceIntensity(deviceId, intensity);
 
+                  // Mark intensity as received
+                  receivedParamsRef.current.intensity = true;
+                  checkAllParamsReceived();
+
                   // reply intensity
                   BLEManager.writeCharacteristic(
                     deviceId,
@@ -412,6 +451,10 @@ const DevicePanelController: NavigationFunctionComponent<
                   if (mode) {
                     setDeviceMode(deviceId, mode.name);
 
+                    // Mark mode as received
+                    receivedParamsRef.current.mode = true;
+                    checkAllParamsReceived();
+
                     // reply mode
                     BLEManager.writeCharacteristic(
                       deviceId,
@@ -433,6 +476,10 @@ const DevicePanelController: NavigationFunctionComponent<
                   const highByte = data[1];
                   const lowByte = data[2];
                   const workTime = (highByte << 8) | lowByte;
+
+                  // Mark work time as received
+                  receivedParamsRef.current.workTime = true;
+                  checkAllParamsReceived();
 
                   // reply work time
                   BLEManager.writeCharacteristic(
@@ -1062,7 +1109,11 @@ const DevicePanelController: NavigationFunctionComponent<
   useNavigationComponentDidAppear(async () => {
     const initialDevice = devices[0];
     console.log('自动连接到第一个设备', initialDevice.name);
-    // 连接设备并等待成功
+    
+    // Remove loading show from here - we'll only show it after connection succeeds
+    resetReceivedParams();
+    
+    // Connect to device
     console.log('开始连接设备...');
     await connectToDevice(initialDevice);
 
@@ -1090,6 +1141,12 @@ const DevicePanelController: NavigationFunctionComponent<
   });
 
   useNavigationComponentDidDisappear(async () => {
+    // Clear loading timeout
+    if (initialLoadingTimeoutRef.current) {
+      clearTimeout(initialLoadingTimeoutRef.current);
+      initialLoadingTimeoutRef.current = null;
+    }
+    
     // 断开所有设备连接
     const disconnectAllDevices = async () => {
       const connectedDeviceIds = Object.entries(deviceConnectionStates)
@@ -1192,10 +1249,13 @@ const DevicePanelController: NavigationFunctionComponent<
     />
   );
 
-  // 修改设备选择回调函数
+  // Modify handleDeviceSelect to reset params and show loading
   const handleDeviceSelect = async (device: FoundDevice) => {
     console.log('Selected device:', device);
 
+    // Reset received params but don't show loading yet
+    resetReceivedParams();
+    
     // 先检查设备是否已在运行计时器
     const isTimerRunning = deviceTimerRunning[device.id] || false;
     const currentTimerValue = deviceTimerValues[device.id] || 0;
@@ -1207,6 +1267,39 @@ const DevicePanelController: NavigationFunctionComponent<
     // 如果设备未连接，则连接
     if (!getDeviceConnectionStatus(device.id)) {
       await connectToDevice(device);
+    } else {
+      // If already connected, show loading to sync parameters
+      setIsInitialLoading(true);
+      
+      // Set timeout to hide loading after 5 seconds
+      if (initialLoadingTimeoutRef.current) {
+        clearTimeout(initialLoadingTimeoutRef.current);
+      }
+      
+      initialLoadingTimeoutRef.current = setTimeout(() => {
+        console.log('Loading timeout reached (5s), hiding loading');
+        setIsInitialLoading(false);
+        initialLoadingTimeoutRef.current = null;
+      }, 5000);
+      
+      // For already connected device, try to get parameters
+      try {
+        if (selectedDevice) {
+          await BLEManager.writeCharacteristic(
+            selectedDevice.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
+            BLECommands.getDeviceInfo(),
+          );
+        }
+      } catch (error) {
+        console.error('Error reading device info for already connected device:', error);
+        setIsInitialLoading(false);
+        if (initialLoadingTimeoutRef.current) {
+          clearTimeout(initialLoadingTimeoutRef.current);
+          initialLoadingTimeoutRef.current = null;
+        }
+      }
     }
 
     // 检查计时器状态
@@ -1736,6 +1829,23 @@ const DevicePanelController: NavigationFunctionComponent<
         // 更新设备连接状态
         updateConnectionStatus(device.id, true);
 
+        // Reset received params tracking for the new connection
+        resetReceivedParams();
+        
+        // Show loading overlay when device connects successfully
+        setIsInitialLoading(true);
+        
+        // Set timeout to hide loading after 5 seconds if params aren't received
+        if (initialLoadingTimeoutRef.current) {
+          clearTimeout(initialLoadingTimeoutRef.current);
+        }
+        
+        initialLoadingTimeoutRef.current = setTimeout(() => {
+          console.log('Loading timeout reached (5s), hiding loading');
+          setIsInitialLoading(false);
+          initialLoadingTimeoutRef.current = null;
+        }, 5000);
+
         // 为设备监控连接状态
         await setupConnectionMonitor(device.id);
 
@@ -1759,6 +1869,12 @@ const DevicePanelController: NavigationFunctionComponent<
           );
         } catch (error) {
           console.error('Error reading device version:', error);
+          // Hide loading if there's an error retrieving device information
+          setIsInitialLoading(false);
+          if (initialLoadingTimeoutRef.current) {
+            clearTimeout(initialLoadingTimeoutRef.current);
+            initialLoadingTimeoutRef.current = null;
+          }
         }
       } else if (err) {
         if (err.message?.indexOf('time out')) {
@@ -1786,11 +1902,11 @@ const DevicePanelController: NavigationFunctionComponent<
       // 更新设备连接状态为断开
       updateConnectionStatus(device.id, false);
     } finally {
-      // 无论成功失败，都结束加载状态
+      // 无论成功失败，都结束加载状态（仅针对连接加载状态，不是参数加载状态）
       setDeviceLoading(device.id, false);
       setIsConnecting(false);
     }
-  }, [cleanupDeviceResources, deviceConnectionStates, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
+  }, [cleanupDeviceResources, deviceConnectionStates, resetReceivedParams, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
 
   // Add AppState listener to disconnect devices when app is locked or backgrounded
   useEffect(() => {
@@ -1860,6 +1976,28 @@ const DevicePanelController: NavigationFunctionComponent<
         {$modeActionSheet}
         {$timePickerActionSheet}
         {$deviceListActionSheet}
+        
+        {/* Loading overlay */}
+        {isInitialLoading && (
+          <View 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <View className="bg-white p-4 rounded-xl items-center">
+              <ActivityIndicator size="large" color="#1e88e5" />
+              <Text className="text-base mt-2">Syncing device data...</Text>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
