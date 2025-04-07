@@ -389,7 +389,21 @@ const DevicePanelController: NavigationFunctionComponent<
                   const lowByte = data[2];
                   const workTime = (highByte << 8) | lowByte;
 
-                  console.log('设备发送的倒计时时间:', workTime);
+                  // reply work time
+                  BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyWorkTime(workTime),
+                  )
+                    .then(() => {
+                      console.log('Successfully reply work time');
+                    })
+                    .catch(error => {
+                      console.error('Error reply work time:', error);
+                    });
+
+                  console.log('设备发送的倒计时时间：', workTime);
 
                   // 更新设备计时器值
                   setDeviceTimerValue(deviceId, workTime);
@@ -405,7 +419,10 @@ const DevicePanelController: NavigationFunctionComponent<
                   const hasActiveInterval = !!deviceTimerIntervalsRef.current[deviceId];
                   
                   if (workTime > 0) {
-                    // 如果有活动的计时器，停止它
+                    // 记录原始的运行状态，避免 UI 闪烁
+                    const wasRunning = isRunning;
+                    
+                    // 如果有活动的计时器，停止它，但不改变运行状态
                     if (hasActiveInterval) {
                       console.log(`设备 ${deviceId} 接收到新的倒计时时间，重新启动计时器`);
                       const interval = deviceTimerIntervalsRef.current[deviceId];
@@ -413,15 +430,28 @@ const DevicePanelController: NavigationFunctionComponent<
                         clearInterval(interval);
                         deviceTimerIntervalsRef.current[deviceId] = null;
                       }
+                      // 不在这里设置运行状态为 false
                     } else {
                       console.log(`设备 ${deviceId} 接收到新的倒计时时间，启动新计时器`);
                     }
                     
-                    // 启动新的计时器
+                    // 启动新的计时器，保持原来的运行状态
                     if (selectedDevice && selectedDevice.id === deviceId) {
-                      startTimer(deviceId, workTime);
+                      // 如果计时器之前在运行，则保持运行状态
+                      if (wasRunning) {
+                        startTimer(deviceId, workTime);
+                      } else {
+                        // 只更新值，不启动计时器
+                        setDeviceTimerValue(deviceId, workTime);
+                      }
                     } else {
-                      startTimerWithValue(deviceId, workTime);
+                      // 对于非选中设备，按照原来状态处理
+                      if (wasRunning) {
+                        startTimerWithValue(deviceId, workTime);
+                      } else {
+                        // 只更新计时器值，不启动
+                        setDeviceTimerValue(deviceId, workTime);
+                      }
                     }
                     
                     // 设置计时器保护期
@@ -438,25 +468,26 @@ const DevicePanelController: NavigationFunctionComponent<
                       setDeviceTimerRunningState(deviceId, false);
                     }
                   }
-
-                  // reply work time
-                  BLEManager.writeCharacteristic(
-                    deviceId,
-                    BLE_UUID.SERVICE,
-                    BLE_UUID.CHARACTERISTIC_READ,
-                    BLECommands.replyWorkTime(workTime),
-                  )
-                    .then(() => {
-                      console.log('Successfully reply work time');
-                    })
-                    .catch(error => {
-                      console.error('Error reply work time:', error);
-                    });
                 }
               } else if (subCommand === CommandType.DEVICE_STATUS) {
+                
                 if (data.length >= 3) {
                   const channel = data[1];
                   const status = data[2];
+
+                   // 回复设备
+                   BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyDeviceStatus(status, channel),
+                  )
+                    .then(() => {
+                      console.log('Successfully reply device status:', status);
+                    })
+                    .catch(error => {
+                      console.error('Error reply device status:', error);
+                    });
 
                   console.log('channel', channel, 'status', status);
 
@@ -608,19 +639,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   // 更新设备状态 (仅用于记录)
                   setDeviceStatus({ deviceId, status });
 
-                  // 回复设备
-                  BLEManager.writeCharacteristic(
-                    deviceId,
-                    BLE_UUID.SERVICE,
-                    BLE_UUID.CHARACTERISTIC_READ,
-                    BLECommands.replyDeviceStatus(status, channel),
-                  )
-                    .then(() => {
-                      console.log('Successfully reply device status:', status);
-                    })
-                    .catch(error => {
-                      console.error('Error reply device status:', error);
-                    });
+                
                 }
               }
             }
@@ -1456,6 +1475,27 @@ const DevicePanelController: NavigationFunctionComponent<
     <TouchableOpacity
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() => {
+        // 检查当前是否有选中的设备
+        if (!selectedDevice) {
+          toast.show('请先选择一个设备', {
+            type: 'warning',
+            placement: 'top',
+            duration: 3000,
+          });
+          return;
+        }
+        
+        // 检查当前选中设备的连接状态
+        const isConnected = getDeviceConnectionStatus(selectedDevice.id);
+        if (!isConnected) {
+          toast.show(`${selectedDevice.name || '设备'} 未连接，请先连接设备`, {
+            type: 'warning',
+            placement: 'top',
+            duration: 3000,
+          });
+          return;
+        }
+        
         // 只有在计时器未运行且没有设置时间值时才允许打开时间选择器
         if (!timerRunning && !timerValue) {
           timePickerActionSheetRef.current?.expand();
