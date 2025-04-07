@@ -2,7 +2,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Battery, BatteryFull, BatteryLow, BatteryMedium, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Text, TouchableOpacity, View, AppState } from 'react-native';
 import { Subscription } from 'react-native-ble-plx';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationFunctionComponent } from 'react-native-navigation';
@@ -62,6 +62,9 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 将 deviceLoadingStates 从 state 改为 ref
   const deviceLoadingStatesRef = useRef<Record<string, boolean>>({});
+
+  // Add AppState ref to track previous state
+  const appStateRef = useRef(AppState.currentState);
 
   // 添加备用计时器值存储，避免状态更新时机问题
   const deviceTimerBackupRef = useRef<Record<string, number>>({});
@@ -1788,6 +1791,52 @@ const DevicePanelController: NavigationFunctionComponent<
       setIsConnecting(false);
     }
   }, [cleanupDeviceResources, deviceConnectionStates, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
+
+  // Add AppState listener to disconnect devices when app is locked or backgrounded
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      console.log('App state changed to:', nextAppState);
+      
+      // If app is going to background or inactive (locked)
+      if (
+        appStateRef.current === 'active' && 
+        (nextAppState === 'background' || nextAppState === 'inactive')
+      ) {
+        console.log('App is going to background or locked, disconnecting devices');
+        
+        // Disconnect all connected devices
+        const disconnectAllDevices = async () => {
+          const connectedDeviceIds = Object.entries(deviceConnectionStates)
+            .filter(([_, isConnected]) => isConnected)
+            .map(([id]) => id);
+
+          for (const deviceId of connectedDeviceIds) {
+            try {
+              console.log(`Disconnecting device ${deviceId} due to app lock/background`);
+              await BLEManager.disconnectDevice(deviceId);
+              
+              // Clean up all resources related to this device
+              cleanupDeviceResources(deviceId);
+              
+              console.log(`Successfully disconnected device ${deviceId}`);
+            } catch (error) {
+              console.error(`Error disconnecting device ${deviceId}:`, error);
+            }
+          }
+        };
+
+        // Execute the disconnection
+        disconnectAllDevices();
+      }
+      
+      // Update the ref with current state
+      appStateRef.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [cleanupDeviceResources, deviceConnectionStates]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
