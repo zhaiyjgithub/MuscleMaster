@@ -39,7 +39,7 @@ export enum CommandType {
   DEVICE_STATUS_CANCEL = 0x00,
   START_THERAPY = 0x02,
   STOP_THERAPY = 0x02,
-  GET_BATTERY = 0x09,
+  GET_BATTERY = 0x0A,
   GET_VERSION = 0x01,
   SET_WORK_TIME = 0x03,
   GET_WORK_TIME = 0x03,
@@ -395,8 +395,8 @@ export const BLECommands = {
   /**
    * 获取电池电量
    */
-  getBattery(channel: DeviceChannel = DEFAULT_CHANNEL): string {
-    return createCommand(CommandType.GET_BATTERY, [], channel);
+  getBattery(channel: DeviceChannel = DEFAULT_CHANNEL, value: number): string {
+    return createCommand(CommandType.GET_BATTERY, [value], channel);
   },
 
   /**
@@ -461,6 +461,15 @@ export const BLECommands = {
     return createCommand(
       CommandType.GET_DEVICE_INFO,
       [CommandType.DEVICE_STATUS, channel, status],
+      channel,
+    );
+  },
+
+  // 回复电量信息
+  replyBattery(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_BATTERY,
+      [value],
       channel,
     );
   },

@@ -1,6 +1,6 @@
 import BottomSheet from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
-import { Battery, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Battery, BatteryFull, BatteryLow, BatteryMedium, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, TouchableOpacity, View } from 'react-native';
 import { Subscription } from 'react-native-ble-plx';
@@ -26,6 +26,7 @@ import {
   DeviceMode,
   parseResponse,
 } from '../services/protocol';
+import { cn } from '../lib/utils';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -47,6 +48,9 @@ const DevicePanelController: NavigationFunctionComponent<
   const [isConnecting, setIsConnecting] = useState(false);
   const [timerValue, setTimerValue] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [deviceBatteryLevels, setDeviceBatteryLevels] = useState<
+  Record<string, number>
+>({});
   // 设备特定的定时器状态
   const [deviceTimerValues, setDeviceTimerValues] = useState<
     Record<string, number>
@@ -358,6 +362,19 @@ const DevicePanelController: NavigationFunctionComponent<
                   return formattedVersion;
                 });
               }
+            } else if (command === CommandType.GET_BATTERY) {
+              const batteryLevel = data[0];
+              // reply battery level
+              BLEManager.writeCharacteristic(
+                deviceId,
+                BLE_UUID.SERVICE,
+                BLE_UUID.CHARACTERISTIC_READ,
+                BLECommands.replyBattery(batteryLevel),
+              );
+              setDeviceBatteryLevels(prev => ({
+                ...prev,
+                [deviceId]: batteryLevel,
+              }));
             } else if (command === CommandType.GET_DEVICE_INFO) {
               const subCommand = data[0];
               console.log('subCommand', subCommand);
@@ -1287,6 +1304,18 @@ const DevicePanelController: NavigationFunctionComponent<
     );
   };
 
+  const getBatteryIconByLevel = (level: number  ) => {
+    if (level >= 90) {
+      return <BatteryFull size={20} color="#10b981" />;
+    } else if (level >= 50) {
+      return <BatteryMedium size={20} color="#10b981" />;
+    } else if (level >= 20) {
+      return <BatteryLow size={20} color="#f59e0b" />;
+    } else {
+      return <Battery size={20} color="#ef4444" />;
+    }
+  }
+
   const $deviceInfo = (
     <View className="bg-white rounded-2xl">
       <TouchableOpacity
@@ -1302,7 +1331,16 @@ const DevicePanelController: NavigationFunctionComponent<
           </Text>
         </View>
         <View className="flex-row items-center">
-          <ChevronRight size={20} color="black" className="ml-2" />
+          {getBatteryIconByLevel(deviceBatteryLevels[selectedDevice?.id || ''] || 0)}
+          <Text className={cn("text-base font-semibold  ml-2", {
+            'text-red-500': deviceBatteryLevels[selectedDevice?.id || ''] < 20,
+            'text-yellow-500': deviceBatteryLevels[selectedDevice?.id || ''] >= 20 && deviceBatteryLevels[selectedDevice?.id || ''] < 50,
+            'text-green-500': deviceBatteryLevels[selectedDevice?.id || ''] >= 50 && deviceBatteryLevels[selectedDevice?.id || ''] < 90,
+            'text-green-600': deviceBatteryLevels[selectedDevice?.id || ''] >= 90,
+          })}>
+            {deviceBatteryLevels[selectedDevice?.id || ''] || '0'}%
+          </Text>
+          <ChevronRight size={20} color="black" className="" />
         </View>
       </TouchableOpacity>
     </View>
