@@ -36,7 +36,7 @@ const DevicePanelController: NavigationFunctionComponent<
 > = ({ devices }) => {
   // 全局 UI 显示状态
   const [selectedMode, setSelectedMode] = useState('Fitness');
-  const [intensityLevel, setIntensityLevel] = useState(50);
+  const [intensityLevel, setIntensityLevel] = useState(0);
 
   // 设备特定的模式和强度状态
   const [deviceModes, setDeviceModes] = useState<Record<string, string>>({});
