@@ -287,11 +287,36 @@ const DevicePanelController: NavigationFunctionComponent<
     console.log(`更新设备 ${deviceId} 连接状态为：${connected}`);
   };
 
+  // 获取特定设备的连接状态
+  const getDeviceConnectionStatus = useCallback(
+    (deviceId: string): boolean => {
+      return deviceConnectionStates[deviceId] || false;
+    },
+    [deviceConnectionStates],
+  );
+
+  // 获取设备状态颜色
+  const getDeviceStatusColor = () => {
+    if (isConnecting) {
+      return '#f59e0b';
+    } // 黄色，连接中
+
+    // 检查当前选中设备的连接状态
+    if (selectedDevice && getDeviceConnectionStatus(selectedDevice.id)) {
+      return '#10b981';
+    } // 绿色，已连接
+
+    return '#ef4444'; // 红色，未连接
+  };
+
   // 设备特性监控的创建函数
   const setupCharacteristicMonitor = (deviceId: string) => {
-    // 如果已经有监控，不重复创建
-    if (subscriptionsRef.current[`char_${deviceId}`]) {
-      return;
+    // 如果已经有监控，先移除它，确保不会有重复的监控
+    const existingSubscription = subscriptionsRef.current[`char_${deviceId}`];
+    if (existingSubscription) {
+      console.log(`发现设备 ${deviceId} 已存在特性监控，先移除它`);
+      existingSubscription.remove();
+      delete subscriptionsRef.current[`char_${deviceId}`];
     }
 
     const subscription = BLEManager.monitorCharacteristicForDevice(
@@ -651,115 +676,6 @@ const DevicePanelController: NavigationFunctionComponent<
     // 只存储在 ref 中，不再使用状态
     subscriptionsRef.current[`char_${deviceId}`] = subscription;
   };
-
-  // 封装设备连接逻辑为可重用的函数
-  const connectToDevice = async (device: FoundDevice) => {
-    if (!device) {
-      return;
-    }
-
-    try {
-      // 如果设备已经连接，不重复连接
-      if (deviceConnectionStates[device.id]) {
-        console.log(`设备 ${device.name} 已经连接，无需重复连接`);
-        return;
-      }
-
-      // 设置连接中状态
-      setIsConnecting(true);
-      // 设置加载状态
-      setDeviceLoading(device.id, true);
-
-      // 停止扫描（在连接前停止扫描是最佳实践）
-      BLEManager.stopScan();
-
-      // 连接设备
-      const { connectedDevice, err } = await BLEManager.connectToDevice(
-        device.id,
-      );
-      if (connectedDevice) {
-        console.log(`Successfully connected to ${device.name}`);
-
-        // 更新设备连接状态
-        updateConnectionStatus(device.id, true);
-
-        // 为设备监控连接状态
-        await setupConnectionMonitor(device.id);
-
-        // 为设备创建特性监控
-        setupCharacteristicMonitor(device.id);
-
-        try {
-          await BLEManager.writeCharacteristic(
-            device.id,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_READ,
-            BLECommands.getVersion(),
-          );
-
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          await BLEManager.writeCharacteristic(
-            device.id,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_READ,
-            BLECommands.getDeviceInfo(),
-          );
-        } catch (error) {
-          console.error('Error reading device version:', error);
-        }
-      } else if (err) {
-        if (err.message?.indexOf('time out')) {
-          toast.show(`${device.name ?? 'Device'} Connection time out`, {
-            type: 'danger',
-            placement: 'top',
-            duration: 4000,
-          });
-        }
-      }
-    } catch (error) {
-      const msg = `Failed to ${device.connected ? 'disconnect from' : 'connect to'
-      } ${device.name ?? 'Device'}`;
-      console.error(
-        `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name
-        }:`,
-        error,
-      );
-
-      toast.show(msg, {
-        type: 'danger',
-        placement: 'top',
-        duration: 4000,
-      });
-      // 更新设备连接状态为断开
-      updateConnectionStatus(device.id, false);
-    } finally {
-      // 无论成功失败，都结束加载状态
-      setDeviceLoading(device.id, false);
-      setIsConnecting(false);
-    }
-  };
-
-  // 获取设备状态颜色
-  const getDeviceStatusColor = () => {
-    if (isConnecting) {
-      return '#f59e0b';
-    } // 黄色，连接中
-
-    // 检查当前选中设备的连接状态
-    if (selectedDevice && getDeviceConnectionStatus(selectedDevice.id)) {
-      return '#10b981';
-    } // 绿色，已连接
-
-    return '#ef4444'; // 红色，未连接
-  };
-
-  // 获取特定设备的连接状态
-  const getDeviceConnectionStatus = useCallback(
-    (deviceId: string): boolean => {
-      return deviceConnectionStates[deviceId] || false;
-    },
-    [deviceConnectionStates],
-  );
 
   // 获取设备特定的定时器值
   const getDeviceTimerValue = useCallback(
@@ -1123,93 +1039,6 @@ const DevicePanelController: NavigationFunctionComponent<
       });
   };
 
-  // 为单个设备设置连接监控
-  const setupConnectionMonitor = async (deviceId: string) => {
-    console.log(`为设备 ${deviceId} 设置连接监控`);
-    // 找到设备
-    const device = devices.find(d => d.id === deviceId);
-    if (!device) {
-      console.log(`找不到设备 ID 为 ${deviceId} 的设备`);
-      return;
-    }
-
-    console.log(`创建设备 ${deviceId} 的连接监控`);
-
-    // 创建设备的连接监控
-    const subscription = BLEManager.monitorDeviceConnection(
-      deviceId,
-      (device, isConnected, error) => {
-        if (error) {
-          console.error(`设备 ${deviceId} 连接错误:`, error);
-        } else {
-          setDeviceConnectionStates(prev => ({
-            ...prev,
-            [device.id]: isConnected,
-          }));
-
-          setIsConnecting(false);
-          console.log(
-            `设备 ${device.name} 现在是 ${isConnected ? '已连接' : '已断开'
-            } 状态`,
-          );
-
-          const msgName = device.name ? device.name : 'Device';
-          if (!isConnected) {
-            // 设备断开连接时，无条件取消任何可能的倒计时
-            console.log(`设备 ${device.id} 断开连接，取消任何可能的倒计时`);
-            
-            // 停止计时器
-            const interval = deviceTimerIntervalsRef.current[device.id];
-            if (interval) {
-              clearInterval(interval);
-              deviceTimerIntervalsRef.current[device.id] = null;
-            }
-            
-            // 清除备份存储的计时器值
-            if (deviceTimerBackupRef.current[device.id]) {
-              deviceTimerBackupRef.current[device.id] = 0;
-            }
-            
-            // 更新计时器状态
-            setDeviceTimerValue(device.id, 0);
-            setDeviceTimerRunningState(device.id, false);
-            
-            // 如果是当前选中的设备，直接更新 UI 显示
-            if (selectedDevice?.id === device.id) {
-              setTimerValue(0);
-              setTimerRunning(false);
-            }
-            
-            // 清理设备的特性监控
-            const charSubscription = subscriptionsRef.current[`char_${deviceId}`];
-            if (charSubscription) {
-              console.log(`清理设备 ${device.id} 的特性监控`);
-              charSubscription.remove();
-              delete subscriptionsRef.current[`char_${deviceId}`];
-            }
-            
-            toast.show(`${msgName} - Disconnected`, {
-              type: 'danger',
-              placement: 'top',
-              duration: 4000,
-            });
-          } else if (isConnected) {
-            // show toast
-            toast.show(`${msgName} - Connected`, {
-              type: 'success',
-              placement: 'top',
-              duration: 4000,
-            });
-          }
-        }
-      },
-    );
-
-    // 在 ref 中存储监控状态
-    connectionMonitorsActive.current[`conn_${deviceId}`] = true;
-    subscriptionsRef.current[`conn_${deviceId}`] = subscription;
-  };
-
   useNavigationComponentDidAppear(async () => {
     const initialDevice = devices[0];
     console.log('自动连接到第一个设备', initialDevice.name);
@@ -1261,22 +1090,30 @@ const DevicePanelController: NavigationFunctionComponent<
     disconnectAllDevices().catch(console.error);
 
     // 清理所有订阅
-    Object.values(subscriptionsRef.current).forEach(subscription => {
+    Object.entries(subscriptionsRef.current).forEach(([key, subscription]) => {
       if (subscription) {
+        console.log(`清理订阅：${key}`);
         subscription.remove();
       }
     });
+    
+    // 清空所有订阅和监控状态
+    subscriptionsRef.current = {};
+    connectionMonitorsActive.current = {};
 
     // 清除所有计时器
-    Object.entries(deviceTimerIntervalsRef.current).forEach(([_, interval]) => {
+    Object.entries(deviceTimerIntervalsRef.current).forEach(([deviceId, interval]) => {
       if (interval) {
+        console.log(`清理设备 ${deviceId} 的计时器`);
         clearInterval(interval);
       }
     });
+    deviceTimerIntervalsRef.current = {};
 
     console.log('DevicePanelController 清理：断开连接并清理监控');
     if (timerCheckIntervalRef.current) {
       clearInterval(timerCheckIntervalRef.current);
+      timerCheckIntervalRef.current = null;
     }
   });
 
@@ -1477,7 +1314,7 @@ const DevicePanelController: NavigationFunctionComponent<
       onPress={() => {
         // 检查当前是否有选中的设备
         if (!selectedDevice) {
-          toast.show('请先选择一个设备', {
+          toast.show('Please select a device first', {
             type: 'warning',
             placement: 'top',
             duration: 3000,
@@ -1488,10 +1325,20 @@ const DevicePanelController: NavigationFunctionComponent<
         // 检查当前选中设备的连接状态
         const isConnected = getDeviceConnectionStatus(selectedDevice.id);
         if (!isConnected) {
-          toast.show(`${selectedDevice.name || '设备'} 未连接，请先连接设备`, {
+          toast.show(`${selectedDevice.name || 'Device'} is not connected, please connect it first`, {
             type: 'warning',
             placement: 'top',
             duration: 3000,
+          });
+          return;
+        }
+        
+        // 检查是否已设置时间但未启动
+        if (!timerRunning && timerValue > 0) {
+          toast.show('Please click the \'Cancel\' button to clear current settings before setting a new timer', {
+            type: 'warning',
+            placement: 'top',
+            duration: 4000,
           });
           return;
         }
@@ -1688,6 +1535,221 @@ const DevicePanelController: NavigationFunctionComponent<
       }
     }
   }, [selectedDevice, deviceConnectionStates, setDeviceTimerValue, setDeviceTimerRunningState]);
+
+  // 添加一个全局函数，用于完全清理设备相关的所有监控和状态
+  const cleanupDeviceResources = useCallback((deviceId: string, showNotification = false) => {
+    console.log(`完全清理设备 ${deviceId} 的所有资源和监控`);
+    
+    // 清理特性监控
+    const charSubscription = subscriptionsRef.current[`char_${deviceId}`];
+    if (charSubscription) {
+      console.log(`清理设备 ${deviceId} 的特性监控`);
+      charSubscription.remove();
+      delete subscriptionsRef.current[`char_${deviceId}`];
+    }
+    
+    // 清理连接监控
+    const connSubscription = subscriptionsRef.current[`conn_${deviceId}`];
+    if (connSubscription) {
+      console.log(`清理设备 ${deviceId} 的连接监控`);
+      connSubscription.remove();
+      delete subscriptionsRef.current[`conn_${deviceId}`];
+    }
+    
+    // 清理连接监控状态
+    if (connectionMonitorsActive.current[`conn_${deviceId}`]) {
+      console.log(`设置设备 ${deviceId} 的连接监控状态为非活动`);
+      connectionMonitorsActive.current[`conn_${deviceId}`] = false;
+    }
+    
+    // 停止计时器
+    const interval = deviceTimerIntervalsRef.current[deviceId];
+    if (interval) {
+      console.log(`清理设备 ${deviceId} 的计时器`);
+      clearInterval(interval);
+      deviceTimerIntervalsRef.current[deviceId] = null;
+    }
+    
+    // 清除备份存储的计时器值
+    if (deviceTimerBackupRef.current[deviceId]) {
+      deviceTimerBackupRef.current[deviceId] = 0;
+    }
+    
+    // 更新计时器状态
+    setDeviceTimerValue(deviceId, 0);
+    setDeviceTimerRunningState(deviceId, false);
+    
+    // 更新连接状态
+    setDeviceConnectionStates(prev => ({
+      ...prev,
+      [deviceId]: false
+    }));
+    
+    // 如果是当前选中的设备，直接更新 UI 显示
+    if (selectedDevice?.id === deviceId) {
+      setTimerValue(0);
+      setTimerRunning(false);
+    }
+    
+    // 如果需要显示通知
+    if (showNotification) {
+      const device = devices.find(d => d.id === deviceId);
+      const msgName = device?.name || 'Device';
+      toast.show(`${msgName} - Disconnected`, {
+        type: 'danger',
+        placement: 'top',
+        duration: 4000,
+        id: `disconnect_${deviceId}_${Date.now()}`,
+      });
+    }
+  }, [selectedDevice?.id, devices, setDeviceTimerValue, setDeviceTimerRunningState, toast]);
+
+  // 为单个设备设置连接监控
+  const setupConnectionMonitor = useCallback(async (deviceId: string) => {
+    console.log(`为设备 ${deviceId} 设置连接监控`);
+    
+    // 找到设备
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) {
+      console.log(`找不到设备 ID 为 ${deviceId} 的设备`);
+      return;
+    }
+
+    // 先清理现有的所有监控，确保不会重复
+    cleanupDeviceResources(deviceId);
+
+    console.log(`创建设备 ${deviceId} 的新连接监控`);
+
+    // 创建设备的连接监控
+    const subscription = BLEManager.monitorDeviceConnection(
+      deviceId,
+      (device, isConnected, error) => {
+        if (error) {
+          console.error(`设备 ${deviceId} 连接错误:`, error);
+        } else {
+          console.log(
+            `设备 ${device.name || deviceId} 连接状态变更为：${isConnected ? '已连接' : '已断开'}`
+          );
+          
+          if (!isConnected) {
+            // 设备断开时，触发一次性清理
+            cleanupDeviceResources(deviceId, true); // 显示断开通知
+          } else {
+            // 更新连接状态
+            setDeviceConnectionStates(prev => ({
+              ...prev,
+              [device.id]: true,
+            }));
+            
+            setIsConnecting(false);
+            
+            // 显示连接成功通知
+            const msgName = device.name || 'Device';
+            toast.show(`${msgName} - Connected`, {
+              type: 'success',
+              placement: 'top',
+              duration: 4000,
+              id: `connect_${device.id}_${Date.now()}`,
+            });
+          }
+        }
+      },
+    );
+
+    // 在 ref 中存储监控状态
+    connectionMonitorsActive.current[`conn_${deviceId}`] = true;
+    subscriptionsRef.current[`conn_${deviceId}`] = subscription;
+  }, [cleanupDeviceResources, devices, toast]);
+
+  // 封装设备连接逻辑为可重用的函数
+  const connectToDevice = useCallback(async (device: FoundDevice) => {
+    if (!device) {
+      return;
+    }
+
+    try {
+      // 如果设备已经连接，不重复连接
+      if (deviceConnectionStates[device.id]) {
+        console.log(`设备 ${device.name} 已经连接，无需重复连接`);
+        return;
+      }
+
+      // 在连接前清理可能存在的所有订阅和状态
+      cleanupDeviceResources(device.id);
+      
+      // 设置连接中状态
+      setIsConnecting(true);
+      // 设置加载状态
+      setDeviceLoading(device.id, true);
+
+      // 停止扫描（在连接前停止扫描是最佳实践）
+      BLEManager.stopScan();
+
+      // 连接设备
+      const { connectedDevice, err } = await BLEManager.connectToDevice(
+        device.id,
+      );
+      if (connectedDevice) {
+        console.log(`Successfully connected to ${device.name}`);
+
+        // 更新设备连接状态
+        updateConnectionStatus(device.id, true);
+
+        // 为设备监控连接状态
+        await setupConnectionMonitor(device.id);
+
+        // 为设备创建特性监控
+        setupCharacteristicMonitor(device.id);
+
+        try {
+          await BLEManager.writeCharacteristic(
+            device.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
+            BLECommands.getVersion(),
+          );
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await BLEManager.writeCharacteristic(
+            device.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_READ,
+            BLECommands.getDeviceInfo(),
+          );
+        } catch (error) {
+          console.error('Error reading device version:', error);
+        }
+      } else if (err) {
+        if (err.message?.indexOf('time out')) {
+          toast.show(`${device.name ?? 'Device'} Connection time out`, {
+            type: 'danger',
+            placement: 'top',
+            duration: 4000,
+          });
+        }
+      }
+    } catch (error) {
+      const msg = `Failed to ${device.connected ? 'disconnect from' : 'connect to'
+      } ${device.name ?? 'Device'}`;
+      console.error(
+        `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name
+        }:`,
+        error,
+      );
+
+      toast.show(msg, {
+        type: 'danger',
+        placement: 'top',
+        duration: 4000,
+      });
+      // 更新设备连接状态为断开
+      updateConnectionStatus(device.id, false);
+    } finally {
+      // 无论成功失败，都结束加载状态
+      setDeviceLoading(device.id, false);
+      setIsConnecting(false);
+    }
+  }, [cleanupDeviceResources, deviceConnectionStates, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
