@@ -42,8 +42,8 @@ const DevicePanelController: NavigationFunctionComponent<
   const [intensityLevel, setIntensityLevel] = useState(0);
   // 添加三个新的状态变量用于 UI 显示
   const [climbTime, setClimbTime] = useState(3);
-  const [stopTime, setStopTime] = useState(5);
-  const [runTime, setRunTime] = useState(3);
+  const [stopTime, setStopTime] = useState(3);
+  const [runTime, setRunTime] = useState(5);
 
   // 设备特定的模式和强度状态
   const [deviceModes, setDeviceModes] = useState<Record<string, string>>({});
@@ -989,15 +989,15 @@ const DevicePanelController: NavigationFunctionComponent<
       const deviceId = selectedDevice.id;
       
       // 从设备状态获取值，使用默认值如果没有设置过
-      const currentClimbTime = deviceClimbTimes[deviceId] || 8;
-      const currentStopTime = deviceStopTimes[deviceId] || 5;
+      const currentClimbTime = deviceClimbTimes[deviceId] || 3;
+      const currentStopTime = deviceStopTimes[deviceId] || 3;
       const currentRunTime = deviceRunTimes[deviceId] || 5;
       
       console.log(`同步设备 ${deviceId} 动作设置到 UI：攀爬=${currentClimbTime}, 停止=${currentStopTime}, 运行=${currentRunTime}`);
       
-      setClimbTime(currentClimbTime);
-      setStopTime(currentStopTime);
-      setRunTime(currentRunTime);
+      // setClimbTime(currentClimbTime);
+      // setStopTime(currentStopTime);
+      // setRunTime(currentRunTime);
     }
   }, [selectedDevice?.id, deviceClimbTimes, deviceStopTimes, deviceRunTimes, selectedDevice]);
 
@@ -1712,7 +1712,7 @@ const DevicePanelController: NavigationFunctionComponent<
         runTime={runTime} 
         onClimbTimeChange={(value) => {
           // Ensure value stays within 1-10 range
-          if (value >= 1 && value <= 10) {
+          if (value >= 0 && value <= 10) {
             if (selectedDevice) {
               // Update device-specific value
               setDeviceClimbTime(selectedDevice.id, value);
@@ -1734,7 +1734,7 @@ const DevicePanelController: NavigationFunctionComponent<
         }} 
         onStopTimeChange={(value) => {
           // Ensure value stays within 1-10 range
-          if (value >= 1 && value <= 10) {
+          if (value >= 0 && value <= 10) {
             if (selectedDevice) {
               // Update device-specific value
               setDeviceStopTime(selectedDevice.id, value);
