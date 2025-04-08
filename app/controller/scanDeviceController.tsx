@@ -9,6 +9,7 @@ import ScanFoundDeviceList, {
 } from '../components/scan-found-device/scanFoundDevice';
 import {useEffect, useState, useCallback} from 'react';
 import {BLEManager, calculateSignalStrength} from '../services/BLEManager';
+import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 
 const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const [devices, setDevices] = useState<FoundDevice[]>([]);
@@ -183,6 +184,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
             updateDeviceServices={updateDeviceServices}
             onPress={handleStartTraining}
           />
+
         </ScrollView>
 
         {/* 固定在底部的按钮 */}

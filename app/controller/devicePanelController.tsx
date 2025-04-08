@@ -27,7 +27,10 @@ import {
   parseResponse,
 } from '../services/protocol';
 import { cn } from '../lib/utils';
+import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 
+const MAX_INTENSITY = 10;
+const MIN_INTENSITY = 1;
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
 }
@@ -107,6 +110,16 @@ const DevicePanelController: NavigationFunctionComponent<
     intensity: false,
     mode: false
   });
+
+  // Add state variables for action settings
+  const [climbTime, setClimbTime] = useState(8);
+  const [stopTime, setStopTime] = useState(5);
+  const [runTime, setRunTime] = useState(5);
+
+  // Add device-specific action settings
+  const [deviceClimbTimes, setDeviceClimbTimes] = useState<Record<string, number>>({});
+  const [deviceStopTimes, setDeviceStopTimes] = useState<Record<string, number>>({});
+  const [deviceRunTimes, setDeviceRunTimes] = useState<Record<string, number>>({});
 
   // 设置设备特定的定时器运行状态
   const setDeviceTimerRunningState = useCallback(
@@ -811,6 +824,45 @@ const DevicePanelController: NavigationFunctionComponent<
     }
   };
 
+  // 设置设备特定的攀爬时间
+  const setDeviceClimbTime = (deviceId: string, value: number) => {
+    setDeviceClimbTimes(prev => ({
+      ...prev,
+      [deviceId]: value,
+    }));
+
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setClimbTime(value);
+    }
+  };
+
+  // 设置设备特定的停止时间
+  const setDeviceStopTime = (deviceId: string, value: number) => {
+    setDeviceStopTimes(prev => ({
+      ...prev,
+      [deviceId]: value,
+    }));
+
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setStopTime(value);
+    }
+  };
+
+  // 设置设备特定的运行时间
+  const setDeviceRunTime = (deviceId: string, value: number) => {
+    setDeviceRunTimes(prev => ({
+      ...prev,
+      [deviceId]: value,
+    }));
+
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setRunTime(value);
+    }
+  };
+
   // 同步当前选中设备的定时器状态到 UI
   useEffect(() => {
     if (selectedDevice) {
@@ -842,7 +894,13 @@ const DevicePanelController: NavigationFunctionComponent<
       const deviceId = selectedDevice.id;
 
       // 从设备强度状态获取值
-      const currentIntensity = deviceIntensities[deviceId] || 50;
+      let currentIntensity = deviceIntensities[deviceId] || MIN_INTENSITY;
+
+      if (currentIntensity < MIN_INTENSITY) {
+        currentIntensity = MIN_INTENSITY;
+      } else if (currentIntensity > MAX_INTENSITY) {
+        currentIntensity = MAX_INTENSITY;
+      }
 
       console.log(
         `同步设备 ${deviceId} 强度值到 UI，当前强度：${currentIntensity}`,
@@ -867,6 +925,25 @@ const DevicePanelController: NavigationFunctionComponent<
       setSelectedMode(currentMode);
     }
   }, [selectedDevice?.id, deviceModes, selectedDevice]);
+
+  // 同步当前选中设备的动作设置到 UI
+  useEffect(() => {
+    if (selectedDevice) {
+      const deviceId = selectedDevice.id;
+      
+      // 从设备状态获取值，使用默认值如果没有设置过
+      const currentClimbTime = deviceClimbTimes[deviceId] || 8;
+      const currentStopTime = deviceStopTimes[deviceId] || 5;
+      const currentRunTime = deviceRunTimes[deviceId] || 5;
+      
+      console.log(`同步设备 ${deviceId} 动作设置到 UI：攀爬=${currentClimbTime}, 停止=${currentStopTime}, 运行=${currentRunTime}`);
+      
+      // 更新 UI 显示
+      setClimbTime(currentClimbTime);
+      setStopTime(currentStopTime);
+      setRunTime(currentRunTime);
+    }
+  }, [selectedDevice?.id, deviceClimbTimes, deviceStopTimes, deviceRunTimes, selectedDevice]);
 
   // 单独处理计时器恢复逻辑
   useEffect(() => {
@@ -1491,99 +1568,129 @@ const DevicePanelController: NavigationFunctionComponent<
     </TouchableOpacity>
   );
 
-  const changeToNextMode = () => {
-    const currentIndex = Modes.findIndex(m => m.name === selectedMode);
-    const nextIndex = (currentIndex + 1) % Modes.length;
-    const nextMode = Modes[nextIndex];
-    handleModeSelect(nextMode.id, nextMode.name);
-  };
 
-  const changeToPreviousMode = () => {
-    const currentIndex = Modes.findIndex(m => m.name === selectedMode);
-    const previousIndex = (currentIndex - 1 + Modes.length) % Modes.length;
-    const previousMode = Modes[previousIndex];
-    handleModeSelect(previousMode.id, previousMode.name);
-  };
+  const $mode = (
+    <View className="bg-white rounded-xl flex items-center justify-center">
+        <TouchableOpacity
+          className=""
+          onPress={() => {
+            modeListActionSheetRef.current?.expand();
+          }}>
+         
+           <View className='border-b-2 border-blue-500'>
+           <Text className="font-semibold text-3xl text-blue-500">
+                {selectedMode || 'Fitness'}
+              </Text>
+           </View>
+       
+        </TouchableOpacity>
+    </View>
+  )
+
+  const onChangeIntensity = (value: number  ) => {
+    if (!selectedDevice) {
+      return;
+    }
+
+    const deviceId = selectedDevice.id;
+
+    // 更新设备强度
+    setDeviceIntensity(deviceId, value);
+
+    // 写入强度到设备
+    BLEManager.writeCharacteristic(
+      deviceId,
+      BLE_UUID.SERVICE,
+      BLE_UUID.CHARACTERISTIC_WRITE,
+      BLECommands.setIntensity(value),
+    )
+      .then(() => {
+        console.log('Successfully wrote intensity value:', value);
+      })
+      .catch(error => {
+        console.error('Error writing intensity:', error);
+      });
+  }
 
   const $intensityControl = (
     <View className="flex-col border-gray-200 rounded-2xl">
       <View className="flex-row justify-between items-center relative gap-x-3">
         <TouchableOpacity
           className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
-          onPress={changeToPreviousMode}>
+          onPress={() => {
+            if (intensityLevel > 1) { 
+              onChangeIntensity(intensityLevel - 1);
+            }
+          }}>
           <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <View
           className="flex-1 py-4 rounded-xl bg-white items-center justify-center"
-          onPress={() => {
-            modeListActionSheetRef.current?.expand();
-          }}>
+          >
           <View className={'border-b-2 border-blue-500'}>
             <Text className="font-semibold text-3xl text-blue-500">
-              {selectedMode}
+              {intensityLevel}
             </Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           className="h-14 w-14 rounded-full bg-blue-500 items-center justify-center"
-          onPress={changeToNextMode}>
+          onPress={() => {
+            if (intensityLevel < 10) {  
+              onChangeIntensity(intensityLevel + 1);
+            }
+          }}>
           <ChevronRight size={24} color="white" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const $intensityControlSlider = (
-    <View className="flex-col gap-y-2">
-      <View className="flex-row items-center justify-center">
-        <Text className="text-lg font-semibold text-blue-500">
-          {intensityLevel}
-        </Text>
-      </View>
-      <Slider
-        className="w-full"
-        minimumValue={1}
-        maximumValue={100}
-        value={intensityLevel}
-        step={1}
-        onValueChange={value => {
-          // 只更新本地状态，不触发设备通信
-          console.log('intensityLevel', value);
-        }}
-        onSlidingComplete={value => {
-          if (!selectedDevice) {
-            return;
+  const $actionsSettingList = (
+    <View className="">
+      <ActionsSettingList 
+        climbTime={climbTime} 
+        stopTime={stopTime} 
+        runTime={runTime} 
+        onClimbTimeChange={(value) => {
+          // Ensure value stays within 1-10 range
+          if (value >= 1 && value <= 10) {
+            if (selectedDevice) {
+              // Update device-specific value
+              setDeviceClimbTime(selectedDevice.id, value);
+              
+              console.log(`Sending new climb time value to device: ${value}`);
+              // Add device command here if needed
+            }
           }
-
-          const deviceId = selectedDevice.id;
-
-          // 更新设备强度
-          setDeviceIntensity(deviceId, value);
-
-          // 写入强度到设备
-          BLEManager.writeCharacteristic(
-            deviceId,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_WRITE,
-            BLECommands.setIntensity(value),
-          )
-            .then(() => {
-              console.log('Successfully wrote intensity value:', value);
-            })
-            .catch(error => {
-              console.error('Error writing intensity:', error);
-            });
+        }} 
+        onStopTimeChange={(value) => {
+          // Ensure value stays within 1-10 range
+          if (value >= 1 && value <= 10) {
+            if (selectedDevice) {
+              // Update device-specific value
+              setDeviceStopTime(selectedDevice.id, value);
+              
+              console.log(`Sending new stop time value to device: ${value}`);
+              // Add device command here if needed
+            }
+          }
+        }} 
+        onRunTimeChange={(value) => {
+          // Ensure value stays within 1-10 range
+          if (value >= 1 && value <= 10) {
+            if (selectedDevice) {
+              // Update device-specific value
+              setDeviceRunTime(selectedDevice.id, value);
+              
+              console.log(`Sending new run time value to device: ${value}`);
+              // Add device command here if needed
+            }
+          }
         }}
-        minimumTrackTintColor="#1e88e5"
-        maximumTrackTintColor="#D1D5DB"
       />
-
-      <View className="flex-row items-center justify-between ">
-        <Text className="text-lg font-semibold text-blue-500">1</Text>
-        <Text className="text-lg font-semibold text-blue-500">100</Text>
-      </View>
     </View>
   );
 
@@ -1961,9 +2068,10 @@ const DevicePanelController: NavigationFunctionComponent<
           {$deviceInfo}
           <View className={'flex flex-1 flex-col gap-y-6 mt-8'}>
             <View className={''}>{$timerValue}</View>
-            <View className="flex-col gap-y-4 p-4 bg-white rounded-2xl">
+            <View className="flex-col gap-y-6 p-4 bg-white rounded-2xl">
+              {$mode}
               {$intensityControl}
-              {$intensityControlSlider}
+              {$actionsSettingList}
             </View>
           </View>
 
