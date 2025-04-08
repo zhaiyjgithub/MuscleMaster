@@ -486,6 +486,15 @@ export const BLECommands = {
     );
   },
 
+  // 回复爬坡时间
+  replyClimbingTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.SET_CLIMBING_TIME,
+      CommandValue.SET_CLIMBING_TIME(value),
+      channel,
+    );
+  },
+
   // 设置爬坡时间
   setClimbingTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
@@ -495,6 +504,13 @@ export const BLECommands = {
     );
   },
   // 回复峰值时间
+  replyPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.SET_PEEK_TIME,
+      CommandValue.SET_PEEK_TIME(value),
+      channel,
+    );
+  },
   
   // 设置峰值时间
   setPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
@@ -504,6 +520,16 @@ export const BLECommands = {
       channel,
     );
   },
+
+  // 回复停止时间
+  replyStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.SET_STOP_TIME,
+      CommandValue.SET_STOP_TIME(value),
+      channel,
+    );
+  },
+
   // 设置停止时间
   setStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(

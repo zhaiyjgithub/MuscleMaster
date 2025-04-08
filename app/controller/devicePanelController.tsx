@@ -742,12 +742,55 @@ const DevicePanelController: NavigationFunctionComponent<
               } else if (subCommand === CommandType.SET_CLIMBING_TIME) {
                 const climbingTime = data[0]; 
                 setDeviceClimbTime(deviceId, climbingTime);
+                console.log('setDeviceClimbTime', deviceId, climbingTime);
+
+                // 回复设备
+                BLEManager.writeCharacteristic(
+                  deviceId,
+                  BLE_UUID.SERVICE,
+                  BLE_UUID.CHARACTERISTIC_READ,
+                  BLECommands.replyClimbingTime(climbingTime),
+                )
+                  .then(() => {
+                    console.log('Successfully reply climb time');
+                  })
+                  .catch(error => {
+                    console.error('Error reply climb time:', error);
+                  });
               } else if (subCommand === CommandType.SET_STOP_TIME) {
                 const stopTime = data[0];
                 setDeviceStopTime(deviceId, stopTime);
+
+                // 回复设备
+                BLEManager.writeCharacteristic(
+                  deviceId,
+                  BLE_UUID.SERVICE,
+                  BLE_UUID.CHARACTERISTIC_READ,
+                  BLECommands.replyStopTime(stopTime),
+                )
+                  .then(() => {
+                    console.log('Successfully reply stop time');
+                  })
+                  .catch(error => {
+                    console.error('Error reply stop time:', error);
+                  });
               } else if (subCommand === CommandType.SET_PEEK_TIME) {
                 const peakTime = data[0];
                 setDeviceRunTime(deviceId, peakTime);
+
+                // 回复设备
+                BLEManager.writeCharacteristic(
+                  deviceId,
+                  BLE_UUID.SERVICE,
+                  BLE_UUID.CHARACTERISTIC_READ,
+                  BLECommands.replyPeakTime(peakTime),
+                )
+                  .then(() => {
+                    console.log('Successfully reply peak time');
+                  })
+                  .catch(error => {
+                    console.error('Error reply peak time:', error);
+                  });
               }
             }
           }
