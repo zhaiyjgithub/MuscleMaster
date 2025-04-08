@@ -66,13 +66,13 @@ export const CommandValue = {
     return [mode];
   },
   SET_CLIMBING_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_CLIMBING_TIME, value];
   },
   SET_PEEK_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_PEEK_TIME, value];
   },
   SET_STOP_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_STOP_TIME, ,value];
   },
   // 5A 01 01 03 03 01 00 05 68
   //BYTE5:参数长度3，BYTE6:要控制的通道01，BYTE7+8:组成16位（1-65536）表示开机时长（分钟），目前先设置1-99
@@ -489,7 +489,7 @@ export const BLECommands = {
   // 回复爬坡时间
   replyClimbingTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
-      CommandType.SET_CLIMBING_TIME,
+      CommandType.GET_DEVICE_INFO,
       CommandValue.SET_CLIMBING_TIME(value),
       channel,
     );
@@ -524,7 +524,7 @@ export const BLECommands = {
   // 回复停止时间
   replyStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
-      CommandType.SET_STOP_TIME,
+      CommandType.GET_DEVICE_INFO,
       CommandValue.SET_STOP_TIME(value),
       channel,
     );
@@ -533,7 +533,7 @@ export const BLECommands = {
   // 设置停止时间
   setStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
-      CommandType.SET_STOP_TIME,
+      CommandType.GET_DEVICE_INFO,
       CommandValue.SET_STOP_TIME(value),
       channel,
     );

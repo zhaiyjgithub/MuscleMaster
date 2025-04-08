@@ -27,7 +27,7 @@ const ActionSettingList = ({ climbTime, stopTime, runTime, onClimbTimeChange, on
             id: 2,
             color: 'green',
             icon: <PersonStanding size={28} color="green" />,
-            value: stopTime,
+            value: runTime,
             onAdd: () => onStopTimeChange(stopTime + 1),
             onSubtract: () => onStopTimeChange(stopTime - 1)
         },
@@ -35,7 +35,7 @@ const ActionSettingList = ({ climbTime, stopTime, runTime, onClimbTimeChange, on
             id: 3,
             color: 'red',
             icon: <Coffee size={28} color="red" />,
-            value: runTime,
+            value: stopTime,
             onAdd: () => onRunTimeChange(runTime + 1),
             onSubtract: () => onRunTimeChange(runTime - 1)
         }

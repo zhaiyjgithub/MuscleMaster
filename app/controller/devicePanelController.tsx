@@ -40,6 +40,10 @@ const DevicePanelController: NavigationFunctionComponent<
   // 全局 UI 显示状态
   const [selectedMode, setSelectedMode] = useState('Fitness');
   const [intensityLevel, setIntensityLevel] = useState(0);
+  // 添加三个新的状态变量用于 UI 显示
+  const [climbTime, setClimbTime] = useState(3);
+  const [stopTime, setStopTime] = useState(5);
+  const [runTime, setRunTime] = useState(3);
 
   // 设备特定的模式和强度状态
   const [deviceModes, setDeviceModes] = useState<Record<string, string>>({});
@@ -740,7 +744,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 
                 }
               } else if (subCommand === CommandType.SET_CLIMBING_TIME) {
-                const climbingTime = data[0]; 
+                const climbingTime = data[1]; 
                 setDeviceClimbTime(deviceId, climbingTime);
                 console.log('setDeviceClimbTime', deviceId, climbingTime);
 
@@ -753,12 +757,17 @@ const DevicePanelController: NavigationFunctionComponent<
                 )
                   .then(() => {
                     console.log('Successfully reply climb time');
+                    
+                    // 确保 UI 更新
+                    if (selectedDevice?.id === deviceId) {
+                      console.log(`设备 ${deviceId} 的攀爬时间已更新为 ${climbingTime}，UI 应该自动更新`);
+                    }
                   })
                   .catch(error => {
                     console.error('Error reply climb time:', error);
                   });
               } else if (subCommand === CommandType.SET_STOP_TIME) {
-                const stopTime = data[0];
+                const stopTime = data[1];
                 setDeviceStopTime(deviceId, stopTime);
 
                 // 回复设备
@@ -775,7 +784,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     console.error('Error reply stop time:', error);
                   });
               } else if (subCommand === CommandType.SET_PEEK_TIME) {
-                const peakTime = data[0];
+                const peakTime = data[1];
                 setDeviceRunTime(deviceId, peakTime);
 
                 // 回复设备
@@ -875,6 +884,12 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
+    
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setClimbTime(value);
+      console.log(`更新当前选中设备的攀爬时间到 UI: ${value}`);
+    }
   };
 
   // 设置设备特定的停止时间
@@ -883,6 +898,12 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
+    
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setStopTime(value);
+      console.log(`更新当前选中设备的停止时间到 UI: ${value}`);
+    }
   };
 
   // 设置设备特定的运行时间
@@ -891,6 +912,12 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
+    
+    // 如果是当前选中的设备，同时更新 UI 显示的值
+    if (selectedDevice?.id === deviceId) {
+      setRunTime(value);
+      console.log(`更新当前选中设备的运行时间到 UI: ${value}`);
+    }
   };
 
   // 同步当前选中设备的定时器状态到 UI
@@ -968,6 +995,9 @@ const DevicePanelController: NavigationFunctionComponent<
       
       console.log(`同步设备 ${deviceId} 动作设置到 UI：攀爬=${currentClimbTime}, 停止=${currentStopTime}, 运行=${currentRunTime}`);
       
+      setClimbTime(currentClimbTime);
+      setStopTime(currentStopTime);
+      setRunTime(currentRunTime);
     }
   }, [selectedDevice?.id, deviceClimbTimes, deviceStopTimes, deviceRunTimes, selectedDevice]);
 
@@ -1677,9 +1707,9 @@ const DevicePanelController: NavigationFunctionComponent<
   const $actionsSettingList = (
     <View className="">
       <ActionsSettingList 
-        climbTime={deviceClimbTimes[selectedDevice?.id || ''] || 3} 
-        stopTime={deviceStopTimes[selectedDevice?.id || ''] || 5} 
-        runTime={deviceRunTimes[selectedDevice?.id || ''] || 3} 
+        climbTime={climbTime} 
+        stopTime={stopTime} 
+        runTime={runTime} 
         onClimbTimeChange={(value) => {
           // Ensure value stays within 1-10 range
           if (value >= 1 && value <= 10) {
@@ -1745,7 +1775,7 @@ const DevicePanelController: NavigationFunctionComponent<
               });
             }
           }
-        }}
+        }} 
       />
     </View>
   );
@@ -2072,50 +2102,50 @@ const DevicePanelController: NavigationFunctionComponent<
   }, [cleanupDeviceResources, deviceConnectionStates, resetReceivedParams, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
 
   // Add AppState listener to disconnect devices when app is locked or backgrounded
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      console.log('App state changed to:', nextAppState);
+  // useEffect(() => {
+  //   const subscription = AppState.addEventListener('change', nextAppState => {
+  //     console.log('App state changed to:', nextAppState);
       
-      // If app is going to background or inactive (locked)
-      if (
-        appStateRef.current === 'active' && 
-        (nextAppState === 'background' || nextAppState === 'inactive')
-      ) {
-        console.log('App is going to background or locked, disconnecting devices');
+  //     // If app is going to background or inactive (locked)
+  //     if (
+  //       appStateRef.current === 'active' && 
+  //       (nextAppState === 'background' || nextAppState === 'inactive')
+  //     ) {
+  //       console.log('App is going to background or locked, disconnecting devices');
         
-        // Disconnect all connected devices
-        const disconnectAllDevices = async () => {
-          const connectedDeviceIds = Object.entries(deviceConnectionStates)
-            .filter(([_, isConnected]) => isConnected)
-            .map(([id]) => id);
+  //       // Disconnect all connected devices
+  //       const disconnectAllDevices = async () => {
+  //         const connectedDeviceIds = Object.entries(deviceConnectionStates)
+  //           .filter(([_, isConnected]) => isConnected)
+  //           .map(([id]) => id);
 
-          for (const deviceId of connectedDeviceIds) {
-            try {
-              console.log(`Disconnecting device ${deviceId} due to app lock/background`);
-              await BLEManager.disconnectDevice(deviceId);
+  //         for (const deviceId of connectedDeviceIds) {
+  //           try {
+  //             console.log(`Disconnecting device ${deviceId} due to app lock/background`);
+  //             await BLEManager.disconnectDevice(deviceId);
               
-              // Clean up all resources related to this device
-              cleanupDeviceResources(deviceId);
+  //             // Clean up all resources related to this device
+  //             cleanupDeviceResources(deviceId);
               
-              console.log(`Successfully disconnected device ${deviceId}`);
-            } catch (error) {
-              console.error(`Error disconnecting device ${deviceId}:`, error);
-            }
-          }
-        };
+  //             console.log(`Successfully disconnected device ${deviceId}`);
+  //           } catch (error) {
+  //             console.error(`Error disconnecting device ${deviceId}:`, error);
+  //           }
+  //         }
+  //       };
 
-        // Execute the disconnection
-        disconnectAllDevices();
-      }
+  //       // Execute the disconnection
+  //       disconnectAllDevices();
+  //     }
       
-      // Update the ref with current state
-      appStateRef.current = nextAppState;
-    });
+  //     // Update the ref with current state
+  //     appStateRef.current = nextAppState;
+  //   });
 
-    return () => {
-      subscription.remove();
-    };
-  }, [cleanupDeviceResources, deviceConnectionStates]);
+  //   return () => {
+  //     subscription.remove();
+  //   };
+  // }, [cleanupDeviceResources, deviceConnectionStates]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
