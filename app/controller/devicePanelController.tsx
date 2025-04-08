@@ -1,5 +1,4 @@
 import BottomSheet from '@gorhom/bottom-sheet';
-import Slider from '@react-native-community/slider';
 import { Battery, BatteryFull, BatteryLow, BatteryMedium, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, TouchableOpacity, View, AppState, ActivityIndicator } from 'react-native';
@@ -110,11 +109,6 @@ const DevicePanelController: NavigationFunctionComponent<
     intensity: false,
     mode: false
   });
-
-  // Add state variables for action settings
-  const [climbTime, setClimbTime] = useState(8);
-  const [stopTime, setStopTime] = useState(5);
-  const [runTime, setRunTime] = useState(5);
 
   // Add device-specific action settings
   const [deviceClimbTimes, setDeviceClimbTimes] = useState<Record<string, number>>({});
@@ -740,12 +734,20 @@ const DevicePanelController: NavigationFunctionComponent<
                       }
                     }
                   }
-
                   // 更新设备状态 (仅用于记录)
                   setDeviceStatus({ deviceId, status });
 
                 
                 }
+              } else if (subCommand === CommandType.SET_CLIMBING_TIME) {
+                const climbingTime = data[0]; 
+                setDeviceClimbTime(deviceId, climbingTime);
+              } else if (subCommand === CommandType.SET_STOP_TIME) {
+                const stopTime = data[0];
+                setDeviceStopTime(deviceId, stopTime);
+              } else if (subCommand === CommandType.SET_PEEK_TIME) {
+                const peakTime = data[0];
+                setDeviceRunTime(deviceId, peakTime);
               }
             }
           }
@@ -830,11 +832,6 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
-
-    // 如果是当前选中的设备，同时更新 UI 显示的值
-    if (selectedDevice?.id === deviceId) {
-      setClimbTime(value);
-    }
   };
 
   // 设置设备特定的停止时间
@@ -843,11 +840,6 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
-
-    // 如果是当前选中的设备，同时更新 UI 显示的值
-    if (selectedDevice?.id === deviceId) {
-      setStopTime(value);
-    }
   };
 
   // 设置设备特定的运行时间
@@ -856,11 +848,6 @@ const DevicePanelController: NavigationFunctionComponent<
       ...prev,
       [deviceId]: value,
     }));
-
-    // 如果是当前选中的设备，同时更新 UI 显示的值
-    if (selectedDevice?.id === deviceId) {
-      setRunTime(value);
-    }
   };
 
   // 同步当前选中设备的定时器状态到 UI
@@ -938,10 +925,6 @@ const DevicePanelController: NavigationFunctionComponent<
       
       console.log(`同步设备 ${deviceId} 动作设置到 UI：攀爬=${currentClimbTime}, 停止=${currentStopTime}, 运行=${currentRunTime}`);
       
-      // 更新 UI 显示
-      setClimbTime(currentClimbTime);
-      setStopTime(currentStopTime);
-      setRunTime(currentRunTime);
     }
   }, [selectedDevice?.id, deviceClimbTimes, deviceStopTimes, deviceRunTimes, selectedDevice]);
 
@@ -1166,7 +1149,7 @@ const DevicePanelController: NavigationFunctionComponent<
     }
     setDeviceTimerValue(deviceId, 0);
     setDeviceTimerRunningState(deviceId, false);
-    timePickerActionSheetRef.current?.expand();
+    // timePickerActionSheetRef.current?.expand();
 
     // 停止设备
     BLEManager.writeCharacteristic(
@@ -1651,9 +1634,9 @@ const DevicePanelController: NavigationFunctionComponent<
   const $actionsSettingList = (
     <View className="">
       <ActionsSettingList 
-        climbTime={climbTime} 
-        stopTime={stopTime} 
-        runTime={runTime} 
+        climbTime={deviceClimbTimes[selectedDevice?.id || ''] || 3} 
+        stopTime={deviceStopTimes[selectedDevice?.id || ''] || 5} 
+        runTime={deviceRunTimes[selectedDevice?.id || ''] || 3} 
         onClimbTimeChange={(value) => {
           // Ensure value stays within 1-10 range
           if (value >= 1 && value <= 10) {
@@ -1663,6 +1646,16 @@ const DevicePanelController: NavigationFunctionComponent<
               
               console.log(`Sending new climb time value to device: ${value}`);
               // Add device command here if needed
+              BLEManager.writeCharacteristic(
+                selectedDevice.id,
+                BLE_UUID.SERVICE,
+                BLE_UUID.CHARACTERISTIC_WRITE,
+                BLECommands.setClimbingTime(value),
+              ).then(() => {
+                console.log(`Successfully wrote climb time value: ${value}`);
+              }).catch((error) => {
+                console.error(`Error writing climb time value: ${error}`);
+              });
             }
           }
         }} 
@@ -1675,6 +1668,16 @@ const DevicePanelController: NavigationFunctionComponent<
               
               console.log(`Sending new stop time value to device: ${value}`);
               // Add device command here if needed
+              BLEManager.writeCharacteristic(
+                selectedDevice.id,
+                BLE_UUID.SERVICE,
+                BLE_UUID.CHARACTERISTIC_WRITE,
+                BLECommands.setStopTime(value),
+              ).then(() => {
+                console.log(`Successfully wrote stop time value: ${value}`);
+              }).catch((error) => {
+                console.error(`Error writing stop time value: ${error}`);
+              });
             }
           }
         }} 
@@ -1687,6 +1690,16 @@ const DevicePanelController: NavigationFunctionComponent<
               
               console.log(`Sending new run time value to device: ${value}`);
               // Add device command here if needed
+              BLEManager.writeCharacteristic(
+                selectedDevice.id,
+                BLE_UUID.SERVICE,
+                BLE_UUID.CHARACTERISTIC_WRITE,
+                BLECommands.setPeakTime(value),
+              ).then(() => {
+                console.log(`Successfully wrote run time value: ${value}`);
+              }).catch((error) => {
+                console.error(`Error writing run time value: ${error}`);
+              });
             }
           }
         }}
