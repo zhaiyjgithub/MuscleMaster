@@ -66,23 +66,23 @@ export const CommandValue = {
     return [mode];
   },
   SET_CLIMBING_TIME: (value:number) => {
-    return [CommandType.SET_CLIMBING_TIME, value];
+    return [value];
   },
   SET_PEEK_TIME: (value:number) => {
-    return [CommandType.SET_PEEK_TIME, value];
+    return [value];
   },
   SET_STOP_TIME: (value:number) => {
-    return [CommandType.SET_STOP_TIME, value];
+    return [value];
   },
 
   REPLY_CLIMBING_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_CLIMBING_TIME, value];
   },
   REPLY_PEEK_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_PEEK_TIME, value];
   },
   REPLY_STOP_TIME: (value:number) => {
-    return [value];
+    return [CommandType.SET_STOP_TIME, value];
   },
   // 5A 01 01 03 03 01 00 05 68
   //BYTE5:参数长度3，BYTE6:要控制的通道01，BYTE7+8:组成16位（1-65536）表示开机时长（分钟），目前先设置1-99
