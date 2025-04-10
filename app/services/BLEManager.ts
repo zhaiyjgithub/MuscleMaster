@@ -1,8 +1,3 @@
-import {PermissionsAndroid, Platform} from 'react-native';
-export function calculateSignalGain(rssi: number | null) {
-export function calculateSignalStrength(device: Device) {
-export const BLEManager = new BLEManagerClass();
-export default BLEManager;
 import {
   BleError,
   BleManager,
@@ -11,6 +6,8 @@ import {
   State,
   Subscription,
 } from 'react-native-ble-plx';
+import {PermissionsAndroid, Platform} from 'react-native';
+import {BluetoothBackgroundService} from './BluetoothBackgroundService';
 
 type ConnectionListener = (
   device: Device,
@@ -29,20 +26,36 @@ class BLEManagerClass {
 
   constructor() {
     this.manager = new BleManager({
-      restoreStateIdentifier: 'YourAppBluetoothRestoreId',
-      restoreStateFunction: (restoredState) => {
+      restoreStateIdentifier: 'com.musclemaster.id',
+      restoreStateFunction: restoredState => {
         if (restoredState && restoredState.connectedPeripherals) {
-          console.log('Restored connected peripherals:', restoredState.connectedPeripherals);
+          console.log(
+            'Restored connected peripherals:',
+            restoredState.connectedPeripherals,
+          );
           // Re-connect to devices or update your app state
           restoredState.connectedPeripherals.forEach(device => {
             this.connectedDevices.set(device.id, device);
             // Notify listeners about restored connections
             this.notifyConnectionChange(device, true);
           });
+
+          // 添加此代码: 启动Android后台服务（如果有恢复的连接）
+          if (restoredState.connectedPeripherals.length > 0) {
+            BluetoothBackgroundService.startService(true);
+          }
         }
-      }
+      },
     });
+
     this.setupBleListener();
+  }
+
+  private updateBackgroundServiceState(): void {
+    if (Platform.OS === 'android') {
+      const hasConnections = this.connectedDevices.size > 0;
+      BluetoothBackgroundService.updateConnectionState(hasConnections);
+    }
   }
 
   // 设置蓝牙状态监听
@@ -227,13 +240,18 @@ class BLEManagerClass {
   ): Promise<{connectedDevice: Device | null; err: Error | null}> {
     try {
       const device = await this.manager.connectToDevice(deviceId, {
-        autoConnect: true,
+        autoConnect: false,
         timeout: 15000, // 15s
       });
       console.log('Connected to device:', device.name);
 
       // 添加到已连接设备列表
       this.connectedDevices.set(deviceId, device);
+
+      // 添加此代码: 启动Android后台服务
+      if (Platform.OS === 'android') {
+        BluetoothBackgroundService.startService(true);
+      }
 
       // 通知连接成功
       this.notifyConnectionChange(device, true);
@@ -248,6 +266,9 @@ class BLEManagerClass {
 
         // 从已连接设备列表中移除
         this.connectedDevices.delete(disconnectedDevice.id);
+
+        // 添加此代码: 更新Android后台服务状态
+        this.updateBackgroundServiceState();
 
         // 通知断开连接
         this.notifyConnectionChange(disconnectedDevice, false, error);
@@ -272,6 +293,9 @@ class BLEManagerClass {
 
       // 从已连接设备列表中移除
       this.connectedDevices.delete(deviceId);
+
+      // 添加此代码: 更新Android后台服务状态
+      this.updateBackgroundServiceState();
 
       // 通知断开连接
       this.notifyConnectionChange(device, false);
@@ -635,7 +659,10 @@ class BLEManagerClass {
 }
 
 // 导出单例实例
+export const BLEManager = new BLEManagerClass();
+export default BLEManager;
 
+export function calculateSignalStrength(device: Device) {
   const rssi = device.rssi;
   if (rssi !== null && rssi >= -50) {
     return 'excellent';
@@ -647,6 +674,7 @@ class BLEManagerClass {
 }
 
 // 计算信号的增益
+export function calculateSignalGain(rssi: number | null) {
   if (rssi === null) {
     return 0;
   }

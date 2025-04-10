@@ -2102,50 +2102,34 @@ const DevicePanelController: NavigationFunctionComponent<
   }, [cleanupDeviceResources, deviceConnectionStates, resetReceivedParams, setupCharacteristicMonitor, setupConnectionMonitor, toast, updateConnectionStatus]);
 
   // Add AppState listener to disconnect devices when app is locked or backgrounded
-  // useEffect(() => {
-  //   const subscription = AppState.addEventListener('change', nextAppState => {
-  //     console.log('App state changed to:', nextAppState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      console.log('App state changed to:', nextAppState);
       
-  //     // If app is going to background or inactive (locked)
-  //     if (
-  //       appStateRef.current === 'active' && 
-  //       (nextAppState === 'background' || nextAppState === 'inactive')
-  //     ) {
-  //       console.log('App is going to background or locked, disconnecting devices');
+      if (appStateRef.current === 'active' && 
+          (nextAppState === 'background' || nextAppState === 'inactive')) {
+        // 应用进入后台
+        console.log('App is going to background, maintaining BLE connections');
         
-  //       // Disconnect all connected devices
-  //       const disconnectAllDevices = async () => {
-  //         const connectedDeviceIds = Object.entries(deviceConnectionStates)
-  //           .filter(([_, isConnected]) => isConnected)
-  //           .map(([id]) => id);
-
-  //         for (const deviceId of connectedDeviceIds) {
-  //           try {
-  //             console.log(`Disconnecting device ${deviceId} due to app lock/background`);
-  //             await BLEManager.disconnectDevice(deviceId);
-              
-  //             // Clean up all resources related to this device
-  //             cleanupDeviceResources(deviceId);
-              
-  //             console.log(`Successfully disconnected device ${deviceId}`);
-  //           } catch (error) {
-  //             console.error(`Error disconnecting device ${deviceId}:`, error);
-  //           }
-  //         }
-  //       };
-
-  //       // Execute the disconnection
-  //       disconnectAllDevices();
-  //     }
+        // 这里可以添加后台优化代码，例如：
+        // 1. 减少特征值监听频率
+        // 2. 暂停非关键操作
+        // 3. 进入低功耗模式等
+      } 
+      else if (appStateRef.current !== 'active' && nextAppState === 'active') {
+        // 应用回到前台
+        console.log('App is coming to foreground, resuming normal operations');
+        
+        // 恢复正常操作频率
+      }
       
-  //     // Update the ref with current state
-  //     appStateRef.current = nextAppState;
-  //   });
+      appStateRef.current = nextAppState;
+    });
 
-  //   return () => {
-  //     subscription.remove();
-  //   };
-  // }, [cleanupDeviceResources, deviceConnectionStates]);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
