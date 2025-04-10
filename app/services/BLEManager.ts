@@ -1,3 +1,8 @@
+import {PermissionsAndroid, Platform} from 'react-native';
+export function calculateSignalGain(rssi: number | null) {
+export function calculateSignalStrength(device: Device) {
+export const BLEManager = new BLEManagerClass();
+export default BLEManager;
 import {
   BleError,
   BleManager,
@@ -6,7 +11,6 @@ import {
   State,
   Subscription,
 } from 'react-native-ble-plx';
-import {PermissionsAndroid, Platform} from 'react-native';
 
 type ConnectionListener = (
   device: Device,
@@ -24,7 +28,20 @@ class BLEManagerClass {
   private connectedDevices: Map<string, Device> = new Map();
 
   constructor() {
-    this.manager = new BleManager();
+    this.manager = new BleManager({
+      restoreStateIdentifier: 'YourAppBluetoothRestoreId',
+      restoreStateFunction: (restoredState) => {
+        if (restoredState && restoredState.connectedPeripherals) {
+          console.log('Restored connected peripherals:', restoredState.connectedPeripherals);
+          // Re-connect to devices or update your app state
+          restoredState.connectedPeripherals.forEach(device => {
+            this.connectedDevices.set(device.id, device);
+            // Notify listeners about restored connections
+            this.notifyConnectionChange(device, true);
+          });
+        }
+      }
+    });
     this.setupBleListener();
   }
 
@@ -210,7 +227,7 @@ class BLEManagerClass {
   ): Promise<{connectedDevice: Device | null; err: Error | null}> {
     try {
       const device = await this.manager.connectToDevice(deviceId, {
-        autoConnect: false,
+        autoConnect: true,
         timeout: 15000, // 15s
       });
       console.log('Connected to device:', device.name);
@@ -618,10 +635,7 @@ class BLEManagerClass {
 }
 
 // 导出单例实例
-export const BLEManager = new BLEManagerClass();
-export default BLEManager;
 
-export function calculateSignalStrength(device: Device) {
   const rssi = device.rssi;
   if (rssi !== null && rssi >= -50) {
     return 'excellent';
@@ -633,7 +647,6 @@ export function calculateSignalStrength(device: Device) {
 }
 
 // 计算信号的增益
-export function calculateSignalGain(rssi: number | null) {
   if (rssi === null) {
     return 0;
   }
