@@ -2217,8 +2217,8 @@ const DevicePanelController: NavigationFunctionComponent<
                 // 同步计时器值到原生层
                 await BluetoothBackgroundService.syncTimerValue(deviceId, timerValue);
                 
-                // 启动原生层的计时器
-                await BluetoothBackgroundService.startBackgroundTimer(deviceId);
+                // 启动原生层的计时器，传递当前计时器值
+                await BluetoothBackgroundService.startBackgroundTimer(deviceId, timerValue);
                 
                 console.log(`已启动设备 ${deviceId} 的原生计时器，值 ${timerValue}`);
               }

@@ -16,30 +16,6 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const [isScanning, setIsScanning] = useState(false);
   const [bleReady, setBleReady] = useState(false);
 
-  // 请求电池优化豁免
-  // 仅在Android上有效
-  useEffect(() => {
-    requestBatteryOptimizationExemption().then();
-  }, []);
-
-  async function requestBatteryOptimizationExemption() {
-    if (Platform.OS === 'android') {
-      try {
-        const { BatteryOptimizationModule } = NativeModules;
-        const isIgnoringOptimizations = await BatteryOptimizationModule.isIgnoringBatteryOptimizations();
-        
-        if (!isIgnoringOptimizations) {
-          // 请求用户关闭电池优化
-          await Linking.openSettings();
-          // 或者使用特定ACTION
-          // await Linking.openURL('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS');
-        }
-      } catch (error) {
-        console.error('请求电池优化豁免失败:', error);
-      }
-    }
-  }
-
   // 开始扫描设备的函数
   const startScanning = useCallback(async () => {
     if (isScanning) {
