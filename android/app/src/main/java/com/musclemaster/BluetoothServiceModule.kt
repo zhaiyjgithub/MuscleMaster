@@ -56,8 +56,8 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
         Log.d(TAG, "Starting BluetoothService with active connections: $hasActiveConnections")
         val intent = Intent(reactContext, BluetoothService::class.java).apply {
             putExtra("hasActiveConnections", hasActiveConnections)
-        }
-        
+    }
+    
         // 在 Android 8.0+ 上，前台服务必须在几秒钟内调用 startForeground
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             reactContext.startForegroundService(intent)
@@ -74,7 +74,7 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
         unbindService()
         reactContext.stopService(Intent(reactContext, BluetoothService::class.java))
     }
-
+    
     @ReactMethod
     fun updateConnectionState(hasConnections: Boolean) {
         Log.d(TAG, "Updating connection state: $hasConnections")
@@ -87,7 +87,7 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
             reactContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
     }
-
+    
     private fun unbindService() {
         if (isBound) {
             reactContext.unbindService(serviceConnection)

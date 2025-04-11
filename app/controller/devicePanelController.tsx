@@ -28,6 +28,7 @@ import {
 import { cn } from '../lib/utils';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 import { BluetoothBackgroundService } from '../services/BluetoothBackgroundService';
+import Loading from './view/loading';
 
 const MAX_INTENSITY = 10;
 const MIN_INTENSITY = 1;
@@ -1122,6 +1123,14 @@ const DevicePanelController: NavigationFunctionComponent<
       // 如果计时器正在运行，暂停它
       console.log(`UI 触发暂停命令，当前运行状态：${isRunning}`);
       pauseTimer(deviceId);
+      
+      // 如果是 Android 平台，同时停止原生层的计时器
+      if (Platform.OS === 'android') {
+        // 先同步计时器值，确保原生层知道最新状态
+        const currentValue = deviceTimerValues[deviceId] || 0;
+        BluetoothBackgroundService.syncTimerValue(deviceId, currentValue);
+      }
+      
       BLEManager.writeCharacteristic(
         deviceId,
         BLE_UUID.SERVICE,
@@ -1158,6 +1167,16 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
 
+      // 如果计时器值仍为 0，检查 Android 原生层
+      if (timerValueToUse <= 0 && Platform.OS === 'android') {
+        const nativeValue = BluetoothBackgroundService.getCurrentTimerValue(deviceId);
+        if (nativeValue > 0) {
+          console.log(`toggleTimer: 使用 Android 原生层的计时器值 ${nativeValue}`);
+          timerValueToUse = nativeValue;
+          setDeviceTimerValue(deviceId, nativeValue);
+        }
+      }
+
       // 检查是否有可用的计时器值
       if (timerValueToUse <= 0) {
         console.log(`无法启动计时器，找不到有效的计时器值`);
@@ -1168,6 +1187,12 @@ const DevicePanelController: NavigationFunctionComponent<
 
       console.log(`toggleTimer: 启动计时器，值=${timerValueToUse}`);
       startTimer(deviceId, timerValueToUse);
+      
+      // 如果是 Android，同步到原生层
+      if (Platform.OS === 'android') {
+        BluetoothBackgroundService.syncTimerValue(deviceId, timerValueToUse);
+      }
+      
       // 设置计时器保护期，3 秒内不会被 CANCEL 命令取消
       timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
       BLEManager.writeCharacteristic(
@@ -1183,7 +1208,7 @@ const DevicePanelController: NavigationFunctionComponent<
           console.error('Error start device:', error);
         });
     }
-  }, [deviceTimerRunning, getDeviceTimerValue, pauseTimer, selectedDevice, setDeviceTimerValue, startTimer, timePickerActionSheetRef]);
+  }, [deviceTimerRunning, deviceTimerValues, getDeviceTimerValue, pauseTimer, selectedDevice, setDeviceTimerValue, startTimer, timePickerActionSheetRef]);
 
   // Reset timer for a specific device
   const resetTimerByDevice = useCallback(() => {
@@ -2123,47 +2148,49 @@ const DevicePanelController: NavigationFunctionComponent<
       ) {
         console.log('App returned to foreground, verifying device connections');
         
-        // 检查所有显示为"已连接"的设备的实际连接状态
-        const verifyConnections = async () => {
-          const deviceIdsToCheck = Object.entries(deviceConnectionStates)
+        // 在这里恢复原生计时器状态到 JS 层
+        if (Platform.OS === 'android') {
+          Object.entries(deviceConnectionStates)
             .filter(([_, isConnected]) => isConnected)
-            .map(([id]) => id);
-            
-          for (const deviceId of deviceIdsToCheck) {
-            try {
-              // 使用 BLEManager.isDeviceConnected 检查设备连接状态
-              const isActuallyConnected = BLEManager.isDeviceConnected(deviceId);
-              
-              if (!isActuallyConnected && deviceConnectionStates[deviceId]) {
-                console.log(`设备 ${deviceId} 显示为已连接但实际已断开，尝试重新连接`);
-                // 更新 UI 状态
-                updateConnectionStatus(deviceId, false);
+            .forEach(([deviceId]) => {
+              try {
+                // 检查原生层的计时器值
+                const nativeTimerValue = BluetoothBackgroundService.getCurrentTimerValue(deviceId);
+                console.log(`从原生层获取设备 ${deviceId} 的计时器值：${nativeTimerValue}`);
                 
-                // 查找设备对象重新连接
-                const deviceToReconnect = devices.find(device => device.id === deviceId);
-                if (deviceToReconnect) {
-                  console.log(`尝试重新连接设备：${deviceId}`);
-                  // 清理旧连接资源
-                  cleanupDeviceResources(deviceId);
-                  // 重新连接
-                  connectToDevice(deviceToReconnect);
+                if (nativeTimerValue > 0) {
+                  // 检查 JS 层的计时器状态
+                  const isRunning = deviceTimerRunning[deviceId] || false;
+                  const jsTimerValue = deviceTimerValues[deviceId] || 0;
+                  
+                  // 如果 JS 层计时器在运行，但值与原生层差异较大，则同步
+                  if (isRunning && Math.abs(jsTimerValue - nativeTimerValue) > 3) {
+                    console.log(`JS 层计时器值 ${jsTimerValue} 与原生层 ${nativeTimerValue} 差异较大，同步`);
+                    
+                    // 停止现有 JS 计时器
+                    const existingInterval = deviceTimerIntervalsRef.current[deviceId];
+                    if (existingInterval) {
+                      clearInterval(existingInterval);
+                      deviceTimerIntervalsRef.current[deviceId] = null;
+                    }
+                    
+                    // 更新值并重启计时器
+                    setDeviceTimerValue(deviceId, nativeTimerValue);
+                    startTimerWithValue(deviceId, nativeTimerValue);
+                  }
+                  // 如果 JS 层计时器未运行，但原生层有值，则启动 JS 计时器
+                  else if (!isRunning && nativeTimerValue > 0) {
+                    console.log(`原生层计时器在运行 (${nativeTimerValue}秒)，但 JS 层未运行，启动 JS 计时器`);
+                    setDeviceTimerValue(deviceId, nativeTimerValue);
+                    startTimerWithValue(deviceId, nativeTimerValue);
+                  }
                 }
-              } else if (isActuallyConnected) {
-                console.log(`设备 ${deviceId} 保持连接状态`);
-                
-                // 确保后台服务在活跃连接时启动
-                if (Platform.OS === 'android') {
-                  console.log('确保后台服务已启动');
-                  BluetoothBackgroundService.startService(true);
-                }
+              } catch (error) {
+                console.error(`同步设备 ${deviceId} 计时器状态时出错:`, error);
               }
-            } catch (error) {
-              console.error(`检查设备 ${deviceId} 连接状态时出错:`, error);
-            }
-          }
-        };
+            });
+        }
         
-        verifyConnections();
       } else if (appStateRef.current === 'active' && 
                 (nextAppState === 'background' || nextAppState === 'inactive')) {
         // 应用进入后台时，确保后台服务已启动（如果有连接的设备）
@@ -2175,6 +2202,24 @@ const DevicePanelController: NavigationFunctionComponent<
           console.log('有已连接设备，启动后台服务');
           BluetoothBackgroundService.startService(true);
           BluetoothBackgroundService.updateConnectionState(true);
+          
+          // 遍历所有运行中的计时器，将值同步到原生层并启动原生计时器
+          Object.entries(deviceTimerRunning).forEach(([deviceId, isRunning]) => {
+            if (isRunning) {
+              const timerValue = deviceTimerValues[deviceId] || 0;
+              if (timerValue > 0) {
+                console.log(`同步设备 ${deviceId} 的计时器值 ${timerValue} 到原生层`);
+                
+                // 同步计时器值到原生层
+                BluetoothBackgroundService.syncTimerValue(deviceId, timerValue);
+                
+                // 启动原生层的计时器
+                BluetoothBackgroundService.startBackgroundTimer(deviceId);
+                
+                console.log(`已启动设备 ${deviceId} 的原生计时器，值 ${timerValue}`);
+              }
+            }
+          });
         }
       }
       
@@ -2185,7 +2230,7 @@ const DevicePanelController: NavigationFunctionComponent<
     return () => {
       appStateListener.remove();
     };
-  }, [deviceConnectionStates, devices, cleanupDeviceResources, connectToDevice, updateConnectionStatus]);
+  }, [deviceConnectionStates, deviceTimerRunning, deviceTimerValues, setDeviceTimerValue, startTimerWithValue]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -2213,24 +2258,7 @@ const DevicePanelController: NavigationFunctionComponent<
         
         {/* Loading overlay */}
         {isInitialLoading && (
-          <View 
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 1000,
-            }}
-          >
-            <View className="bg-white p-4 rounded-xl items-center">
-              <ActivityIndicator size="large" color="#1e88e5" />
-              <Text className="text-base mt-2">Syncing device data...</Text>
-            </View>
-          </View>
+          <Loading />
         )}
       </SafeAreaView>
     </GestureHandlerRootView>

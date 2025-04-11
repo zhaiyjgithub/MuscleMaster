@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 用于保持CPU在后台运行计时器 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
    <!-- Add this line if your application always requires BLE. More info can be found on:
        https://developer.android.com/guide/topics/connectivity/bluetooth-le.html#permissions
