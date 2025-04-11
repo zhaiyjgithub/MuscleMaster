@@ -1274,8 +1274,11 @@ const DevicePanelController: NavigationFunctionComponent<
     timerCheckIntervalRef.current = setInterval(checkAllDeviceTimers, 5000);
   });
 
-  useNavigationComponentDidDisappear(async () => {
-    // Clear loading timeout
+  useEffect(() => {
+    console.log('####useEffect');
+    return () => {
+      console.log('####useEffect cleanup');
+      // Clear loading timeout
     if (initialLoadingTimeoutRef.current) {
       clearTimeout(initialLoadingTimeoutRef.current);
       initialLoadingTimeoutRef.current = null;
@@ -1326,6 +1329,12 @@ const DevicePanelController: NavigationFunctionComponent<
       clearInterval(timerCheckIntervalRef.current);
       timerCheckIntervalRef.current = null;
     }
+    };
+  }, []);
+
+  useNavigationComponentDidDisappear(async () => {
+    console.log('####useNavigationComponentDidDisappear');
+    
   });
 
   const $modeActionSheet = (
