@@ -107,13 +107,33 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
     fun syncTimerValue(deviceId: String, timerValue: Int, promise: Promise) {
         Log.d(TAG, "同步计时器值 deviceId=$deviceId, value=$timerValue")
         try {
+            // 确保服务已绑定并运行
             ensureServiceRunning()
+
+            // 检查服务是否可用
+            if (bluetoothService == null) {
+                // 重新尝试绑定
+                bindService()
+                // 等待绑定完成
+                Thread.sleep(100)
+            }
+
+            // 同步值
             bluetoothService?.syncTimerValue(deviceId, timerValue)
-            
-            // 验证同步是否成功
+
+            // 立即验证是否同步成功
             val verifiedValue = bluetoothService?.getCurrentTimerValue(deviceId) ?: 0
-            Log.d(TAG, "验证同步后的计时器值：$verifiedValue, 预期值：$timerValue")
-            
+            Log.d(TAG, "验证同步结果：当前值=${verifiedValue}, 期望值=${timerValue}")
+
+            if (verifiedValue != timerValue) {
+                // 如果不匹配，再次尝试同步
+                Log.w(TAG, "同步不匹配，重试...")
+                bluetoothService?.syncTimerValue(deviceId, timerValue)
+                // 再次验证
+                val reverifiedValue = bluetoothService?.getCurrentTimerValue(deviceId) ?: 0
+                Log.d(TAG, "重新验证同步结果：当前值=${reverifiedValue}, 期望值=${timerValue}")
+            }
+
             promise.resolve(true)
         } catch (e: Exception) {
             Log.e(TAG, "同步计时器值失败：${e.message}", e)

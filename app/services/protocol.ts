@@ -39,7 +39,7 @@ export enum CommandType {
   DEVICE_STATUS_CANCEL = 0x00,
   START_THERAPY = 0x02,
   STOP_THERAPY = 0x02,
-  GET_BATTERY = 0x0A,
+  GET_BATTERY = 0x0a,
   GET_VERSION = 0x01,
   SET_WORK_TIME = 0x03,
   GET_WORK_TIME = 0x03,
@@ -513,8 +513,8 @@ export const BLECommands = {
       channel,
     );
   },
-  
-  
+
+
   // 设置峰值时间
   setPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
