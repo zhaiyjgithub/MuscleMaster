@@ -1,5 +1,6 @@
 package com.musclemaster
 
+import BluetoothServiceModule
 import android.view.View
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

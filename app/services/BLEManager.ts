@@ -251,6 +251,7 @@ class BLEManagerClass {
       // 添加此代码: 启动Android后台服务
       if (Platform.OS === 'android') {
         BluetoothBackgroundService.startService(true);
+        console.log('Started background service');
       }
 
       // 通知连接成功

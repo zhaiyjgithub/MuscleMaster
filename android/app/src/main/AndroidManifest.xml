@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
    <!-- Add this line if your application always requires BLE. More info can be found on:
        https://developer.android.com/guide/topics/connectivity/bluetooth-le.html#permissions
      -->

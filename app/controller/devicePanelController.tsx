@@ -1,7 +1,7 @@
 import BottomSheet from '@gorhom/bottom-sheet';
 import { Battery, BatteryFull, BatteryLow, BatteryMedium, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Text, TouchableOpacity, View, AppState, ActivityIndicator } from 'react-native';
+import { Animated, Text, TouchableOpacity, View, AppState, ActivityIndicator, Platform } from 'react-native';
 import { Subscription } from 'react-native-ble-plx';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationFunctionComponent } from 'react-native-navigation';
@@ -27,6 +27,7 @@ import {
 } from '../services/protocol';
 import { cn } from '../lib/utils';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
+import { BluetoothBackgroundService } from '../services/BluetoothBackgroundService';
 
 const MAX_INTENSITY = 10;
 const MIN_INTENSITY = 1;
@@ -2103,33 +2104,79 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Add AppState listener to disconnect devices when app is locked or backgrounded
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const appStateListener = AppState.addEventListener('change', nextAppState => {
       console.log('App state changed to:', nextAppState);
       
-      if (appStateRef.current === 'active' && 
-          (nextAppState === 'background' || nextAppState === 'inactive')) {
-        // 应用进入后台
-        console.log('App is going to background, maintaining BLE connections');
+      // 应用从后台返回前台
+      if (
+        (appStateRef.current === 'background' || appStateRef.current === 'inactive') && 
+        nextAppState === 'active'
+      ) {
+        console.log('App returned to foreground, verifying device connections');
         
-        // 这里可以添加后台优化代码，例如：
-        // 1. 减少特征值监听频率
-        // 2. 暂停非关键操作
-        // 3. 进入低功耗模式等
-      } 
-      else if (appStateRef.current !== 'active' && nextAppState === 'active') {
-        // 应用回到前台
-        console.log('App is coming to foreground, resuming normal operations');
+        // 检查所有显示为"已连接"的设备的实际连接状态
+        const verifyConnections = async () => {
+          const deviceIdsToCheck = Object.entries(deviceConnectionStates)
+            .filter(([_, isConnected]) => isConnected)
+            .map(([id]) => id);
+            
+          for (const deviceId of deviceIdsToCheck) {
+            try {
+              // 使用 BLEManager.isDeviceConnected 检查设备连接状态
+              const isActuallyConnected = BLEManager.isDeviceConnected(deviceId);
+              
+              if (!isActuallyConnected && deviceConnectionStates[deviceId]) {
+                console.log(`设备 ${deviceId} 显示为已连接但实际已断开，尝试重新连接`);
+                // 更新 UI 状态
+                updateConnectionStatus(deviceId, false);
+                
+                // 查找设备对象重新连接
+                const deviceToReconnect = devices.find(device => device.id === deviceId);
+                if (deviceToReconnect) {
+                  console.log(`尝试重新连接设备：${deviceId}`);
+                  // 清理旧连接资源
+                  cleanupDeviceResources(deviceId);
+                  // 重新连接
+                  connectToDevice(deviceToReconnect);
+                }
+              } else if (isActuallyConnected) {
+                console.log(`设备 ${deviceId} 保持连接状态`);
+                
+                // 确保后台服务在活跃连接时启动
+                if (Platform.OS === 'android') {
+                  console.log('确保后台服务已启动');
+                  BluetoothBackgroundService.startService(true);
+                }
+              }
+            } catch (error) {
+              console.error(`检查设备 ${deviceId} 连接状态时出错:`, error);
+            }
+          }
+        };
         
-        // 恢复正常操作频率
+        verifyConnections();
+      } else if (appStateRef.current === 'active' && 
+                (nextAppState === 'background' || nextAppState === 'inactive')) {
+        // 应用进入后台时，确保后台服务已启动（如果有连接的设备）
+        console.log('App is going to background');
+        
+        const hasConnectedDevices = Object.values(deviceConnectionStates).some(isConnected => isConnected);
+        
+        if (hasConnectedDevices && Platform.OS === 'android') {
+          console.log('有已连接设备，启动后台服务');
+          BluetoothBackgroundService.startService(true);
+          BluetoothBackgroundService.updateConnectionState(true);
+        }
       }
       
+      // 更新当前状态引用
       appStateRef.current = nextAppState;
     });
 
     return () => {
-      subscription.remove();
+      appStateListener.remove();
     };
-  }, []);
+  }, [deviceConnectionStates, devices, cleanupDeviceResources, connectToDevice, updateConnectionStatus]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

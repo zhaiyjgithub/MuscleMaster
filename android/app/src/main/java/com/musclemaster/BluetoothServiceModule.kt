@@ -1,15 +1,13 @@
-package com.musclemaster
-
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.bridge.ReactMethod
+import android.content.ServiceConnection
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.module.annotations.ReactModule
 
 @ReactModule(name = BluetoothServiceModule.NAME)
 class BluetoothServiceModule(private val reactContext: ReactApplicationContext) : 
@@ -47,20 +45,20 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
         bindService()
     }
 
-    override fun onCatalystInstanceDestroy() {
-        super.onCatalystInstanceDestroy()
+    override fun invalidate() {
+        super.invalidate()
         // 解绑服务
         unbindService()
     }
 
     @ReactMethod
     fun startService(hasActiveConnections: Boolean) {
-        Log.d(TAG, "Starting BluetoothService")
+        Log.d(TAG, "Starting BluetoothService with active connections: $hasActiveConnections")
         val intent = Intent(reactContext, BluetoothService::class.java).apply {
             putExtra("hasActiveConnections", hasActiveConnections)
         }
         
-        // 在Android 8.0+上，前台服务必须在几秒钟内调用startForeground
+        // 在 Android 8.0+ 上，前台服务必须在几秒钟内调用 startForeground
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             reactContext.startForegroundService(intent)
         } else {
@@ -96,4 +94,4 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
             isBound = false
         }
     }
-} 
+}
