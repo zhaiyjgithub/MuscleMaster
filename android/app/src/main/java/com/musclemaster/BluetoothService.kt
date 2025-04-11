@@ -3,23 +3,26 @@ import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.WritableMap
 import androidx.core.app.NotificationCompat
 import com.facebook.react.bridge.Arguments
+import android.content.BroadcastReceiver
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.musclemaster.MainActivity
+import android.content.IntentFilter
 import android.app.PendingIntent
 import android.app.Notification
+import android.os.HandlerThread
+import android.app.AlarmManager
 import android.content.Context
+import android.os.PowerManager
 import android.content.Intent
 import android.app.Service
 import android.os.Handler
 import android.os.IBinder
+import com.musclemaster.R
 import android.os.Binder
 import android.os.Looper
 import android.os.Build
-import android.os.PowerManager
-import android.os.HandlerThread
 import android.util.Log
-import com.musclemaster.MainActivity
-import com.musclemaster.R
 
 
 class BluetoothService : Service() {
@@ -27,14 +30,17 @@ class BluetoothService : Service() {
     private val NOTIFICATION_ID = 1
     private val CHANNEL_ID = "BluetoothServiceChannel"
     private val WAKE_LOCK_TAG = "MuscleMaster:BluetoothServiceWakeLock"
+    private val TIMER_ACTION = "com.musclemaster.TIMER_TICK"
 
-    // 创建独立的后台线程和Handler处理计时器
+    // 创建独立的后台线程和 Handler 处理计时器
     private lateinit var timerHandlerThread: HandlerThread
     private lateinit var timerHandler: Handler
     
+    // AlarmManager for reliable background execution
+    private lateinit var alarmManager: AlarmManager
+    
     // 添加计时器管理相关属性
-    private val deviceTimers = mutableMapOf<String, Handler>()
-    private val timerRunnables = mutableMapOf<String, Runnable>()
+    private val deviceTimers = mutableMapOf<String, PendingIntent>()
     private val deviceTimerValues = mutableMapOf<String, Int>()
     
     // Handler for delayed tasks on main thread
@@ -52,6 +58,50 @@ class BluetoothService : Service() {
     // WakeLock to keep the CPU running for timer
     private var wakeLock: PowerManager.WakeLock? = null
     
+    // 计时器广播接收器
+    private val timerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val deviceId = intent.getStringExtra("deviceId") ?: return
+            val interval = intent.getIntExtra("interval", 1000)
+            
+            Log.d(TAG, "收到计时器广播: deviceId=$deviceId, 当前时间=${System.currentTimeMillis()}")
+            
+            // 获取当前计时器值
+            val currentValue = deviceTimerValues[deviceId] ?: 0
+            Log.d(TAG, "设备 $deviceId 当前计时器值：$currentValue")
+            
+            // 如果计时器值小于等于 0，停止计时器
+            if (currentValue <= 0) {
+                Log.d(TAG, "设备 $deviceId 计时器到达 0，停止计时器")
+                stopTimer(deviceId)
+                return
+            }
+            
+            // 减少计时器值（倒计时）
+            val newValue = currentValue - 1
+            deviceTimerValues[deviceId] = newValue
+            Log.d(TAG, "设备 $deviceId 计时器减少：$currentValue -> $newValue")
+            
+            // 在主线程上更新通知
+            updateNotification()
+            
+            // 发送事件到 JavaScript
+            reactContext?.let { context ->
+                val params = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putInt("timerValue", newValue)
+                }
+                sendEvent(context, "onTimerTick", params)
+                Log.d(TAG, "发送 onTimerTick 事件到 JS，设备 $deviceId 值：$newValue")
+            } ?: Log.e(TAG, "reactContext 为空，无法发送事件")
+            
+            // 设置下一次闹钟（如果计时器还需要继续）
+            if (newValue > 0) {
+                scheduleNextTimerTick(deviceId, interval)
+            }
+        }
+    }
+    
     /**
     * Class used for the client Binder.
     */
@@ -62,20 +112,35 @@ class BluetoothService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "BluetoothService created")
+        
+        // 创建通知通道 - 对 Android 8.0+ 必须
         createNotificationChannel()
         
-        // 创建计时器专用线程和Handler
-        timerHandlerThread = HandlerThread("BluetoothTimerThread")
+        // 初始化 AlarmManager
+        alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        // 创建计时器专用线程和 Handler
+        timerHandlerThread = HandlerThread("BluetoothTimerThread", Thread.MAX_PRIORITY)
         timerHandlerThread.start()
         timerHandler = Handler(timerHandlerThread.looper)
+        Log.d(TAG, "计时器专用线程已创建和启动，优先级：${timerHandlerThread.priority}")
         
-        // 创建WakeLock
+        // 创建 WakeLock - 使用 PARTIAL_WAKE_LOCK 可在屏幕关闭时保持 CPU 运行
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             WAKE_LOCK_TAG
         )
         wakeLock?.setReferenceCounted(false)
+        Log.d(TAG, "WakeLock 已配置，类型：PARTIAL_WAKE_LOCK")
+        
+        // 注册计时器广播接收器
+        registerReceiver(timerReceiver, IntentFilter(TIMER_ACTION))
+        Log.d(TAG, "计时器广播接收器已注册")
+        
+        // 立即启动前台服务，避免系统杀死后台服务
+        startForeground(NOTIFICATION_ID, createNotification())
+        Log.d(TAG, "已启动前台服务，通知 ID：$NOTIFICATION_ID")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -111,12 +176,74 @@ class BluetoothService : Service() {
         return START_STICKY
     }
 
+    // 设置下一次计时器闹钟
+    private fun scheduleNextTimerTick(deviceId: String, interval: Int) {
+        val intent = Intent(TIMER_ACTION).apply {
+            putExtra("deviceId", deviceId)
+            putExtra("interval", interval)
+        }
+        
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            deviceId.hashCode(),
+            intent,
+            flags
+        )
+        
+        // 保存引用
+        deviceTimers[deviceId] = pendingIntent
+        
+        // 设置精确闹钟，确保即使在Doze模式下也能触发
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + interval,
+                pendingIntent
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + interval,
+                pendingIntent
+            )
+        } else {
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + interval,
+                pendingIntent
+            )
+        }
+        
+        Log.d(TAG, "已为设备 $deviceId 设置下一次闹钟，间隔 $interval 毫秒")
+    }
+
     // 启动设备计时器
     fun startTimer(deviceId: String, interval: Int = 1000) {
+        Log.d(TAG, "启动设备计时器 deviceId=$deviceId, interval=$interval, 线程=${Thread.currentThread().name}")
+        
         // 获取 WakeLock，确保计时器能在后台运行
         if (wakeLock?.isHeld != true) {
-            wakeLock?.acquire(30*60*1000L) // 30分钟，避免永久持有
-            Log.d(TAG, "Acquired wake lock for background timer")
+            try {
+                // 使用 PARTIAL_WAKE_LOCK 确保后台处理
+                wakeLock?.acquire(30*60*1000L) // 30 分钟，避免永久持有
+                Log.d(TAG, "成功获取 WakeLock 用于后台计时器 - 标记为前台服务")
+                
+                // 确保服务为前台服务，因为从 Android 8.0 开始，后台服务受到更严格限制
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForeground(NOTIFICATION_ID, createNotification())
+                    Log.d(TAG, "已启动前台服务")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "获取 WakeLock 失败：${e.message}")
+            }
+        } else {
+            Log.d(TAG, "WakeLock 已经被持有，继续使用")
         }
         
         // 停止已存在的计时器
@@ -124,89 +251,82 @@ class BluetoothService : Service() {
 
         // 确保设备计时器值已初始化
         if (!deviceTimerValues.containsKey(deviceId)) {
-            // 如果没有初始值，默认设为0
+            // 如果没有初始值，默认设为 0
             deviceTimerValues[deviceId] = 0
-            Log.d(TAG, "Initialized timer value for device $deviceId to 0")
+            Log.d(TAG, "初始化设备 $deviceId 计时器值为 0")
         }
 
         // 获取当前计时器值
         val initialValue = deviceTimerValues[deviceId] ?: 0
-        Log.d(TAG, "Starting timer for device $deviceId with initial value: $initialValue seconds")
+        Log.d(TAG, "设备 $deviceId 计时器初始值：$initialValue 秒")
 
         // 只有当有正值时才启动计时器
         if (initialValue <= 0) {
-            Log.d(TAG, "Timer value is 0 or negative, not starting timer for device $deviceId")
+            Log.d(TAG, "计时器值为 0 或负值，不启动设备 $deviceId 的计时器")
             return
         }
 
-        // 创建计时器任务 - 执行倒计时而不是增加时间
-        val timerRunnable = object : Runnable {
-            override fun run() {
-                // 获取当前计时器值
-                val currentValue = deviceTimerValues[deviceId] ?: 0
-                
-                // 记录运行时间点
-                val timestamp = System.currentTimeMillis()
-                Log.d(TAG, "Timer running at $timestamp, current value: $currentValue for device $deviceId")
-                
-                // 如果计时器值小于等于0，停止计时器
-                if (currentValue <= 0) {
-                    Log.d(TAG, "Timer for device $deviceId reached 0, stopping")
-                    stopTimer(deviceId)
-                    return
-                }
-                
-                // 减少计时器值（倒计时）
-                val newValue = currentValue - 1
-                deviceTimerValues[deviceId] = newValue
-                Log.d(TAG, "Timer for device $deviceId decremented: $currentValue -> $newValue")
-                
-                // 在主线程上更新通知
-                mainHandler.post {
-                    updateNotification()
-                }
-                
-                // 发送事件到 JavaScript (需要在主线程执行)
-                mainHandler.post {
-                    reactContext?.let { context ->
-                        val params = Arguments.createMap().apply {
-                            putString("deviceId", deviceId)
-                            putInt("timerValue", newValue)
-                        }
-                        sendEvent(context, "onTimerTick", params)
-                    }
-                }
-
-                // 继续执行 - 在后台线程上
-                timerHandler.postDelayed(this, interval.toLong())
-            }
+        // 立即安排第一次计时器触发
+        scheduleNextTimerTick(deviceId, interval)
+        Log.d(TAG, "启动了设备 $deviceId 的闹钟计时器，初始值：$initialValue，使用 AlarmManager")
+        
+        // 更新通知以显示计时器状态
+        mainHandler.post {
+            updateNotification()
         }
-
-        // 保存引用
-        timerRunnables[deviceId] = timerRunnable
-        deviceTimers[deviceId] = timerHandler
-
-        // 启动计时器 - 在后台线程上
-        timerHandler.post(timerRunnable)
-        Log.d(TAG, "Started timer for device $deviceId with value: $initialValue")
     }
 
     // 停止设备计时器
     fun stopTimer(deviceId: String) {
-        val runnable = timerRunnables[deviceId]
-        val timer = deviceTimers[deviceId]
+        Log.d(TAG, "正在停止设备 $deviceId 的计时器")
+        
+        val pendingIntent = deviceTimers[deviceId]
 
-        if (runnable != null && timer != null) {
-            timer.removeCallbacks(runnable)
-            timerRunnables.remove(deviceId)
-            deviceTimers.remove(deviceId)
-            Log.d(TAG, "Stopped timer for device $deviceId")
+        if (pendingIntent != null) {
+            try {
+                // 取消闹钟
+                alarmManager.cancel(pendingIntent)
+                Log.d(TAG, "已取消闹钟计时器")
+                
+                // 清除引用
+                deviceTimers.remove(deviceId)
+                
+                // 发送最终状态到 JS
+                mainHandler.post {
+                    reactContext?.let { context ->
+                        val params = Arguments.createMap().apply {
+                            putString("deviceId", deviceId)
+                            putInt("timerValue", 0)
+                            putBoolean("timerCompleted", true)
+                        }
+                        sendEvent(context, "onTimerComplete", params)
+                        Log.d(TAG, "发送 onTimerComplete 事件到 JS，设备 $deviceId")
+                    }
+                }
+                
+                Log.d(TAG, "成功停止设备 $deviceId 的计时器")
+            } catch (e: Exception) {
+                Log.e(TAG, "停止计时器时出错：${e.message}", e)
+            }
+        } else {
+            Log.d(TAG, "设备 $deviceId 没有活跃的计时器可以停止")
         }
         
         // 如果没有活跃的计时器，释放 WakeLock
-        if (timerRunnables.isEmpty() && wakeLock?.isHeld == true) {
-            wakeLock?.release()
-            Log.d(TAG, "Released wake lock, no active timers")
+        if (deviceTimers.isEmpty() && wakeLock?.isHeld == true) {
+            try {
+                wakeLock?.release()
+                Log.d(TAG, "释放 WakeLock，没有活跃的计时器")
+            } catch (e: Exception) {
+                Log.e(TAG, "释放 WakeLock 时出错：${e.message}", e)
+            }
+        } else {
+            Log.d(TAG, "保持 WakeLock，还有 ${deviceTimers.size} 个活跃计时器")
+        }
+        
+        // 更新通知
+        mainHandler.post {
+            updateNotification()
         }
     }
     
@@ -218,8 +338,16 @@ class BluetoothService : Service() {
         super.onDestroy()
 
         // 停止所有计时器
-        timerRunnables.keys.toList().forEach { deviceId ->
+        deviceTimers.keys.toList().forEach { deviceId ->
             stopTimer(deviceId)
+        }
+        
+        // 取消注册广播接收器
+        try {
+            unregisterReceiver(timerReceiver)
+            Log.d(TAG, "计时器广播接收器已取消注册")
+        } catch (e: Exception) {
+            Log.e(TAG, "取消注册广播接收器时出错：${e.message}")
         }
         
         // 释放 WakeLock
@@ -323,22 +451,25 @@ class BluetoothService : Service() {
     
     /**
      * 同步 JavaScript 的计时器值到原生层
-     * @param deviceId 设备ID
+     * @param deviceId 设备 ID
      * @param timerValue 计时器值（秒）
      */
     fun syncTimerValue(deviceId: String, timerValue: Int) {
-        Log.d(TAG, "Syncing timer value for device $deviceId: $timerValue seconds")
+        Log.d(TAG, "同步计时器值: 设备 $deviceId: $timerValue 秒")
         deviceTimerValues[deviceId] = timerValue
+        
+        // 更新通知以显示新的计时器值
+        updateNotification()
     }
     
     /**
      * 获取设备当前计时器值
-     * @param deviceId 设备ID
-     * @return 计时器值（秒），如果不存在则返回0
+     * @param deviceId 设备 ID
+     * @return 计时器值（秒），如果不存在则返回 0
      */
     fun getCurrentTimerValue(deviceId: String): Int {
         val value = deviceTimerValues[deviceId] ?: 0
-        Log.d(TAG, "Getting timer value for device $deviceId: $value seconds")
+        Log.d(TAG, "获取计时器值: 设备 $deviceId: $value 秒")
         return value
     }
     
@@ -347,6 +478,7 @@ class BluetoothService : Service() {
     */
     fun setReactContext(context: ReactContext) {
         this.reactContext = context
+        Log.d(TAG, "已设置 ReactContext")
     }
     
     /**

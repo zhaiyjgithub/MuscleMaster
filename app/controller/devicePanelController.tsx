@@ -1110,7 +1110,7 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   // Toggle timer state (start/pause) for the selected device
-  const toggleTimer = useCallback(() => {
+  const toggleTimer = useCallback(async () => {
     if (!selectedDevice) {
       console.log('no device');
       return;
@@ -1168,14 +1168,18 @@ const DevicePanelController: NavigationFunctionComponent<
       }
 
       // 如果计时器值仍为 0，检查 Android 原生层
-      if (timerValueToUse <= 0 && Platform.OS === 'android') {
-        const nativeValue = BluetoothBackgroundService.getCurrentTimerValue(deviceId);
-        if (nativeValue > 0) {
-          console.log(`toggleTimer: 使用 Android 原生层的计时器值 ${nativeValue}`);
-          timerValueToUse = nativeValue;
-          setDeviceTimerValue(deviceId, nativeValue);
-        }
+  if (timerValueToUse <= 0 && Platform.OS === 'android') {
+    try {
+      const nativeValue = await BluetoothBackgroundService.getCurrentTimerValue(deviceId);
+      if (nativeValue > 0) {
+        console.log(`toggleTimer: 使用 Android 原生层的计时器值 ${nativeValue}`);
+        timerValueToUse = nativeValue;
+        setDeviceTimerValue(deviceId, nativeValue);
       }
+    } catch (error) {
+      console.error('获取原生计时器值出错:', error);
+    }
+  }
 
       // 检查是否有可用的计时器值
       if (timerValueToUse <= 0) {
@@ -2138,7 +2142,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Add AppState listener to disconnect devices when app is locked or backgrounded
   useEffect(() => {
-    const appStateListener = AppState.addEventListener('change', nextAppState => {
+    const appStateListener = AppState.addEventListener('change', async (nextAppState) => {
       console.log('App state changed to:', nextAppState);
       
       // 应用从后台返回前台
@@ -2152,10 +2156,10 @@ const DevicePanelController: NavigationFunctionComponent<
         if (Platform.OS === 'android') {
           Object.entries(deviceConnectionStates)
             .filter(([_, isConnected]) => isConnected)
-            .forEach(([deviceId]) => {
+            .forEach(async ([deviceId]) => {
               try {
                 // 检查原生层的计时器值
-                const nativeTimerValue = BluetoothBackgroundService.getCurrentTimerValue(deviceId);
+                const nativeTimerValue = await BluetoothBackgroundService.getCurrentTimerValue(deviceId);
                 console.log(`从原生层获取设备 ${deviceId} 的计时器值：${nativeTimerValue}`);
                 
                 if (nativeTimerValue > 0) {
@@ -2204,17 +2208,17 @@ const DevicePanelController: NavigationFunctionComponent<
           BluetoothBackgroundService.updateConnectionState(true);
           
           // 遍历所有运行中的计时器，将值同步到原生层并启动原生计时器
-          Object.entries(deviceTimerRunning).forEach(([deviceId, isRunning]) => {
+          Object.entries(deviceTimerRunning).forEach(async ([deviceId, isRunning]) => {
             if (isRunning) {
               const timerValue = deviceTimerValues[deviceId] || 0;
               if (timerValue > 0) {
                 console.log(`同步设备 ${deviceId} 的计时器值 ${timerValue} 到原生层`);
                 
                 // 同步计时器值到原生层
-                BluetoothBackgroundService.syncTimerValue(deviceId, timerValue);
+                await BluetoothBackgroundService.syncTimerValue(deviceId, timerValue);
                 
                 // 启动原生层的计时器
-                BluetoothBackgroundService.startBackgroundTimer(deviceId);
+                await BluetoothBackgroundService.startBackgroundTimer(deviceId);
                 
                 console.log(`已启动设备 ${deviceId} 的原生计时器，值 ${timerValue}`);
               }
