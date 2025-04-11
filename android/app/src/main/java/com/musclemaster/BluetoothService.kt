@@ -1,102 +1,102 @@
-import { NativeModules, Platform } from 'react-native';
+package com.musclemaster
 
-const { BluetoothServiceModule } = NativeModules;
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.Binder
+import android.os.Build
+import android.os.IBinder
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReactContext
+import com.facebook.react.bridge.WritableMap
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
-/**
- * 蓝牙后台服务控制器
- * 仅在 Android 上有效，iOS 通过 Info.plist 的 UIBackgroundModes 配置自动处理
- */
-export class BluetoothBackgroundService {
-  /**
-   * 启动蓝牙后台服务
-   * @param hasActiveConnections 是否有活跃的蓝牙连接
-   */
-  static startService(hasActiveConnections: boolean = true): void {
-    if (Platform.OS === 'android' && BluetoothServiceModule) {
-      BluetoothServiceModule.startService(hasActiveConnections);
-    }
-  }
+class BluetoothService : Service() {
+    private val TAG = "BluetoothService"
+    private val NOTIFICATION_ID = 1
+    private val CHANNEL_ID = "BluetoothServiceChannel"
+    
+    // Binder given to clients
+    private val binder = LocalBinder()
+    
+    // ReactContext for sending events back to JS
+    private var reactContext: ReactContext? = null
+    
+    // 保存当前是否有活跃连接的标志
+    private var hasActiveConnections = false
 
-  /**
-   * 停止蓝牙后台服务
-   */
-  static stopService(): void {
-    if (Platform.OS === 'android' && BluetoothServiceModule) {
-      BluetoothServiceModule.stopService();
-    }
-  }
-
-  /**
-   * 更新连接状态
-   * @param hasConnections 是否有活跃的蓝牙连接
-   */
-  static updateConnectionState(hasConnections: boolean): void {
-    if (Platform.OS === 'android' && BluetoothServiceModule) {
-      BluetoothServiceModule.updateConnectionState(hasConnections);
-    }
-  }
-}           Log.d(TAG, "BluetoothService disconnected")
-        }
-    }
-
-    override fun getName(): String = NAME
-
-    override fun initialize() {
-        super.initialize()
-        // 应用启动时绑定服务
-        bindService()
+    /**
+     * Class used for the client Binder.
+     */
+    inner class LocalBinder : Binder() {
+        fun getService(): BluetoothService = this@BluetoothService
     }
 
-    override fun onCatalystInstanceDestroy() {
-        super.onCatalystInstanceDestroy()
-        // 解绑服务
-        unbindService()
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "BluetoothService created")
+        createNotificationChannel()
     }
 
-    @ReactMethod
-    fun startService(hasActiveConnections: Boolean) {
-        Log.d(TAG, "Starting BluetoothService")
-        val intent = Intent(reactContext, BluetoothService::class.java).apply {
-            putExtra("hasActiveConnections", hasActiveConnections)
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "BluetoothService started")
+        
+        // 从intent中获取额外信息
+        intent?.let {
+            hasActiveConnections = it.getBooleanExtra("hasActiveConnections", false)
         }
         
-        // 在 Android 8.0+ 上，前台服务必须在几秒钟内调用 startForeground
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            reactContext.startForegroundService(intent)
-        } else {
-            reactContext.startService(intent)
+        // 启动前台服务
+        startForeground(NOTIFICATION_ID, createNotification())
+        
+        // 如果没有活跃连接，则停止服务
+        if (!hasActiveConnections) {
+            stopSelf()
         }
         
-        bindService()
+        // 如果服务被系统杀死，系统将尝试重新创建服务
+        return START_STICKY
     }
 
-    @ReactMethod
-    fun stopService() {
-        Log.d(TAG, "Stopping BluetoothService")
-        unbindService()
-        reactContext.stopService(Intent(reactContext, BluetoothService::class.java))
+    override fun onBind(intent: Intent): IBinder {
+        return binder
     }
 
-    @ReactMethod
-    fun updateConnectionState(hasConnections: Boolean) {
-        Log.d(TAG, "Updating connection state: $hasConnections")
-        bluetoothService?.updateConnectionState(hasConnections)
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "BluetoothService destroyed")
     }
 
-    private fun bindService() {
-        if (!isBound) {
-            val intent = Intent(reactContext, BluetoothService::class.java)
-            reactContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    /**
+     * 为服务创建一个通知通道（Android 8.0及以上需要）
+     */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Bluetooth Service"
+            val descriptionText = "Maintains Bluetooth connections in background"
+            val importance = NotificationManager.IMPORTANCE_LOW
+            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+            // 注册通道
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
         }
     }
 
-    private fun unbindService() {
-        if (isBound) {
-            reactContext.unbindService(serviceConnection)
-            isBound = false
-        }
-    }
-}           this,
+    /**
+     * 创建前台服务所需的通知
+     */
+    private fun createNotification(): Notification {
+        // 创建一个PendingIntent，用户点击通知时返回应用
+        val pendingIntent = PendingIntent.getActivity(
+            this,
             0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
@@ -155,4 +155,4 @@ export class BluetoothBackgroundService {
         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
             .emit(eventName, params)
     }
-} 
+}

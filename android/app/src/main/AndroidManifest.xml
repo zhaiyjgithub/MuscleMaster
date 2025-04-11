@@ -13,7 +13,8 @@
    <!-- 前台服务权限 (对于Android 9+) -->
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
    <!-- 如果需要在设备重启后启动服务 -->
-   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
    <!-- Add this line if your application always requires BLE. More info can be found on:
        https://developer.android.com/guide/topics/connectivity/bluetooth-le.html#permissions
