@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   View,
   AppState,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import {Subscription} from 'react-native-ble-plx';
@@ -324,24 +323,6 @@ const DevicePanelController: NavigationFunctionComponent<
   // 添加设备加载状态管理函数
   const setDeviceLoading = (deviceId: string, isLoading: boolean) => {
     deviceLoadingStatesRef.current[deviceId] = isLoading;
-  };
-
-  // 更新连接状态的函数也需修改
-  const updateConnectionStatus = (deviceId: string, connected: boolean) => {
-    // 使用函数形式的 setState 以避免依赖最新的 state
-    setDeviceConnectionStates(prev => {
-      // 如果状态没有变化，返回原状态，避免不必要的重渲染
-      if (prev[deviceId] === connected) {
-        return prev;
-      }
-      return {
-        ...prev,
-        [deviceId]: connected,
-      };
-    });
-
-    setIsConnecting(false);
-    console.log(`更新设备 ${deviceId} 连接状态为：${connected}`);
   };
 
   // 获取特定设备的连接状态
@@ -905,15 +886,6 @@ const DevicePanelController: NavigationFunctionComponent<
     },
     [deviceTimerValues],
   );
-
-  // 获取设备特定的定时器运行状态
-  const isDeviceTimerRunning = useCallback(
-    (deviceId: string): boolean => {
-      return deviceTimerRunning[deviceId] || false;
-    },
-    [deviceTimerRunning],
-  );
-
   // 设置设备特定的定时器值
   const setDeviceTimerValue = useCallback(
     (deviceId: string, value: number) => {
@@ -1406,32 +1378,13 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     console.log('####useEffect');
     return () => {
-      console.log('####useEffect cleanup');
+      console.log('####useEffect cleanup - 仅清理资源，保持设备连接');
       // Clear loading timeout
       if (initialLoadingTimeoutRef.current) {
         clearTimeout(initialLoadingTimeoutRef.current);
         initialLoadingTimeoutRef.current = null;
       }
-
-      // 断开所有设备连接
-      const disconnectAllDevices = async () => {
-        const connectedDeviceIds = Object.entries(deviceConnectionStates)
-          .filter(([_, isConnected]) => isConnected)
-          .map(([id]) => id);
-
-        for (const deviceId of connectedDeviceIds) {
-          try {
-            await BLEManager.disconnectDevice(deviceId);
-            console.log(`成功断开设备 ${deviceId} 连接`);
-          } catch (error) {
-            console.error(`断开设备 ${deviceId} 连接出错:`, error);
-          }
-        }
-      };
-
-      // 异步执行断开连接
-      disconnectAllDevices().catch(console.error);
-
+  
       // 清理所有订阅
       Object.entries(subscriptionsRef.current).forEach(
         ([key, subscription]) => {
@@ -1441,11 +1394,11 @@ const DevicePanelController: NavigationFunctionComponent<
           }
         },
       );
-
+  
       // 清空所有订阅和监控状态
       subscriptionsRef.current = {};
       connectionMonitorsActive.current = {};
-
+  
       // 清除所有计时器
       Object.entries(deviceTimerIntervalsRef.current).forEach(
         ([deviceId, interval]) => {
@@ -1456,14 +1409,14 @@ const DevicePanelController: NavigationFunctionComponent<
         },
       );
       deviceTimerIntervalsRef.current = {};
-
-      console.log('DevicePanelController 清理：断开连接并清理监控');
+  
+      console.log('DevicePanelController 清理：保持设备连接，仅清理监控和计时器');
       if (timerCheckIntervalRef.current) {
         clearInterval(timerCheckIntervalRef.current);
         timerCheckIntervalRef.current = null;
       }
     };
-  }, []);
+  }, []);  // 移除依赖项，避免频繁重置清理函数
 
   useNavigationComponentDidDisappear(async () => {
     console.log('####useNavigationComponentDidDisappear');
@@ -2185,6 +2138,24 @@ const DevicePanelController: NavigationFunctionComponent<
   // 封装设备连接逻辑为可重用的函数
   const connectToDevice = useCallback(
     async (device: FoundDevice) => {
+      // 更新连接状态的函数也需修改
+      const updateConnectionStatus = (deviceId: string, connected: boolean) => {
+        // 使用函数形式的 setState 以避免依赖最新的 state
+        setDeviceConnectionStates(prev => {
+          // 如果状态没有变化，返回原状态，避免不必要的重渲染
+          if (prev[deviceId] === connected) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [deviceId]: connected,
+          };
+        });
+
+        setIsConnecting(false);
+        console.log(`更新设备 ${deviceId} 连接状态为：${connected}`);
+      };
+
       if (!device) {
         return;
       }
@@ -2304,7 +2275,6 @@ const DevicePanelController: NavigationFunctionComponent<
       setupCharacteristicMonitor,
       setupConnectionMonitor,
       toast,
-      updateConnectionStatus,
     ],
   );
 
