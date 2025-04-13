@@ -20,6 +20,7 @@
     "nativewind": "^4.1.23",
     "react": "18.2.0",
     "react-native": "0.74.3",
+    "react-native-background-actions": "^4.0.1",
     "react-native-ble-plx": "^3.5.0",
     "react-native-gesture-handler": "^2.17.1",
     "react-native-navigation": "7.40.1",

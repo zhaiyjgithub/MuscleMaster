@@ -1,3 +1,5 @@
+package com.musclemaster
+
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.WritableMap
@@ -5,11 +7,8 @@ import androidx.core.app.NotificationCompat
 import com.facebook.react.bridge.Arguments
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import com.musclemaster.MainActivity
 import android.app.job.JobInfo
 import android.app.job.JobScheduler
-import android.app.job.JobParameters
-import android.app.job.JobService
 import android.os.PersistableBundle
 import android.app.PendingIntent
 import android.app.Notification
@@ -21,83 +20,14 @@ import android.content.ComponentName
 import android.app.Service
 import android.os.Handler
 import android.os.IBinder
-import com.musclemaster.R
 import android.os.Binder
 import android.os.Looper
 import android.os.Build
 import android.util.Log
 
 
-/**
- * 计时器任务服务 - 由JobScheduler调度运行
- */
-class TimerJobService : JobService() {
-  private val TAG = "TimerJobService"
-
-  override fun onStartJob(params: JobParameters?): Boolean {
-    Log.d(TAG, "===== 计时器任务开始执行 =====")
-
-    params?.let {
-      val extras = it.extras
-      if (extras != null) {
-        val deviceId = extras.getString("deviceId", "")
-        val currentValue = extras.getInt("currentValue", 0)
-        val interval = extras.getInt("interval", 1000)
-
-        Log.d(TAG, "任务参数: deviceId=$deviceId, currentValue=$currentValue, interval=$interval")
-
-        if (deviceId.isNotEmpty() && currentValue > 0) {
-          // 获取BluetoothService
-          val intent = Intent(this, BluetoothService::class.java)
-          startService(intent)
-
-          // 使用applicationContext绑定服务，这样无论Activity状态如何都能工作
-          val connection = object : android.content.ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-              if (service is BluetoothService.LocalBinder) {
-                val bluetoothService = service.getService()
-                Log.d(TAG, "TimerJob 已连接到 BluetoothService")
-
-                // 更新计时器值 (减1)
-                val newValue = currentValue - 1
-                Log.d(TAG, "### 后台计时器递减：设备 $deviceId 计时器由 $currentValue 减少到 $newValue ###")
-                bluetoothService.processTimerTick(deviceId, newValue, interval)
-
-                // 一旦处理完成，解绑服务
-                applicationContext.unbindService(this)
-              }
-            }
-
-            override fun onServiceDisconnected(name: ComponentName?) {
-              Log.d(TAG, "TimerJob 与 BluetoothService 断开连接")
-            }
-          }
-
-          applicationContext.bindService(
-            Intent(this, BluetoothService::class.java),
-            connection,
-            Context.BIND_AUTO_CREATE
-          )
-        } else {
-          Log.e(TAG, "无效的任务参数: deviceId=$deviceId, currentValue=$currentValue")
-        }
-      }
-    }
-
-    // 返回false表示任务已完成
-    jobFinished(params, false)
-    return false
-  }
-
-  override fun onStopJob(params: JobParameters?): Boolean {
-    Log.d(TAG, "计时器任务被系统中断")
-    // 返回true表示任务应该重新调度
-    return true
-  }
-}
-
 class BluetoothService : Service() {
-  private val TAG = "BluetoothService"
+  private val TAG = "com.musclemaster.BluetoothService"
   private val NOTIFICATION_ID = 1
   private val CHANNEL_ID = "BluetoothServiceChannel"
   private val WAKE_LOCK_TAG = "MuscleMaster:BluetoothServiceWakeLock"
@@ -138,7 +68,7 @@ class BluetoothService : Service() {
 
   override fun onCreate() {
     super.onCreate()
-    Log.d(TAG, "===== BluetoothService 创建 =====")
+    Log.d(TAG, "===== com.musclemaster.BluetoothService 创建 =====")
 
     // 创建通知通道 - 对 Android 8.0+ 必须
     createNotificationChannel()
@@ -187,7 +117,7 @@ class BluetoothService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    Log.d(TAG, "BluetoothService started")
+    Log.d(TAG, "com.musclemaster.BluetoothService started")
 
     // 从 intent 中获取额外信息
     intent?.let {
@@ -453,7 +383,7 @@ class BluetoothService : Service() {
       timerHandlerThread.quit()
     }
 
-    Log.d(TAG, "BluetoothService destroyed")
+    Log.d(TAG, "com.musclemaster.BluetoothService destroyed")
   }
 
   /**

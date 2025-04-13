@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import com.musclemaster.BluetoothService
 
 @ReactModule(name = BluetoothServiceModule.NAME)
 class BluetoothServiceModule(private val reactContext: ReactApplicationContext) : 
@@ -28,13 +29,13 @@ class BluetoothServiceModule(private val reactContext: ReactApplicationContext) 
             bluetoothService = binder.getService()
             bluetoothService?.setReactContext(reactContext)
             isBound = true
-            Log.d(TAG, "BluetoothService connected")
+            Log.d(TAG, "com.musclemaster.BluetoothService connected")
         }
 
         override fun onServiceDisconnected(className: ComponentName) {
             bluetoothService = null
             isBound = false
-            Log.d(TAG, "BluetoothService disconnected")
+            Log.d(TAG, "com.musclemaster.BluetoothService disconnected")
         }
     }
 

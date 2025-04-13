@@ -133,24 +133,7 @@ export class BluetoothBackgroundService {
           deviceId,
           timerValue,
         );
-
-        // 验证同步是否成功
-        setTimeout(async () => {
-          try {
-            const currentValue =
-              await BluetoothBackgroundService.getCurrentTimerValue(deviceId);
-            console.log(
-              `同步后验证：原生层计时器值 = ${currentValue}, 预期值 = ${timerValue}`,
-            );
-
-            if (currentValue !== timerValue) {
-              console.warn(`同步后值不匹配：${currentValue} != ${timerValue}`);
-            }
-          } catch (error) {
-            console.error('验证同步失败：', error);
-          }
-        }, 300);
-
+        console.log(`同步计时器值成功：${result}`);
         return result;
       } catch (error) {
         console.error(`同步计时器值失败：${error}`);

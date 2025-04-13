@@ -1,12 +1,12 @@
 import BackgroundService from 'react-native-background-actions';
 import {AppState, Platform} from 'react-native';
 
-// 检查后台服务是否可用
+// 添加检查以防止空引用
 const isBackgroundServiceAvailable = () => {
   return (
     Platform.OS === 'android' &&
-      BackgroundService &&
-      typeof BackgroundService.start === 'function'
+    typeof BackgroundService !== 'undefined' &&
+    BackgroundService !== null
   );
 };
 
@@ -41,10 +41,10 @@ const options = {
 
 // 后台任务执行的函数
 const backgroundTask = async (taskData: any) => {
-  const { delay } = taskData;
+  const {delay} = taskData;
 
   // 避免被系统终止
-  await new Promise(async (resolve) => {
+  await new Promise(async resolve => {
     const updateTimer = () => {
       const now = Date.now();
 
@@ -58,7 +58,9 @@ const backgroundTask = async (taskData: any) => {
 
           // 只有当计时器值实际变化时才更新
           if (newValue !== timer.value) {
-            console.log(`后台更新设备 ${deviceId} 计时器: ${timer.value} -> ${newValue}`);
+            console.log(
+              `后台更新设备 ${deviceId} 计时器: ${timer.value} -> ${newValue}`,
+            );
             timer.value = newValue;
 
             // 如果计时完成，停止该计时器
@@ -88,12 +90,19 @@ class BackgroundTimerService {
    * 启动后台服务
    */
   static async startBackgroundService() {
-    if (BackgroundService.isRunning()) {
-      console.log('后台服务已在运行中');
-      return true;
-    }
-
     try {
+      // 检查服务是否可用
+      if (!isBackgroundServiceAvailable()) {
+        console.log('后台服务不可用，可能是模块未正确加载');
+        return false;
+      }
+
+      // 检查服务是否已在运行
+      if (BackgroundService.isRunning()) {
+        console.log('后台服务已在运行中');
+        return true;
+      }
+
       await BackgroundService.start(backgroundTask, options);
       console.log('后台服务启动成功');
       return true;
@@ -108,22 +117,14 @@ class BackgroundTimerService {
    */
   static async stopBackgroundService() {
     try {
-      // 先检查服务是否正在运行
-      const isRunning = await this.isRunning();
-      if (!isRunning) {
-        console.log('后台服务未运行，无需停止');
+      if (!isBackgroundServiceAvailable() || !BackgroundService.isRunning()) {
+        console.log('后台服务未运行或不可用');
         return true;
       }
 
-      // 确保 BackgroundService 对象可用
-      if (BackgroundService && typeof BackgroundService.stop === 'function') {
-        await BackgroundService.stop();
-        console.log('后台服务已停止');
-        return true;
-      } else {
-        console.warn('BackgroundService 对象不可用，无法停止服务');
-        return false;
-      }
+      await BackgroundService.stop();
+      console.log('后台服务已停止');
+      return true;
     } catch (error) {
       console.error('停止后台服务失败:', error);
       return false;
@@ -199,7 +200,10 @@ class BackgroundTimerService {
    */
   static async isRunning() {
     try {
-      if (BackgroundService && typeof BackgroundService.isRunning === 'function') {
+      if (
+        BackgroundService &&
+        typeof BackgroundService.isRunning === 'function'
+      ) {
         return await BackgroundService.isRunning();
       }
       return false;

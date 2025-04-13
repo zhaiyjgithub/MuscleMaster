@@ -15,6 +15,7 @@ import {
   View,
   AppState,
   Platform,
+  DeviceEventEmitter,
 } from 'react-native';
 import {Subscription} from 'react-native-ble-plx';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
@@ -32,6 +33,7 @@ import ModeListActionSheet, {
 import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
 import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
 import {BLEManager} from '../services/BLEManager';
+import {BluetoothBackgroundService} from '../services/BluetoothBackgroundService.ts';
 import {
   BLE_UUID,
   BLECommands,
@@ -41,7 +43,6 @@ import {
 } from '../services/protocol';
 import {cn} from '../lib/utils';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
-import {BluetoothBackgroundService} from '../services/BluetoothBackgroundService';
 import Loading from './view/loading';
 
 const MAX_INTENSITY = 10;
@@ -122,6 +123,8 @@ const DevicePanelController: NavigationFunctionComponent<
   const connectionMonitorsActive = useRef<Record<string, boolean>>({});
   const timerCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const forceToStartRef = useRef(false);
+
   // Add loading state variables
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const initialLoadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,11 +181,12 @@ const DevicePanelController: NavigationFunctionComponent<
 
       // 检查运行状态 - 避免重复启动
       const isAlreadyRunning = deviceTimerRunning[deviceId] || false;
-      if (isAlreadyRunning) {
+      if (isAlreadyRunning && !forceToStartRef.current) {
         console.log(`设备 ${deviceId} 计时器已经在运行中，避免重复启动`);
         return;
       }
 
+      forceToStartRef.current = false;
       // 设置运行状态
       setDeviceTimerRunningState(deviceId, true);
 
@@ -493,105 +497,106 @@ const DevicePanelController: NavigationFunctionComponent<
                 }
               } else if (subCommand === CommandType.GET_WORK_TIME) {
                 // 设置设备工作时间 返回工作时间：5A 02 01 09 03 03 00 14 80
-                // if (data.length >= 3) {
-                //   const highByte = data[1];
-                //   const lowByte = data[2];
-                //   const workTime = (highByte << 8) | lowByte;
-                //
-                //   // Mark work time as received
-                //   receivedParamsRef.current.workTime = true;
-                //   checkAllParamsReceived();
-                //
-                //   // reply work time
-                //   BLEManager.writeCharacteristic(
-                //     deviceId,
-                //     BLE_UUID.SERVICE,
-                //     BLE_UUID.CHARACTERISTIC_READ,
-                //     BLECommands.replyWorkTime(workTime),
-                //   )
-                //     .then(() => {
-                //       console.log('Successfully reply work time');
-                //     })
-                //     .catch(error => {
-                //       console.error('Error reply work time:', error);
-                //     });
-                //
-                //   console.log('设备发送的倒计时时间：', workTime);
-                //
-                //   // 更新设备计时器值
-                //   setDeviceTimerValue(deviceId, workTime);
-                //
-                //   // 同时更新备用存储
-                //   if (workTime > 0) {
-                //     deviceTimerBackupRef.current[deviceId] = workTime;
-                //     console.log(
-                //       `已保存设备 ${deviceId} 的倒计时值 ${workTime} 到备用存储`,
-                //     );
-                //
-                //     // 检查计时器是否在运行
-                //     const isRunning = deviceTimerRunning[deviceId] || false;
-                //     const hasActiveInterval =
-                //       !!deviceTimerIntervalsRef.current[deviceId];
-                //
-                //     if (workTime > 0) {
-                //       // 记录原始的运行状态，避免 UI 闪烁
-                //       const wasRunning = isRunning;
-                //
-                //       // 如果有活动的计时器，停止它，但不改变运行状态
-                //       if (hasActiveInterval) {
-                //         console.log(
-                //           `设备 ${deviceId} 接收到新的倒计时时间，重新启动计时器`,
-                //         );
-                //         const interval =
-                //           deviceTimerIntervalsRef.current[deviceId];
-                //         if (interval) {
-                //           clearInterval(interval);
-                //           deviceTimerIntervalsRef.current[deviceId] = null;
-                //         }
-                //         // 不在这里设置运行状态为 false
-                //       } else {
-                //         console.log(
-                //           `设备 ${deviceId} 接收到新的倒计时时间，启动新计时器`,
-                //         );
-                //       }
-                //
-                //       // 启动新的计时器，保持原来的运行状态
-                //       if (selectedDevice && selectedDevice.id === deviceId) {
-                //         // 如果计时器之前在运行，则保持运行状态
-                //         if (wasRunning) {
-                //           startTimer(deviceId, workTime);
-                //         } else {
-                //           // 只更新值，不启动计时器
-                //           setDeviceTimerValue(deviceId, workTime);
-                //         }
-                //       } else {
-                //         // 对于非选中设备，按照原来状态处理
-                //         if (wasRunning) {
-                //           startTimerWithValue(deviceId, workTime);
-                //         } else {
-                //           // 只更新计时器值，不启动
-                //           setDeviceTimerValue(deviceId, workTime);
-                //         }
-                //       }
-                //
-                //       // 设置计时器保护期
-                //       timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
-                //     } else {
-                //       // 如果工作时间为 0 且计时器在运行，停止计时器
-                //       if (isRunning && hasActiveInterval) {
-                //         console.log(
-                //           `设备 ${deviceId} 接收到 0 倒计时，停止计时器`,
-                //         );
-                //         const interval =
-                //           deviceTimerIntervalsRef.current[deviceId];
-                //         if (interval) {
-                //           clearInterval(interval);
-                //           deviceTimerIntervalsRef.current[deviceId] = null;
-                //         }
-                //         setDeviceTimerRunningState(deviceId, false);
-                //       }
-                //     }
-                //   }
+                if (data.length >= 3) {
+                  const highByte = data[1];
+                  const lowByte = data[2];
+                  const workTime = (highByte << 8) | lowByte;
+
+                  // Mark work time as received
+                  receivedParamsRef.current.workTime = true;
+                  checkAllParamsReceived();
+
+                  // reply work time
+                  BLEManager.writeCharacteristic(
+                    deviceId,
+                    BLE_UUID.SERVICE,
+                    BLE_UUID.CHARACTERISTIC_READ,
+                    BLECommands.replyWorkTime(workTime),
+                  )
+                    .then(() => {
+                      console.log('Successfully reply work time');
+                    })
+                    .catch(error => {
+                      console.error('Error reply work time:', error);
+                    });
+
+                  console.log('设备发送的倒计时时间：', workTime);
+
+                  // 更新设备计时器值
+                  setDeviceTimerValue(deviceId, workTime);
+
+                  // 同时更新备用存储
+                  if (workTime > 0) {
+                    deviceTimerBackupRef.current[deviceId] = workTime;
+                    console.log(
+                      `已保存设备 ${deviceId} 的倒计时值 ${workTime} 到备用存储`,
+                    );
+
+                    // 检查计时器是否在运行
+                    const isRunning = deviceTimerRunning[deviceId] || false;
+                    const hasActiveInterval =
+                      !!deviceTimerIntervalsRef.current[deviceId];
+
+                    if (workTime > 0) {
+                      // 记录原始的运行状态，避免 UI 闪烁
+                      const wasRunning = isRunning;
+
+                      // 如果有活动的计时器，停止它，但不改变运行状态
+                      if (hasActiveInterval) {
+                        console.log(
+                          `设备 ${deviceId} 接收到新的倒计时时间，重新启动计时器`,
+                        );
+                        const interval =
+                          deviceTimerIntervalsRef.current[deviceId];
+                        if (interval) {
+                          clearInterval(interval);
+                          deviceTimerIntervalsRef.current[deviceId] = null;
+                        }
+                        // 不在这里设置运行状态为 false
+                      } else {
+                        console.log(
+                          `设备 ${deviceId} 接收到新的倒计时时间，启动新计时器`,
+                        );
+                      }
+
+                      // 启动新的计时器，保持原来的运行状态
+                      if (selectedDevice && selectedDevice.id === deviceId) {
+                        // 如果计时器之前在运行，则保持运行状态
+                        if (wasRunning) {
+                          startTimer(deviceId, workTime);
+                        } else {
+                          // 只更新值，不启动计时器
+                          setDeviceTimerValue(deviceId, workTime);
+                        }
+                      } else {
+                        // 对于非选中设备，按照原来状态处理
+                        if (wasRunning) {
+                          startTimerWithValue(deviceId, workTime);
+                        } else {
+                          // 只更新计时器值，不启动
+                          setDeviceTimerValue(deviceId, workTime);
+                        }
+                      }
+
+                      // 设置计时器保护期
+                      timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
+                    } else {
+                      // 如果工作时间为 0 且计时器在运行，停止计时器
+                      if (isRunning && hasActiveInterval) {
+                        console.log(
+                          `设备 ${deviceId} 接收到 0 倒计时，停止计时器`,
+                        );
+                        const interval =
+                          deviceTimerIntervalsRef.current[deviceId];
+                        if (interval) {
+                          clearInterval(interval);
+                          deviceTimerIntervalsRef.current[deviceId] = null;
+                        }
+                        setDeviceTimerRunningState(deviceId, false);
+                      }
+                    }
+                  }
+                }
               } else if (subCommand === CommandType.DEVICE_STATUS) {
                 if (data.length >= 3) {
                   const channel = data[1];
@@ -761,7 +766,7 @@ const DevicePanelController: NavigationFunctionComponent<
                         } else {
                           // 检查是否存在最新的计时器值 (直接查询 deviceTimerValues 而不是依赖缓存值)
                           console.log(
-                            '设备启动命令检测：deviceTimerValues 完整内容:',
+                            '设备启动命令检测：deviceTimerValues 完整内容：',
                             JSON.stringify(deviceTimerValues),
                           );
                           const latestTimerValue = deviceTimerValues[deviceId];
@@ -1167,6 +1172,10 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
       setDeviceTimerRunningState(deviceId, false);
+      setDeviceTimerRunning(prev => ({
+        ...prev,
+        [deviceId]: false,
+      }));
     },
     [deviceTimerValues, getDeviceTimerValue, setDeviceTimerRunningState],
   );
@@ -1185,13 +1194,6 @@ const DevicePanelController: NavigationFunctionComponent<
       // 如果计时器正在运行，暂停它
       console.log(`UI 触发暂停命令，当前运行状态：${isRunning}`);
       pauseTimer(deviceId);
-
-      // 如果是 Android 平台，同时停止原生层的计时器
-      if (Platform.OS === 'android') {
-        // 先同步计时器值，确保原生层知道最新状态
-        const currentValue = deviceTimerValues[deviceId] || 0;
-        BluetoothBackgroundService.syncTimerValue(deviceId, currentValue);
-      }
 
       BLEManager.writeCharacteristic(
         deviceId,
@@ -1231,23 +1233,6 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
 
-      // 如果计时器值仍为 0，检查 Android 原生层
-      if (timerValueToUse <= 0 && Platform.OS === 'android') {
-        try {
-          const nativeValue =
-            await BluetoothBackgroundService.getCurrentTimerValue(deviceId);
-          if (nativeValue > 0) {
-            console.log(
-              `toggleTimer: 使用 Android 原生层的计时器值 ${nativeValue}`,
-            );
-            timerValueToUse = nativeValue;
-            setDeviceTimerValue(deviceId, nativeValue);
-          }
-        } catch (error) {
-          console.error('获取原生计时器值出错：', error);
-        }
-      }
-
       // 检查是否有可用的计时器值
       if (timerValueToUse <= 0) {
         console.log('无法启动计时器，找不到有效的计时器值');
@@ -1258,11 +1243,6 @@ const DevicePanelController: NavigationFunctionComponent<
 
       console.log(`toggleTimer: 启动计时器，值=${timerValueToUse}`);
       startTimer(deviceId, timerValueToUse);
-
-      // 如果是 Android，同步到原生层
-      if (Platform.OS === 'android') {
-        BluetoothBackgroundService.syncTimerValue(deviceId, timerValueToUse);
-      }
 
       // 设置计时器保护期，3 秒内不会被 CANCEL 命令取消
       timerProtectionRef.current[deviceId] = Date.now() + 3000; // 3 秒保护期
@@ -1373,6 +1353,9 @@ const DevicePanelController: NavigationFunctionComponent<
     };
 
     timerCheckIntervalRef.current = setInterval(checkAllDeviceTimers, 5000);
+
+    console.log('BluetoothBackgroundService startService');
+    await BluetoothBackgroundService.startService(true);
   });
 
   useEffect(() => {
@@ -1384,7 +1367,7 @@ const DevicePanelController: NavigationFunctionComponent<
         clearTimeout(initialLoadingTimeoutRef.current);
         initialLoadingTimeoutRef.current = null;
       }
-  
+
       // 清理所有订阅
       Object.entries(subscriptionsRef.current).forEach(
         ([key, subscription]) => {
@@ -1394,11 +1377,11 @@ const DevicePanelController: NavigationFunctionComponent<
           }
         },
       );
-  
+
       // 清空所有订阅和监控状态
       subscriptionsRef.current = {};
       connectionMonitorsActive.current = {};
-  
+
       // 清除所有计时器
       Object.entries(deviceTimerIntervalsRef.current).forEach(
         ([deviceId, interval]) => {
@@ -1409,14 +1392,26 @@ const DevicePanelController: NavigationFunctionComponent<
         },
       );
       deviceTimerIntervalsRef.current = {};
-  
-      console.log('DevicePanelController 清理：保持设备连接，仅清理监控和计时器');
+
+      console.log(
+        'DevicePanelController 清理：保持设备连接，仅清理监控和计时器',
+      );
+      if (timerCheckIntervalRef.current) {
+        clearInterval(timerCheckIntervalRef.current);
+        timerCheckIntervalRef.current = null;
+      }
+
+      BluetoothBackgroundService.stopService().then(() => {
+        console.log('BluetoothBackgroundService stopService success');
+      });
+
+      // 清理 timerCheckIntervalRef
       if (timerCheckIntervalRef.current) {
         clearInterval(timerCheckIntervalRef.current);
         timerCheckIntervalRef.current = null;
       }
     };
-  }, []);  // 移除依赖项，避免频繁重置清理函数
+  }, []); // 移除依赖项，避免频繁重置清理函数
 
   useNavigationComponentDidDisappear(async () => {
     console.log('####useNavigationComponentDidDisappear');
@@ -2278,6 +2273,57 @@ const DevicePanelController: NavigationFunctionComponent<
     ],
   );
 
+  useEffect(() => {
+    // Create listeners for the events
+    const timerCompleteListener = DeviceEventEmitter.addListener(
+      'onTimerComplete',
+      (event) => {
+        // Handle timer complete event
+        const { deviceId, timerValue, timerCompleted } = event;
+        console.log(`Timer completed for device ${deviceId}`);
+        // Do something with the data
+         // 如果原生层的计时器值为 0，则取消 JS 层的计时器
+         const existingInterval =
+         deviceTimerIntervalsRef.current[deviceId];
+       if (existingInterval) {
+         clearInterval(existingInterval);
+         deviceTimerIntervalsRef.current[deviceId] = null;
+       }
+       setDeviceTimerValue(deviceId, 0);
+       setDeviceTimerRunningState(deviceId, false);
+       // 充值定时器
+       resetTimer();
+      }
+    );
+    
+    const timerTickListener = DeviceEventEmitter.addListener(
+      'onTimerTick',
+      (event) => {
+        // Handle timer tick event
+        const { deviceId, timerValue } = event;
+        console.log(`Timer tick for device ${deviceId}: ${timerValue}`);
+        // Update UI with new timer value
+      }
+    );
+    
+    const deviceConnectionListener = DeviceEventEmitter.addListener(
+      'onBluetoothDeviceConnectionChange',
+      (event) => {
+        // Handle device connection change
+        const { deviceId, connected } = event;
+        console.log(`Device ${deviceId} connection changed: ${connected}`);
+        // Update device connection status in UI
+      }
+    );
+  
+    // Clean up listeners when component unmounts
+    return () => {
+      timerCompleteListener.remove();
+      timerTickListener.remove();
+      deviceConnectionListener.remove();
+    };
+  }, []);
+
   // Add AppState listener to disconnect devices when app is locked or backgrounded
   useEffect(() => {
     const appStateListener = AppState.addEventListener(
@@ -2301,7 +2347,23 @@ const DevicePanelController: NavigationFunctionComponent<
               deviceConnectionStates,
             ).filter(([_, isConnected]) => isConnected)) {
               try {
+                // 检测当前定时器是否在运行
+                const isRunning = deviceTimerRunning[deviceId] || false;
+                if (!isRunning) {
+                  console.log(`设备 ${deviceId} 的 JS 计时器未运行`);
+                  continue;
+                }
+
+                const isBackgroundTimerRunning =
+                  await BluetoothBackgroundService.isTimerRunning(deviceId);
+                if (!isBackgroundTimerRunning) {
+                  console.log(`设备 ${deviceId} 的原生计时器未运行`);
+                  continue;
+                }
+
                 // 检查原生层的计时器值
+                // 调用原生模块中的 stopTimer 方法取消特定设备的 Job
+                await BluetoothBackgroundService.stopBackgroundTimer(deviceId);
                 const nativeTimerValue =
                   await BluetoothBackgroundService.getCurrentTimerValue(
                     deviceId,
@@ -2315,35 +2377,36 @@ const DevicePanelController: NavigationFunctionComponent<
                   const isRunning = deviceTimerRunning[deviceId] || false;
                   const jsTimerValue = deviceTimerValues[deviceId] || 0;
 
-                  // 如果 JS 层计时器在运行，但值与原生层差异较大，则同步
-                  if (
-                    isRunning &&
-                    Math.abs(jsTimerValue - nativeTimerValue) > 3
-                  ) {
+                  // 如果 JS 层计时器在运行，直接使用原生的定时器的值
+                  if (isRunning) {
                     console.log(
-                      `JS 层计时器值 ${jsTimerValue} 与原生层 ${nativeTimerValue} 差异较大，同步`,
+                      `JS 层计时器值 ${jsTimerValue} 与原生层 ${nativeTimerValue} 正在运行, 继续运行`,
                     );
 
-                    // 停止现有 JS 计时器
-                    const existingInterval =
-                      deviceTimerIntervalsRef.current[deviceId];
-                    if (existingInterval) {
-                      clearInterval(existingInterval);
-                      deviceTimerIntervalsRef.current[deviceId] = null;
-                    }
-
                     // 更新值并重启计时器
+                    forceToStartRef.current = true;
                     setDeviceTimerValue(deviceId, nativeTimerValue);
-                    startTimerWithValue(deviceId, nativeTimerValue);
-                  }
-                  // 如果 JS 层计时器未运行，但原生层有值，则启动 JS 计时器
-                  else if (!isRunning && nativeTimerValue > 0) {
+                  } else if (!isRunning && nativeTimerValue > 0) {
+                    // 如果 JS 层计时器未运行，但原生层有值，则启动 JS 计时器
                     console.log(
                       `原生层计时器在运行 (${nativeTimerValue}秒)，但 JS 层未运行，启动 JS 计时器`,
                     );
-                    setDeviceTimerValue(deviceId, nativeTimerValue);
-                    startTimerWithValue(deviceId, nativeTimerValue);
+                    // setDeviceTimerValue(deviceId, nativeTimerValue);
+                    // startTimerWithValue(deviceId, nativeTimerValue);
                   }
+                } else {
+                  console.log(
+                    `设备 ${deviceId} 的原生计时器值为 0，可能是设备已断开连接浊者倒计时已经结束了.`,
+                  );
+                  // 如果原生层的计时器值为 0，则取消 JS 层的计时器
+                  const existingInterval =
+                    deviceTimerIntervalsRef.current[deviceId];
+                  if (existingInterval) {
+                    clearInterval(existingInterval);
+                    deviceTimerIntervalsRef.current[deviceId] = null;
+                  }
+                  setDeviceTimerValue(deviceId, 0);
+                  setDeviceTimerRunningState(deviceId, false);
                 }
               } catch (error) {
                 console.error(`同步设备 ${deviceId} 计时器状态时出错:`, error);
@@ -2363,9 +2426,8 @@ const DevicePanelController: NavigationFunctionComponent<
 
           if (hasConnectedDevices && Platform.OS === 'android') {
             console.log('有已连接设备，启动后台服务');
-            await BluetoothBackgroundService.startService(true);
-            await BluetoothBackgroundService.updateConnectionState(true);
 
+            // start background timer service
             // 遍历所有运行中的计时器，将值同步到原生层并启动原生计时器
             for (const [deviceId, isRunning] of Object.entries(
               deviceTimerRunning,
@@ -2383,42 +2445,24 @@ const DevicePanelController: NavigationFunctionComponent<
                     timerValue,
                   );
 
-                  // 验证同步是否成功
-                  const verifiedValue =
-                    await BluetoothBackgroundService.getCurrentTimerValue(
-                      deviceId,
-                    );
-                  console.log(
-                    `进入后台前确认：设备 ${deviceId} 原生层计时值 = ${verifiedValue}, 期望值 = ${timerValue}`,
-                  );
-
-                  // 如果同步不成功，再尝试一次
-                  if (verifiedValue !== timerValue) {
-                    console.warn('同步未成功，重试...');
-                    await BluetoothBackgroundService.syncTimerValue(
-                      deviceId,
-                      timerValue,
-                    );
-                    // 再次验证
-                    const reVerifiedValue =
-                      await BluetoothBackgroundService.getCurrentTimerValue(
-                        deviceId,
-                      );
-                    console.log(
-                      `重试后验证：原生层计时值 = ${reVerifiedValue}`,
-                    );
-                  }
-
-                  // 启动原生层的计时器，传递当前计时器值
+                  console.log('Update background timer service');
                   await BluetoothBackgroundService.startBackgroundTimer(
                     deviceId,
                     timerValue,
                   );
 
-                  console.log(
-                    `已启动设备 ${deviceId} 的原生计时器，值 ${timerValue}`,
-                  );
+                  //清除 JS 计时器
+                  const existingInterval =
+                    deviceTimerIntervalsRef.current[deviceId];
+                  if (existingInterval) {
+                    clearInterval(existingInterval);
+                    deviceTimerIntervalsRef.current[deviceId] = null;
+                  }
                 }
+              } else {
+                console.log(
+                  `设备 ${deviceId} 的 JS 计时器未运行。不做任何操作`,
+                );
               }
             }
           }

@@ -7,7 +7,6 @@ import {
   Subscription,
 } from 'react-native-ble-plx';
 import {PermissionsAndroid, Platform} from 'react-native';
-import {BluetoothBackgroundService} from './BluetoothBackgroundService';
 
 type ConnectionListener = (
   device: Device,
@@ -39,23 +38,11 @@ class BLEManagerClass {
             // Notify listeners about restored connections
             this.notifyConnectionChange(device, true);
           });
-
-          // 添加此代码: 启动Android后台服务（如果有恢复的连接）
-          if (restoredState.connectedPeripherals.length > 0) {
-            BluetoothBackgroundService.startService(true);
-          }
         }
       },
     });
 
     this.setupBleListener();
-  }
-
-  private updateBackgroundServiceState(): void {
-    if (Platform.OS === 'android') {
-      const hasConnections = this.connectedDevices.size > 0;
-      BluetoothBackgroundService.updateConnectionState(hasConnections);
-    }
   }
 
   // 设置蓝牙状态监听
@@ -247,13 +234,6 @@ class BLEManagerClass {
 
       // 添加到已连接设备列表
       this.connectedDevices.set(deviceId, device);
-
-      // 添加此代码: 启动Android后台服务
-      if (Platform.OS === 'android') {
-        BluetoothBackgroundService.startService(true);
-        console.log('Started background service');
-      }
-
       // 通知连接成功
       this.notifyConnectionChange(device, true);
 
@@ -267,9 +247,6 @@ class BLEManagerClass {
 
         // 从已连接设备列表中移除
         this.connectedDevices.delete(disconnectedDevice.id);
-
-        // 添加此代码: 更新Android后台服务状态
-        this.updateBackgroundServiceState();
 
         // 通知断开连接
         this.notifyConnectionChange(disconnectedDevice, false, error);
@@ -294,9 +271,6 @@ class BLEManagerClass {
 
       // 从已连接设备列表中移除
       this.connectedDevices.delete(deviceId);
-
-      // 添加此代码: 更新Android后台服务状态
-      this.updateBackgroundServiceState();
 
       // 通知断开连接
       this.notifyConnectionChange(device, false);
