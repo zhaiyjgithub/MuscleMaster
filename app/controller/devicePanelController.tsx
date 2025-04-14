@@ -840,39 +840,39 @@ const DevicePanelController: NavigationFunctionComponent<
                     console.error('Error reply climb time:', error);
                   });
               } else if (subCommand === CommandType.SET_STOP_TIME) {
-                // const stopTime = data[1];
-                // setDeviceStopTime(deviceId, stopTime);
-                //
-                // // 回复设备
-                // BLEManager.writeCharacteristic(
-                //   deviceId,
-                //   BLE_UUID.SERVICE,
-                //   BLE_UUID.CHARACTERISTIC_READ,
-                //   BLECommands.replyStopTime(stopTime),
-                // )
-                //   .then(() => {
-                //     console.log('Successfully reply stop time');
-                //   })
-                //   .catch(error => {
-                //     console.error('Error reply stop time:', error);
-                //   });
+                const stopTime = data[1];
+                setDeviceStopTime(deviceId, stopTime);
+
+                // 回复设备
+                BLEManager.writeCharacteristic(
+                  deviceId,
+                  BLE_UUID.SERVICE,
+                  BLE_UUID.CHARACTERISTIC_READ,
+                  BLECommands.replyStopTime(stopTime),
+                )
+                  .then(() => {
+                    console.log('Successfully reply stop time');
+                  })
+                  .catch(error => {
+                    console.error('Error reply stop time:', error);
+                  });
               } else if (subCommand === CommandType.SET_PEEK_TIME) {
-                // const peakTime = data[1];
-                // setDeviceRunTime(deviceId, peakTime);
-                //
-                // // 回复设备
-                // BLEManager.writeCharacteristic(
-                //   deviceId,
-                //   BLE_UUID.SERVICE,
-                //   BLE_UUID.CHARACTERISTIC_READ,
-                //   BLECommands.replyPeakTime(peakTime),
-                // )
-                //   .then(() => {
-                //     console.log('Successfully reply peak time');
-                //   })
-                //   .catch(error => {
-                //     console.error('Error reply peak time:', error);
-                //   });
+                const peakTime = data[1];
+                setDeviceRunTime(deviceId, peakTime);
+
+                // 回复设备
+                BLEManager.writeCharacteristic(
+                  deviceId,
+                  BLE_UUID.SERVICE,
+                  BLE_UUID.CHARACTERISTIC_READ,
+                  BLECommands.replyPeakTime(peakTime),
+                )
+                  .then(() => {
+                    console.log('Successfully reply peak time');
+                  })
+                  .catch(error => {
+                    console.error('Error reply peak time:', error);
+                  });
               }
             }
           }
@@ -2277,45 +2277,57 @@ const DevicePanelController: NavigationFunctionComponent<
     // Create listeners for the events
     const timerCompleteListener = DeviceEventEmitter.addListener(
       'onTimerComplete',
-      (event) => {
+      event => {
         // Handle timer complete event
-        const { deviceId, timerValue, timerCompleted } = event;
+        const {deviceId, timerValue, timerCompleted} = event;
         console.log(`Timer completed for device ${deviceId}`);
         // Do something with the data
-         // 如果原生层的计时器值为 0，则取消 JS 层的计时器
-         const existingInterval =
-         deviceTimerIntervalsRef.current[deviceId];
-       if (existingInterval) {
-         clearInterval(existingInterval);
-         deviceTimerIntervalsRef.current[deviceId] = null;
-       }
-       setDeviceTimerValue(deviceId, 0);
-       setDeviceTimerRunningState(deviceId, false);
-       // 充值定时器
-       resetTimer();
-      }
+        // 如果原生层的计时器值为 0，则取消 JS 层的计时器
+        const existingInterval = deviceTimerIntervalsRef.current[deviceId];
+        if (existingInterval) {
+          clearInterval(existingInterval);
+          deviceTimerIntervalsRef.current[deviceId] = null;
+        }
+        setDeviceTimerValue(deviceId, 0);
+        setDeviceTimerRunningState(deviceId, false);
+
+        //
+        // 停止设备
+        BLEManager.writeCharacteristic(
+          deviceId,
+          BLE_UUID.SERVICE,
+          BLE_UUID.CHARACTERISTIC_WRITE,
+          BLECommands.stopTherapy(),
+        )
+          .then(() => {
+            console.log('Successfully stop device');
+          })
+          .catch(error => {
+            console.error('Error stop device:', error);
+          });
+      },
     );
-    
+
     const timerTickListener = DeviceEventEmitter.addListener(
       'onTimerTick',
-      (event) => {
+      event => {
         // Handle timer tick event
-        const { deviceId, timerValue } = event;
+        const {deviceId, timerValue} = event;
         console.log(`Timer tick for device ${deviceId}: ${timerValue}`);
         // Update UI with new timer value
-      }
+      },
     );
-    
+
     const deviceConnectionListener = DeviceEventEmitter.addListener(
       'onBluetoothDeviceConnectionChange',
-      (event) => {
+      event => {
         // Handle device connection change
-        const { deviceId, connected } = event;
+        const {deviceId, connected} = event;
         console.log(`Device ${deviceId} connection changed: ${connected}`);
         // Update device connection status in UI
-      }
+      },
     );
-  
+
     // Clean up listeners when component unmounts
     return () => {
       timerCompleteListener.remove();
