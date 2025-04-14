@@ -285,7 +285,7 @@ const DevicePanelController: NavigationFunctionComponent<
             [deviceId]: newValue,
           };
         });
-      }, 1000);
+      }, 1200);
 
       // 存储新的计时器 interval (在 ref 中)
       deviceTimerIntervalsRef.current[deviceId] = interval;
