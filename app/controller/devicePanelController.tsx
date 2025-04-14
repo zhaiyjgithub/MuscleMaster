@@ -44,6 +44,7 @@ import {
 import {cn} from '../lib/utils';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 import Loading from './view/loading';
+import BackgroundTimerService from '../services/BackgroundTimerService.ts';
 
 const MAX_INTENSITY = 10;
 const MIN_INTENSITY = 1;
@@ -1396,10 +1397,6 @@ const DevicePanelController: NavigationFunctionComponent<
       console.log(
         'DevicePanelController 清理：保持设备连接，仅清理监控和计时器',
       );
-      if (timerCheckIntervalRef.current) {
-        clearInterval(timerCheckIntervalRef.current);
-        timerCheckIntervalRef.current = null;
-      }
 
       BluetoothBackgroundService.stopService().then(() => {
         console.log('BluetoothBackgroundService stopService success');
@@ -1410,6 +1407,17 @@ const DevicePanelController: NavigationFunctionComponent<
         clearInterval(timerCheckIntervalRef.current);
         timerCheckIntervalRef.current = null;
       }
+
+      // 清理所有计时器
+      Object.entries(deviceTimerIntervalsRef.current).forEach(
+        ([deviceId, interval]) => {
+          if (interval) {
+            clearInterval(interval);
+            deviceTimerIntervalsRef.current[deviceId] = null;
+            BluetoothBackgroundService.stopBackgroundTimer(deviceId);
+          }
+        },
+      );
     };
   }, []); // 移除依赖项，避免频繁重置清理函数
 
@@ -2280,7 +2288,14 @@ const DevicePanelController: NavigationFunctionComponent<
       event => {
         // Handle timer complete event
         const {deviceId, timerValue, timerCompleted} = event;
-        console.log(`Timer completed for device ${deviceId}`);
+        console.log(
+          `Timer completed for device ${deviceId}`,
+          timerValue,
+          timerCompleted,
+        );
+        if (timerValue !== 0) {
+          return;
+        }
         // Do something with the data
         // 如果原生层的计时器值为 0，则取消 JS 层的计时器
         const existingInterval = deviceTimerIntervalsRef.current[deviceId];
@@ -2305,6 +2320,19 @@ const DevicePanelController: NavigationFunctionComponent<
           .catch(error => {
             console.error('Error stop device:', error);
           });
+      },
+    );
+
+    const timerStopListener = DeviceEventEmitter.addListener(
+      'onTimerStop',
+      event => {
+        // Handle timer complete event
+        const {deviceId, timerValue, timerStop} = event;
+        console.log(
+          `Timer timerStop for device ${deviceId}`,
+          timerValue,
+          timerStop,
+        );
       },
     );
 
@@ -2333,6 +2361,7 @@ const DevicePanelController: NavigationFunctionComponent<
       timerCompleteListener.remove();
       timerTickListener.remove();
       deviceConnectionListener.remove();
+      timerStopListener.remove();
     };
   }, []);
 

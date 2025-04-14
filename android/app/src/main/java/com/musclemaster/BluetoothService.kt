@@ -330,11 +330,11 @@ class BluetoothService : Service() {
       reactContext?.let { context ->
         val params = Arguments.createMap().apply {
           putString("deviceId", deviceId)
-          putInt("timerValue", 0)
-          putBoolean("timerCompleted", true)
+          putInt("timerValue", deviceTimerValues[deviceId] ?: 0)
+          putBoolean("timerStop", true)
         }
-        sendEvent(context, "onTimerComplete", params)
-        Log.d(TAG, "发送 onTimerComplete 事件到 JS，设备 $deviceId")
+        sendEvent(context, "onTimerStop", params)
+        Log.d(TAG, "发送 onTimerStop 事件到 JS，设备 $deviceId")
       }
     } catch (e: Exception) {
       Log.e(TAG, "停止计时器时出错：${e.message}", e)
