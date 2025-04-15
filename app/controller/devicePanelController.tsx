@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Text,
@@ -17,23 +17,23 @@ import {
   Platform,
   DeviceEventEmitter,
 } from 'react-native';
-import {Subscription} from 'react-native-ble-plx';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {NavigationFunctionComponent} from 'react-native-navigation';
+import { Subscription } from 'react-native-ble-plx';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NavigationFunctionComponent } from 'react-native-navigation';
 import {
   useNavigationComponentDidAppear,
   useNavigationComponentDidDisappear,
 } from 'react-native-navigation-hooks';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useToast} from 'react-native-toast-notifications';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from 'react-native-toast-notifications';
 import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
 import ModeListActionSheet, {
   Modes,
 } from '../components/mode-list-action-sheet/modeListActionSheet';
-import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
-import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
-import {BLEManager} from '../services/BLEManager';
-import {BluetoothBackgroundService} from '../services/BluetoothBackgroundService.ts';
+import { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
+import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
+import { BLEManager } from '../services/BLEManager';
+import { BluetoothBackgroundService } from '../services/BluetoothBackgroundService.ts';
 import {
   BLE_UUID,
   BLECommands,
@@ -41,10 +41,9 @@ import {
   DeviceMode,
   parseResponse,
 } from '../services/protocol';
-import {cn} from '../lib/utils';
+import { cn } from '../lib/utils';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 import Loading from './view/loading';
-import BackgroundTimerService from '../services/BackgroundTimerService.ts';
 
 const MAX_INTENSITY = 10;
 const MIN_INTENSITY = 1;
@@ -54,7 +53,7 @@ export interface DevicePanelControllerProps {
 
 const DevicePanelController: NavigationFunctionComponent<
   DevicePanelControllerProps
-> = ({devices}) => {
+> = ({ devices }) => {
   // 全局 UI 显示状态
   const [selectedMode, setSelectedMode] = useState('Fitness');
   const [intensityLevel, setIntensityLevel] = useState(0);
@@ -91,7 +90,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Add AppState ref to track previous state
   const appStateRef = useRef(AppState.currentState);
-
+  []
   // 添加备用计时器值存储，避免状态更新时机问题
   const deviceTimerBackupRef = useRef<Record<string, number>>({});
 
@@ -105,7 +104,7 @@ const DevicePanelController: NavigationFunctionComponent<
   const [deviceStatus, setDeviceStatus] = useState<{
     deviceId: string;
     status: number;
-  }>({deviceId: '', status: 0});
+  }>({ deviceId: '', status: 0 });
 
   // 添加一个计时器保护期记录，刚启动的计时器不会被 CANCEL 命令立即取消
   const timerProtectionRef = useRef<Record<string, number>>({});
@@ -202,7 +201,7 @@ const DevicePanelController: NavigationFunctionComponent<
       console.log(`启动设备 ${deviceId} 的计时器，初始值: ${seconds} 秒`);
 
       // 记录上次更新时间，确保间隔约为1秒
-      const lastUpdateTimeRef = {current: Date.now()};
+      const lastUpdateTimeRef = { current: Date.now() };
 
       // 每秒减少一秒
       const interval = setInterval(() => {
@@ -354,7 +353,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Function to check if all required parameters are received
   const checkAllParamsReceived = useCallback(() => {
-    const {workTime, intensity, mode} = receivedParamsRef.current;
+    const { workTime, intensity, mode } = receivedParamsRef.current;
 
     if (workTime && intensity && mode) {
       console.log('All required device parameters received, hiding loading');
@@ -391,7 +390,7 @@ const DevicePanelController: NavigationFunctionComponent<
       deviceId,
       BLE_UUID.SERVICE,
       BLE_UUID.CHARACTERISTIC_WRITE,
-      (error, characteristic) => {
+      async (error, characteristic) => {
         if (error) {
           console.error(
             `Characteristic monitoring error for device ${deviceId}:`,
@@ -408,7 +407,7 @@ const DevicePanelController: NavigationFunctionComponent<
           if (parsedResponse.isValid) {
             // 判断命令类型
             console.log('Monitored characteristic value:', parsedResponse);
-            const {command, data} = parsedResponse;
+            const { command, data } = parsedResponse;
             if (command === CommandType.GET_VERSION) {
               // 设置设备版本信息
               if (data.length >= 2) {
@@ -641,6 +640,13 @@ const DevicePanelController: NavigationFunctionComponent<
                     } else {
                       console.log('收到CANCEL状态，取消倒计时');
 
+                      // 这里还要判断app是否处于前台还是后台的状态
+                      // 如果是前台, 继续下面的操作.
+                      // 如果是后台, 那么取消后台的原生倒计时
+                      // 如果app处于前台, 那么取消倒计时
+
+
+
                       // 注意：这里需要处理指定设备的计时器，而不是selectedDevice
                       // 如果当前设备就是selectedDevice，则可以直接使用resetTimerByDevice
                       if (selectedDevice && selectedDevice.id === deviceId) {
@@ -655,6 +661,15 @@ const DevicePanelController: NavigationFunctionComponent<
                         }
                         setDeviceTimerValue(deviceId, 0);
                         setDeviceTimerRunningState(deviceId, false);
+                      }
+                      // 收到设备的取消命令, 如果处于后台, 那么删除后台运行的定时器
+                      if (AppState.currentState !== 'active') {
+                        const isBackgroundTimerRunning =
+                          await BluetoothBackgroundService.isTimerRunning(deviceId);
+                        if (isBackgroundTimerRunning) {
+                          console.log(`设备 ${deviceId} 的原生计时器未运行`);
+                          await BluetoothBackgroundService.stopBackgroundTimer(deviceId);
+                        } 
                       }
                     }
                   } else {
@@ -784,8 +799,8 @@ const DevicePanelController: NavigationFunctionComponent<
                             backupValue && backupValue > 0
                               ? backupValue
                               : latestTimerValue && latestTimerValue > 0
-                              ? latestTimerValue
-                              : 0;
+                                ? latestTimerValue
+                                : 0;
 
                           if (finalValue > 0) {
                             console.log(
@@ -813,7 +828,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     }
                   }
                   // 更新设备状态 (仅用于记录)
-                  setDeviceStatus({deviceId, status});
+                  setDeviceStatus({ deviceId, status });
                 }
               } else if (subCommand === CommandType.SET_CLIMBING_TIME) {
                 const climbingTime = data[1];
@@ -1614,7 +1629,7 @@ const DevicePanelController: NavigationFunctionComponent<
               borderRadius: 4,
               backgroundColor: statusColor,
               marginRight: 6,
-              transform: [{scale: pulseAnim}],
+              transform: [{ scale: pulseAnim }],
             }}
           />
           <Text className="text-yellow-500 text-xs">Connecting...</Text>
@@ -1634,9 +1649,8 @@ const DevicePanelController: NavigationFunctionComponent<
           }}
         />
         <Text
-          className={`text-xs ${
-            isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
-          }`}>
+          className={`text-xs ${isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
+            }`}>
           {isCurrentDeviceConnected ? 'Connected' : 'Disconnected'}
         </Text>
       </View>
@@ -1712,8 +1726,7 @@ const DevicePanelController: NavigationFunctionComponent<
         const isConnected = getDeviceConnectionStatus(selectedDevice.id);
         if (!isConnected) {
           toast.show(
-            `${
-              selectedDevice.name || 'Device'
+            `${selectedDevice.name || 'Device'
             } is not connected, please connect it first`,
             {
               type: 'warning',
@@ -1744,9 +1757,8 @@ const DevicePanelController: NavigationFunctionComponent<
       }}
       disabled={timerRunning}>
       <Text
-        className={`text-8xl ${
-          timerRunning ? 'text-orange-500' : 'text-gray-700'
-        } font-bold pt-4`}>
+        className={`text-8xl ${timerRunning ? 'text-orange-500' : 'text-gray-700'
+          } font-bold pt-4`}>
         {formatTime(timerValue)}
       </Text>
     </TouchableOpacity>
@@ -1911,13 +1923,12 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const $startAndPauseActivity = (
     <TouchableOpacity
-      className={`py-4 rounded-lg items-center justify-center ${
-        timerValue > 0
+      className={`py-4 rounded-lg items-center justify-center ${timerValue > 0
           ? timerRunning
             ? 'bg-orange-500'
             : 'bg-green-500'
           : 'bg-gray-400'
-      }`}
+        }`}
       onPress={toggleTimer}
       disabled={timerValue === 0}>
       <Text className="text-white font-semibold text-xl">
@@ -1928,15 +1939,13 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const $cancelActivity = (
     <TouchableOpacity
-      className={`items-center justify-center ${
-        timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
-      }`}
+      className={`items-center justify-center ${timerValue > 0 ? 'border-blue-500' : 'border-gray-300'
+        }`}
       onPress={resetTimer}
       disabled={timerValue === 0}>
       <Text
-        className={`font-semibold text-base ${
-          timerValue > 0 ? 'text-blue-500' : 'text-gray-500'
-        }`}>
+        className={`font-semibold text-base ${timerValue > 0 ? 'text-blue-500' : 'text-gray-500'
+          }`}>
         Cancel
       </Text>
     </TouchableOpacity>
@@ -2102,8 +2111,7 @@ const DevicePanelController: NavigationFunctionComponent<
             console.error(`设备 ${deviceId} 连接错误:`, error);
           } else {
             console.log(
-              `设备 ${device.name || deviceId} 连接状态变更为：${
-                isConnected ? '已连接' : '已断开'
+              `设备 ${device.name || deviceId} 连接状态变更为：${isConnected ? '已连接' : '已断开'
               }`,
             );
             if (!isConnected) {
@@ -2182,7 +2190,7 @@ const DevicePanelController: NavigationFunctionComponent<
         BLEManager.stopScan();
 
         // 连接设备
-        const {connectedDevice, err} = await BLEManager.connectToDevice(
+        const { connectedDevice, err } = await BLEManager.connectToDevice(
           device.id,
         );
         if (connectedDevice) {
@@ -2248,12 +2256,10 @@ const DevicePanelController: NavigationFunctionComponent<
           }
         }
       } catch (error) {
-        const msg = `Failed to ${
-          device.connected ? 'disconnect from' : 'connect to'
-        } ${device.name ?? 'Device'}`;
+        const msg = `Failed to ${device.connected ? 'disconnect from' : 'connect to'
+          } ${device.name ?? 'Device'}`;
         console.error(
-          `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${
-            device.name
+          `Failed to ${device.connected ? 'disconnect from' : 'connect to'} ${device.name
           }:`,
           error,
         );
@@ -2287,7 +2293,7 @@ const DevicePanelController: NavigationFunctionComponent<
       'onTimerComplete',
       event => {
         // Handle timer complete event
-        const {deviceId, timerValue, timerCompleted} = event;
+        const { deviceId, timerValue, timerCompleted } = event;
         console.log(
           `Timer completed for device ${deviceId}`,
           timerValue,
@@ -2327,7 +2333,7 @@ const DevicePanelController: NavigationFunctionComponent<
       'onTimerStop',
       event => {
         // Handle timer complete event
-        const {deviceId, timerValue, timerStop} = event;
+        const { deviceId, timerValue, timerStop } = event;
         console.log(
           `Timer timerStop for device ${deviceId}`,
           timerValue,
@@ -2340,7 +2346,7 @@ const DevicePanelController: NavigationFunctionComponent<
       'onTimerTick',
       event => {
         // Handle timer tick event
-        const {deviceId, timerValue} = event;
+        const { deviceId, timerValue } = event;
         console.log(`Timer tick for device ${deviceId}: ${timerValue}`);
         // Update UI with new timer value
       },
@@ -2350,7 +2356,7 @@ const DevicePanelController: NavigationFunctionComponent<
       'onBluetoothDeviceConnectionChange',
       event => {
         // Handle device connection change
-        const {deviceId, connected} = event;
+        const { deviceId, connected } = event;
         console.log(`Device ${deviceId} connection changed: ${connected}`);
         // Update device connection status in UI
       },
@@ -2526,7 +2532,7 @@ const DevicePanelController: NavigationFunctionComponent<
   ]);
 
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView className="flex-1 bg-[#f5f5f5]">
         <View className={'flex flex-1 flex-col justify-between p-4'}>
           {$deviceInfo}
