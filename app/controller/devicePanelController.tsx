@@ -1358,7 +1358,6 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     console.log('####useEffect');
     return () => {
-      console.log('####useEffect cleanup - 仅清理资源，保持设备连接');
       // Clear loading timeout
       if (initialLoadingTimeoutRef.current) {
         clearTimeout(initialLoadingTimeoutRef.current);
@@ -1379,12 +1378,18 @@ const DevicePanelController: NavigationFunctionComponent<
       subscriptionsRef.current = {};
       connectionMonitorsActive.current = {};
 
-      // 清除所有计时器
+      // 断开所有蓝牙连接
+      devices.forEach(device => {
+        BLEManager.disconnectDevice(device.id);
+      });
+
+      // 清除所有计时器 和断开所有蓝牙连接
       Object.entries(deviceTimerIntervalsRef.current).forEach(
           ([deviceId, interval]) => {
             if (interval) {
               console.log(`清理设备 ${deviceId} 的计时器`);
               clearInterval(interval);
+              deviceTimerIntervalsRef.current[deviceId] = null;
             }
           },
       );
@@ -1464,6 +1469,9 @@ const DevicePanelController: NavigationFunctionComponent<
   // Modify handleDeviceSelect to reset params and show loading
   const handleDeviceSelect = async (device: FoundDevice) => {
     console.log('Selected device:', device);
+
+    // hide device action sheet
+    deviceListActionSheetRef.current?.close();
 
     // Reset received params but don't show loading yet
     resetReceivedParams();
