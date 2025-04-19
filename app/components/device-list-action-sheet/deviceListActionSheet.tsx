@@ -12,14 +12,14 @@ import {Text, TouchableOpacity, View, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {cn} from '../../lib/utils';
 import {Smartphone} from 'lucide-react-native';
-import {FoundDevice} from '../scan-found-device/scanFoundDevice';
+import TimerDevice from '../../controller/model/timerDevice';
 
 export interface DeviceListActionSheetProps {
-  devices: FoundDevice[];
-  selectedDevice?: FoundDevice | null;
+  devices: TimerDevice[];
+  selectedDevice?: TimerDevice | null;
   deviceConnectionStates: Record<string, boolean>;
   deviceLoadingStates: Record<string, boolean>;
-  handleDeviceSelect: (device: FoundDevice) => void;
+  handleDeviceSelect: (device: TimerDevice) => void;
 }
 
 const DeviceListActionSheet = forwardRef<
