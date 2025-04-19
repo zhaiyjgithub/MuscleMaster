@@ -52,10 +52,6 @@ const DevicePanelController: NavigationFunctionComponent<
   // Add AppState ref to track previous state
   const appStateRef = useRef(AppState.currentState);
 
-  const [deviceConnectionStates, setDeviceConnectionStates] = useState<
-    Record<string, boolean>
-  >({});
-
   const modeListActionSheetRef = useRef<BottomSheet>(null);
   const deviceListActionSheetRef = useRef<BottomSheet>(null);
   const timePickerActionSheetRef = useRef<BottomSheet>(null);
@@ -131,16 +127,7 @@ const DevicePanelController: NavigationFunctionComponent<
     deviceLoadingStatesRef.current[deviceId] = isLoading;
   };
 
-  // 获取特定设备的连接状态
-  const getDeviceConnectionStatus = useCallback(
-    (deviceId: string): boolean => {
-      return deviceConnectionStates[deviceId] || false;
-    },
-    [deviceConnectionStates],
-  );
-
   const selectedDevice = timerDevices.find(device => device.selected);
-
   // 获取设备状态颜色
   const getDeviceStatusColor = () => {
     if (isConnecting) {
@@ -148,7 +135,7 @@ const DevicePanelController: NavigationFunctionComponent<
     } // 黄色，连接中
 
     // 检查当前选中设备的连接状态
-    if (selectedDevice && getDeviceConnectionStatus(selectedDevice.id)) {
+    if (selectedDevice && selectedDevice.connectionStatus === 'connected') {
       return '#10b981';
     } // 绿色，已连接
 
@@ -870,8 +857,6 @@ const DevicePanelController: NavigationFunctionComponent<
       ref={deviceListActionSheetRef}
       devices={timerDevices}
       selectedDevice={selectedDevice}
-      deviceConnectionStates={deviceConnectionStates}
-      deviceLoadingStates={deviceLoadingStatesRef.current}
       handleDeviceSelect={handleDeviceSelect}
     />
   );
@@ -887,10 +872,8 @@ const DevicePanelController: NavigationFunctionComponent<
   // 渲染设备状态指示器
   const renderDeviceStatusIndicator = () => {
     const statusColor = getDeviceStatusColor();
-    const isCurrentDeviceConnected = selectedDevice
-      ? getDeviceConnectionStatus(selectedDevice.id)
-      : false;
-
+    const isCurrentDeviceConnected =
+      selectedDevice?.connectionStatus === 'connected';
     if (isConnecting) {
       return (
         <View className="flex-row items-center">
@@ -1349,6 +1332,7 @@ const DevicePanelController: NavigationFunctionComponent<
       const updatedTimerDevices = timerDevices.map(d => {
         if (d.id === deviceId) {
           d.connectionStatus = 'disconnected';
+          d.timer && clearInterval(d.timer);
           d.timer = null;
           d.timerStatus = 'stopped';
           d.timerValue = 0;
@@ -1402,11 +1386,14 @@ const DevicePanelController: NavigationFunctionComponent<
               cleanupDeviceResources(deviceId, true); // 显示断开通知
             } else {
               // 更新连接状态
-              setDeviceConnectionStates(prev => ({
-                ...prev,
-                [device.id]: true,
-              }));
+              const updatedTimerDevices = timerDevices.map(d => {
+                if (d.id === deviceId) {
+                  d.connectionStatus = 'connected';
+                }
+                return d;
+              });
 
+              setTimerDevices(updatedTimerDevices);
               setIsConnecting(false);
 
               // 显示连接成功通知
@@ -1426,7 +1413,7 @@ const DevicePanelController: NavigationFunctionComponent<
       connectionMonitorsActive.current[`conn_${deviceId}`] = true;
       subscriptionsRef.current[`conn_${deviceId}`] = subscription;
     },
-    [cleanupDeviceResources, devices, toast],
+    [cleanupDeviceResources, devices, timerDevices, toast],
   );
 
   // 封装设备连接逻辑为可重用的函数
@@ -1580,6 +1567,20 @@ const DevicePanelController: NavigationFunctionComponent<
             'App returned to foreground, verifying device connections',
           );
 
+          // If already connected, show loading to sync parameters
+          setIsInitialLoading(true);
+
+          // Set timeout to hide loading after 5 seconds
+          if (initialLoadingTimeoutRef.current) {
+            clearTimeout(initialLoadingTimeoutRef.current);
+          }
+
+          initialLoadingTimeoutRef.current = setTimeout(() => {
+            console.log('Loading timeout reached (5s), hiding loading');
+            setIsInitialLoading(false);
+            initialLoadingTimeoutRef.current = null;
+          }, 5000);
+
           // 发送 get device info 指令，重新同步所有设备信息
           const td = timerDevices.find(d => d.selected);
           if (td) {
@@ -1608,6 +1609,7 @@ const DevicePanelController: NavigationFunctionComponent<
           console.log('App is going to background');
           // 停止所有计时器
           const updatedTimerDevices = timerDevices.map(d => {
+            d.timer && clearInterval(d.timer);
             d.timer = null;
             d.timerStatus = 'stopped';
             d.timerValue = 0;
@@ -1623,7 +1625,7 @@ const DevicePanelController: NavigationFunctionComponent<
     return () => {
       appStateListener.remove();
     };
-  }, [deviceConnectionStates, timerDevices]);
+  }, [timerDevices]);
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>

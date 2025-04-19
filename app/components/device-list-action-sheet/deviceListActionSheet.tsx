@@ -17,8 +17,6 @@ import TimerDevice from '../../controller/model/timerDevice';
 export interface DeviceListActionSheetProps {
   devices: TimerDevice[];
   selectedDevice?: TimerDevice | null;
-  deviceConnectionStates: Record<string, boolean>;
-  deviceLoadingStates: Record<string, boolean>;
   handleDeviceSelect: (device: TimerDevice) => void;
 }
 
@@ -26,13 +24,8 @@ const DeviceListActionSheet = forwardRef<
   BottomSheet,
   DeviceListActionSheetProps
 >((props, ref) => {
-  const {
-    devices,
-    selectedDevice,
-    deviceConnectionStates,
-    deviceLoadingStates,
-    handleDeviceSelect,
-  } = props;
+  const {devices, selectedDevice, handleDeviceSelect} =
+    props;
   const bottomSheetRef = useRef<BottomSheet>(null);
   useImperativeHandle(ref, () => bottomSheetRef.current!);
 
@@ -55,9 +48,9 @@ const DeviceListActionSheet = forwardRef<
   const $deviceList = (
     <View className="mb-5">
       {devices?.map(device => {
-        const isLoading = deviceLoadingStates[device.id] || false;
+        const isLoading = device.connectionStatus === 'connecting';
         const isCurrentDevice = selectedDevice?.id === device.id;
-        const isDeviceConnected = deviceConnectionStates[device.id] || false;
+        const isDeviceConnected = device.connectionStatus === 'connected';
 
         return (
           <TouchableOpacity
@@ -69,8 +62,8 @@ const DeviceListActionSheet = forwardRef<
                 : 'bg-gray-100',
             )}
             onPress={() => {
-                bottomSheetRef.current?.close()
-                handleDeviceSelect(device)
+              bottomSheetRef.current?.close();
+              handleDeviceSelect(device);
             }}
             disabled={isLoading}>
             <Smartphone size={24} color="#1e88e5" />
