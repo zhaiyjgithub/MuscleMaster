@@ -34,6 +34,7 @@ import {
   DeviceMode,
   parseResponse,
 } from '../services/protocol';
+import timerDevice from './model/timerDevice.ts';
 import TimerDevice from './model/timerDevice.ts';
 import Loading from './view/loading';
 
@@ -338,33 +339,39 @@ const DevicePanelController: NavigationFunctionComponent<
                     if (d.id === deviceId) {
                       d.timerValue = workTime;
                       d.timerStatus = 'running';
-                      d.timer = setInterval(() => {
-                        d.timerValue -= 1;
-                        if (d.timerValue <= 0) {
-                          d.timerStatus = 'stopped';
-                          d.timer && clearInterval(d.timer);
-                          d.timer = null;
-                          d.timerValue = 0;
-                        }
-
-                        // 更新设备的倒计时
-                        const td = timerDevices.find(d => d.selected);
-                        console.log(
-                          '倒计时 当前 数组选中设备',
-                          td?.id,
-                          '倒计时的value',
-                          d.timerValue,
-                        );
-                        if (td?.id === d.id) {
-                          setCurrentTimeValue(d.timerValue);
-                        } else {
-                          console.log('当前不是选择该设备, 无需更新UI');
-                        }
-                      }, 1200);
+                      // d.timer && clearInterval(d.timer);
+                      // d.timer = setInterval(() => {
+                      //   if (d.timerStatus !== 'running') {
+                      //     console.log('当前设备没有在运行, 不需要倒计时')
+                      //     return;
+                      //   }
+                      //   d.timerValue -= 1;
+                      //   if (d.timerValue <= 0) {
+                      //     d.timerStatus = 'stopped';
+                      //     d.timer && clearInterval(d.timer);
+                      //     d.timer = null;
+                      //     d.timerValue = 0;
+                      //   }
+                      //
+                      //   // 更新设备的倒计时
+                      //   const td = timerDevices.find(d => d.selected);
+                      //   console.log(
+                      //     '倒计时 当前 数组选中设备',
+                      //     td?.id,
+                      //     '倒计时的value',
+                      //     d.timerValue,
+                      //   );
+                      //   if (td?.id === d.id) {
+                      //     setCurrentTimeValue(d.timerValue);
+                      //   } else {
+                      //     console.log('当前不是选择该设备, 无需更新UI');
+                      //   }
+                      // }, 1200);
                     }
                     return d;
                   });
                   console.log('当前同步设备的', updatedTimerDevices);
+                  setCurrentTimeValue(workTime);
                   setTimerDevices(updatedTimerDevices);
                 }
               } else if (subCommand === CommandType.DEVICE_STATUS) {
@@ -386,8 +393,12 @@ const DevicePanelController: NavigationFunctionComponent<
                       console.error('Error reply device status:', error);
                     });
 
-                  console.log('channel', channel, 'status', status);
-
+                  console.log(
+                    '获取设备的开关状态: channel',
+                    channel,
+                    'status',
+                    status,
+                  );
                   // 直接在这里处理状态变化，无需经过状态更新和 useEffect
                   if (status === CommandType.DEVICE_STATUS_CANCEL) {
                     // 处理取消命令
@@ -406,7 +417,12 @@ const DevicePanelController: NavigationFunctionComponent<
                     const updatedTimerDevices = timerDevices.map(d => {
                       if (d.id === deviceId) {
                         d.timerStatus = 'running';
+                        d.timer && clearInterval(d.timer);
                         d.timer = setInterval(() => {
+                          if (d.timerStatus !== 'running') {
+                            console.log('设备没有在启动, 忽略');
+                            return;
+                          }
                           d.timerValue -= 1;
                           if (d.timerValue <= 0) {
                             d.timerStatus = 'stopped';
@@ -613,6 +629,7 @@ const DevicePanelController: NavigationFunctionComponent<
       const updatedTimerDevices = timerDevices.map(d => {
         if (d.id === deviceId) {
           d.timerStatus = 'running';
+          d.timer && clearInterval(d.timer);
           d.timer = setInterval(() => {
             d.timerValue--;
             if (d.timerValue <= 0) {
@@ -670,6 +687,23 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     console.log('####useEffect');
     return () => {
+      // 向所有连接的设备都发送停止命令
+      timerDevices.map(td => {
+        if (td && td.connectionStatus === 'connected') {
+          BLEManager.writeCharacteristic(
+            td.id,
+            BLE_UUID.SERVICE,
+            BLE_UUID.CHARACTERISTIC_WRITE,
+            BLECommands.stopTherapy(),
+          )
+            .then(() => {
+              console.log('Successfully to stop device');
+            })
+            .catch(error => {
+              console.error(`Error writing to stop device: ${error}`);
+            });
+        }
+      });
       // 清理所有订阅
       console.log('清理所有订阅');
       Object.entries(subscriptionsRef.current).forEach(
@@ -731,6 +765,7 @@ const DevicePanelController: NavigationFunctionComponent<
         if (d.id === deviceId) {
           d.timerValue = totalSeconds;
           d.timerStatus = 'running';
+          d.timer && clearInterval(d.timer);
           d.timer = setInterval(() => {
             // 先更新状态，再检查是否需要停止
             d.timerValue--;
@@ -1283,6 +1318,22 @@ const DevicePanelController: NavigationFunctionComponent<
     });
     setCurrentTimeValue(0);
     setTimerDevices(updatedTimerDevices);
+    // 发送cancel 执行
+    console.log('发送停止设备的命令');
+    if (selectedDevice) {
+      BLEManager.writeCharacteristic(
+        selectedDevice.id,
+        BLE_UUID.SERVICE,
+        BLE_UUID.CHARACTERISTIC_WRITE,
+        BLECommands.stopTherapy(),
+      )
+        .then(() => {
+          console.log('Successfully to stop device');
+        })
+        .catch(error => {
+          console.error(`Error writing to stop device: ${error}`);
+        });
+    }
   };
 
   const $cancelActivity = (

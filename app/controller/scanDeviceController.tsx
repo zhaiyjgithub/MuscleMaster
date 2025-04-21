@@ -33,7 +33,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
               d => d.id === device.id,
             );
 
-            // If device exists, return unchanged array
+            // If device exists, retuunchanged array
             if (existingDeviceIndex >= 0) {
               return prevDevices;
             }

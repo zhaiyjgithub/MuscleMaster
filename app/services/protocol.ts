@@ -65,23 +65,23 @@ export const CommandValue = {
   SET_MODE: (mode: DeviceMode) => {
     return [mode];
   },
-  SET_CLIMBING_TIME: (value:number) => {
+  SET_CLIMBING_TIME: (value: number) => {
     return [value];
   },
-  SET_PEEK_TIME: (value:number) => {
+  SET_PEEK_TIME: (value: number) => {
     return [value];
   },
-  SET_STOP_TIME: (value:number) => {
+  SET_STOP_TIME: (value: number) => {
     return [value];
   },
 
-  REPLY_CLIMBING_TIME: (value:number) => {
+  REPLY_CLIMBING_TIME: (value: number) => {
     return [CommandType.SET_CLIMBING_TIME, value];
   },
-  REPLY_PEEK_TIME: (value:number) => {
+  REPLY_PEEK_TIME: (value: number) => {
     return [CommandType.SET_PEEK_TIME, value];
   },
-  REPLY_STOP_TIME: (value:number) => {
+  REPLY_STOP_TIME: (value: number) => {
     return [CommandType.SET_STOP_TIME, value];
   },
   // 5A 01 01 03 03 01 00 05 68
@@ -489,11 +489,7 @@ export const BLECommands = {
 
   // 回复电量信息
   replyBattery(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
-    return createCommand(
-      CommandType.GET_BATTERY,
-      [value],
-      channel,
-    );
+    return createCommand(CommandType.GET_BATTERY, [value], channel);
   },
 
   // 设置爬坡时间
@@ -505,15 +501,14 @@ export const BLECommands = {
     );
   },
 
-   // 回复爬坡时间
-   replyClimbingTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+  // 回复爬坡时间
+  replyClimbingTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
       CommandType.GET_DEVICE_INFO,
       CommandValue.REPLY_CLIMBING_TIME(value),
       channel,
     );
   },
-
 
   // 设置峰值时间
   setPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
@@ -524,14 +519,14 @@ export const BLECommands = {
     );
   },
 
- // 回复峰值时间
- replyPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
-  return createCommand(
-    CommandType.GET_DEVICE_INFO,
-    CommandValue.REPLY_PEEK_TIME(value),
-    channel,
-  );
-},
+  // 回复峰值时间
+  replyPeakTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+    return createCommand(
+      CommandType.GET_DEVICE_INFO,
+      CommandValue.REPLY_PEEK_TIME(value),
+      channel,
+    );
+  },
 
   // 设置停止时间
   setStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
@@ -542,8 +537,8 @@ export const BLECommands = {
     );
   },
 
-   // 回复停止时间
-   replyStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
+  // 回复停止时间
+  replyStopTime(value: number, channel: DeviceChannel = DEFAULT_CHANNEL) {
     return createCommand(
       CommandType.GET_DEVICE_INFO,
       CommandValue.REPLY_STOP_TIME(value),
