@@ -338,7 +338,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   const updatedTimerDevices = timerDevices.map(d => {
                     if (d.id === deviceId) {
                       d.timerValue = workTime;
-                      d.timerStatus = 'running';
+                      // d.timerStatus = 'running';
                       // d.timer && clearInterval(d.timer);
                       // d.timer = setInterval(() => {
                       //   if (d.timerStatus !== 'running') {
@@ -404,7 +404,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     // 处理取消命令
                     const updatedTimerDevices = timerDevices.map(d => {
                       if (d.id === deviceId) {
-                        d.timerStatus = 'stopped';
+                        d.timerStatus = 'paused';
                         d.timer && clearInterval(d.timer);
                         d.timer = null;
                         d.timerValue = 0;
@@ -451,7 +451,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     // 处理暂停命令
                     const updatedTimerDevices = timerDevices.map(d => {
                       if (d.id === deviceId) {
-                        d.timerStatus = 'stopped';
+                        d.timerStatus = 'paused';
                         d.timer && clearInterval(d.timer);
                         d.timer = null;
                       }
@@ -605,7 +605,7 @@ const DevicePanelController: NavigationFunctionComponent<
       // 暂停当前选择的设备的定时器
       const updatedTimerDevices = timerDevices.map(d => {
         if (d.id === deviceId) {
-          d.timerStatus = 'stopped';
+          d.timerStatus = 'paused';
           d.timer && clearInterval(d.timer);
           d.timer = null;
         }
@@ -1289,15 +1289,20 @@ const DevicePanelController: NavigationFunctionComponent<
     }
     return selectedDevice.timerStatus === 'running';
   };
+
+  const getStartButtonColor = () => {
+    console.log('当前设备的状态', selectedDevice?.timerStatus);
+    if (selectedDevice?.timerStatus === 'running') {
+      return 'bg-orange-500';
+    } else if (selectedDevice?.timerStatus === 'paused') {
+      return 'bg-green-500';
+    } else {
+      return 'bg-gray-400';
+    }
+  };
   const $startAndPauseActivity = (
     <TouchableOpacity
-      className={`py-4 rounded-lg items-center justify-center ${
-        getDeviceTimerValue() > 0
-          ? getDeviceTimerRunning()
-            ? 'bg-orange-500'
-            : 'bg-green-500'
-          : 'bg-gray-400'
-      }`}
+      className={`py-4 rounded-lg items-center justify-center ${getStartButtonColor()}`}
       onPress={toggleTimer}
       disabled={getDeviceTimerValue() === 0}>
       <Text className="text-white font-semibold text-xl">
