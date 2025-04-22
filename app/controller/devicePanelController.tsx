@@ -366,7 +366,7 @@ const DevicePanelController: NavigationFunctionComponent<
                       //   } else {
                       //     console.log('当前不是选择该设备, 无需更新UI');
                       //   }
-                      // }, 1200);
+                      // }, 1000);
                     }
                     return d;
                   });
@@ -442,7 +442,7 @@ const DevicePanelController: NavigationFunctionComponent<
                           } else {
                             console.log('当前不是选择该设备, 无需更新UI');
                           }
-                        }, 1200);
+                        }, 1000);
                       }
                       return d;
                     });
@@ -652,7 +652,7 @@ const DevicePanelController: NavigationFunctionComponent<
             } else {
               console.log('当前不是选择该设备, 无需更新UI');
             }
-          }, 1200);
+          }, 1000);
         }
         return d;
       });
@@ -764,32 +764,32 @@ const DevicePanelController: NavigationFunctionComponent<
       const updatedTimerDevices = timerDevices.map(d => {
         if (d.id === deviceId) {
           d.timerValue = totalSeconds;
-          d.timerStatus = 'running';
+          d.timerStatus = 'paused';
           d.timer && clearInterval(d.timer);
-          d.timer = setInterval(() => {
-            // 先更新状态，再检查是否需要停止
-            d.timerValue--;
-            if (d.timerValue <= 0) {
-              d.timerStatus = 'stopped';
-              d.timer && clearInterval(d.timer);
-              d.timer = null;
-              // 确保计时器值不会小于0
-              d.timerValue = 0;
-            }
-            console.log('倒计时 当前 设备', selectedDevice.id);
-            const td = timerDevices.find(d => d.selected);
-            console.log(
-              '倒计时 当前 数组选中设备',
-              td?.id,
-              '倒计时的value',
-              d.timerValue,
-            );
-            if (td?.id === d.id) {
-              setCurrentTimeValue(d.timerValue);
-            } else {
-              console.log('当前不是选择该设备, 无需更新UI');
-            }
-          }, 1200);
+          // d.timer = setInterval(() => {
+          //   // 先更新状态，再检查是否需要停止
+          //   d.timerValue--;
+          //   if (d.timerValue <= 0) {
+          //     d.timerStatus = 'stopped';
+          //     d.timer && clearInterval(d.timer);
+          //     d.timer = null;
+          //     // 确保计时器值不会小于0
+          //     d.timerValue = 0;
+          //   }
+          //   console.log('倒计时 当前 设备', selectedDevice.id);
+          //   const td = timerDevices.find(d => d.selected);
+          //   console.log(
+          //     '倒计时 当前 数组选中设备',
+          //     td?.id,
+          //     '倒计时的value',
+          //     d.timerValue,
+          //   );
+          //   if (td?.id === d.id) {
+          //     setCurrentTimeValue(d.timerValue);
+          //   } else {
+          //     console.log('当前不是选择该设备, 无需更新UI');
+          //   }
+          // }, 1000);
         }
         return d;
       });
@@ -841,7 +841,6 @@ const DevicePanelController: NavigationFunctionComponent<
     setTimerDevices(updatedTimerDevices);
     console.log('更新新设备 倒计时', device.id, device.timerValue);
     setCurrentTimeValue(device.timerValue);
-
     // Reset received params but don't show loading yet
     resetReceivedParams();
 
@@ -1018,7 +1017,6 @@ const DevicePanelController: NavigationFunctionComponent<
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() => {
         // 检查当前是否有选中的设备
-        console.log('selected device', selectedDevice);
         if (!selectedDevice) {
           toast.show('Please select a device first', {
             type: 'warning',
@@ -1044,7 +1042,10 @@ const DevicePanelController: NavigationFunctionComponent<
         }
 
         // 检查是否已设置时间但未启动
-        if (selectedDevice.timerStatus === 'running') {
+        if (
+          selectedDevice.timerStatus === 'running' ||
+          selectedDevice.timerStatus === 'paused'
+        ) {
           toast.show(
             "Please click the 'Cancel' button to clear current settings before setting a new timer",
             {
