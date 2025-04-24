@@ -39,6 +39,7 @@ export enum CommandType {
   DEVICE_STATUS_CANCEL = 0x00,
   START_THERAPY = 0x02,
   STOP_THERAPY = 0x02,
+  TURN_OFF = 0x02,
   GET_BATTERY = 0x0a,
   GET_VERSION = 0x01,
   SET_WORK_TIME = 0x03,
@@ -58,6 +59,9 @@ export const CommandValue = {
   },
   SET_STOP: (channel: DeviceChannel) => {
     return [channel, 0x02];
+  },
+  SET_TURN_OFF: (channel: DeviceChannel) => {
+    return [channel, 0x00];
   },
   SET_INTENSITY: (intensity: number) => {
     return [0x01, intensity];
@@ -410,6 +414,17 @@ export const BLECommands = {
     return createCommand(
       CommandType.STOP_THERAPY,
       CommandValue.SET_STOP(channel),
+      channel,
+    );
+  },
+
+  /**
+   * 关机
+   */
+  turnOff(channel: DeviceChannel = DEFAULT_CHANNEL): string {
+    return createCommand(
+      CommandType.TURN_OFF,
+      CommandValue.SET_TURN_OFF(channel),
       channel,
     );
   },

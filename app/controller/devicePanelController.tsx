@@ -7,26 +7,26 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Animated, AppState, Text, TouchableOpacity, View} from 'react-native';
-import {Subscription} from 'react-native-ble-plx';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {NavigationFunctionComponent} from 'react-native-navigation';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, AppState, Text, TouchableOpacity, View } from 'react-native';
+import { Subscription } from 'react-native-ble-plx';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NavigationFunctionComponent } from 'react-native-navigation';
 import {
   useNavigationComponentDidAppear,
   useNavigationComponentDidDisappear,
 } from 'react-native-navigation-hooks';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useToast} from 'react-native-toast-notifications';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from 'react-native-toast-notifications';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
 import ModeListActionSheet, {
   Modes,
 } from '../components/mode-list-action-sheet/modeListActionSheet';
-import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
-import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
-import {cn} from '../lib/utils';
-import {BLEManager} from '../services/BLEManager';
+import { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
+import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
+import { cn } from '../lib/utils';
+import { BLEManager } from '../services/BLEManager';
 import {
   BLE_UUID,
   BLECommands,
@@ -34,9 +34,10 @@ import {
   DeviceMode,
   parseResponse,
 } from '../services/protocol';
-import timerDevice from './model/timerDevice.ts';
 import TimerDevice from './model/timerDevice.ts';
+import { sendTurnOffCmd } from './service/service.ts';
 import Loading from './view/loading';
+import { setShouldAnimateExitingForTag } from 'react-native-reanimated/lib/typescript/core';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -44,7 +45,7 @@ export interface DevicePanelControllerProps {
 
 const DevicePanelController: NavigationFunctionComponent<
   DevicePanelControllerProps
-> = ({devices}) => {
+> = ({ devices }) => {
   const [isConnecting, setIsConnecting] = useState(false);
 
   // 将 deviceLoadingStates 从 state 改为 ref
@@ -145,7 +146,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Function to check if all required parameters are received
   const checkAllParamsReceived = useCallback(() => {
-    const {workTime, intensity, mode} = receivedParamsRef.current;
+    const { workTime, intensity, mode } = receivedParamsRef.current;
 
     if (workTime && intensity && mode) {
       console.log('All required device parameters received, hiding loading');
@@ -200,7 +201,7 @@ const DevicePanelController: NavigationFunctionComponent<
           if (parsedResponse.isValid) {
             // 判断命令类型
             console.log('Monitored characteristic value:', parsedResponse);
-            const {command, data} = parsedResponse;
+            const { command, data } = parsedResponse;
             if (command === CommandType.GET_VERSION) {
               // 设置设备版本信息
               if (data.length >= 2) {
@@ -338,35 +339,6 @@ const DevicePanelController: NavigationFunctionComponent<
                   const updatedTimerDevices = timerDevices.map(d => {
                     if (d.id === deviceId) {
                       d.timerValue = workTime;
-                      // d.timerStatus = 'running';
-                      // d.timer && clearInterval(d.timer);
-                      // d.timer = setInterval(() => {
-                      //   if (d.timerStatus !== 'running') {
-                      //     console.log('当前设备没有在运行, 不需要倒计时')
-                      //     return;
-                      //   }
-                      //   d.timerValue -= 1;
-                      //   if (d.timerValue <= 0) {
-                      //     d.timerStatus = 'stopped';
-                      //     d.timer && clearInterval(d.timer);
-                      //     d.timer = null;
-                      //     d.timerValue = 0;
-                      //   }
-                      //
-                      //   // 更新设备的倒计时
-                      //   const td = timerDevices.find(d => d.selected);
-                      //   console.log(
-                      //     '倒计时 当前 数组选中设备',
-                      //     td?.id,
-                      //     '倒计时的value',
-                      //     d.timerValue,
-                      //   );
-                      //   if (td?.id === d.id) {
-                      //     setCurrentTimeValue(d.timerValue);
-                      //   } else {
-                      //     console.log('当前不是选择该设备, 无需更新UI');
-                      //   }
-                      // }, 1000);
                     }
                     return d;
                   });
@@ -394,7 +366,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     });
 
                   console.log(
-                    '获取设备的开关状态: channel',
+                    '获取设备的开关状态：channel',
                     channel,
                     'status',
                     status,
@@ -420,7 +392,7 @@ const DevicePanelController: NavigationFunctionComponent<
                         d.timer && clearInterval(d.timer);
                         d.timer = setInterval(() => {
                           if (d.timerStatus !== 'running') {
-                            console.log('设备没有在启动, 忽略');
+                            console.log('设备没有在启动，忽略');
                             return;
                           }
                           d.timerValue -= 1;
@@ -429,18 +401,20 @@ const DevicePanelController: NavigationFunctionComponent<
                             d.timer && clearInterval(d.timer);
                             d.timer = null;
                             d.timerValue = 0;
+                            console.log('设备倒计时结束, 发送关机命令', d.id);
+                            sendTurnOffCmd(d.id).then();
                           }
                           const td = timerDevices.find(d => d.selected);
                           console.log(
                             '倒计时 当前 数组选中设备',
                             td?.id,
-                            '倒计时的value',
+                            '倒计时的 value',
                             d.timerValue,
                           );
                           if (td?.id === d.id) {
                             setCurrentTimeValue(d.timerValue);
                           } else {
-                            console.log('当前不是选择该设备, 无需更新UI');
+                            console.log('当前不是选择该设备，无需更新 UI');
                           }
                         }, 1000);
                       }
@@ -637,6 +611,8 @@ const DevicePanelController: NavigationFunctionComponent<
               d.timer && clearInterval(d.timer);
               d.timer = null;
               d.timerValue = 0;
+              console.log('设备倒计时结束, 发送关机命令', d.id);
+              sendTurnOffCmd(d.id).then();
             }
 
             const cd = timerDevices.find(d => d.selected);
@@ -644,13 +620,13 @@ const DevicePanelController: NavigationFunctionComponent<
             console.log(
               '倒计时 当前 数组选中设备',
               cd?.id,
-              '倒计时的value',
+              '倒计时的 value',
               d.timerValue,
             );
             if (cd?.id === d.id) {
               setCurrentTimeValue(d.timerValue);
             } else {
-              console.log('当前不是选择该设备, 无需更新UI');
+              console.log('当前不是选择该设备，无需更新 UI');
             }
           }, 1000);
         }
@@ -687,23 +663,6 @@ const DevicePanelController: NavigationFunctionComponent<
   useEffect(() => {
     console.log('####useEffect');
     return () => {
-      // 向所有连接的设备都发送停止命令
-      timerDevices.map(td => {
-        if (td && td.connectionStatus === 'connected') {
-          BLEManager.writeCharacteristic(
-            td.id,
-            BLE_UUID.SERVICE,
-            BLE_UUID.CHARACTERISTIC_WRITE,
-            BLECommands.stopTherapy(),
-          )
-            .then(() => {
-              console.log('Successfully to stop device');
-            })
-            .catch(error => {
-              console.error(`Error writing to stop device: ${error}`);
-            });
-        }
-      });
       // 清理所有订阅
       console.log('清理所有订阅');
       Object.entries(subscriptionsRef.current).forEach(
@@ -766,30 +725,6 @@ const DevicePanelController: NavigationFunctionComponent<
           d.timerValue = totalSeconds;
           d.timerStatus = 'paused';
           d.timer && clearInterval(d.timer);
-          // d.timer = setInterval(() => {
-          //   // 先更新状态，再检查是否需要停止
-          //   d.timerValue--;
-          //   if (d.timerValue <= 0) {
-          //     d.timerStatus = 'stopped';
-          //     d.timer && clearInterval(d.timer);
-          //     d.timer = null;
-          //     // 确保计时器值不会小于0
-          //     d.timerValue = 0;
-          //   }
-          //   console.log('倒计时 当前 设备', selectedDevice.id);
-          //   const td = timerDevices.find(d => d.selected);
-          //   console.log(
-          //     '倒计时 当前 数组选中设备',
-          //     td?.id,
-          //     '倒计时的value',
-          //     d.timerValue,
-          //   );
-          //   if (td?.id === d.id) {
-          //     setCurrentTimeValue(d.timerValue);
-          //   } else {
-          //     console.log('当前不是选择该设备, 无需更新UI');
-          //   }
-          // }, 1000);
         }
         return d;
       });
@@ -918,7 +853,7 @@ const DevicePanelController: NavigationFunctionComponent<
               borderRadius: 4,
               backgroundColor: statusColor,
               marginRight: 6,
-              transform: [{scale: pulseAnim}],
+              transform: [{ scale: pulseAnim }],
             }}
           />
           <Text className="text-yellow-500 text-xs">Connecting...</Text>
@@ -938,9 +873,8 @@ const DevicePanelController: NavigationFunctionComponent<
           }}
         />
         <Text
-          className={`text-xs ${
-            isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
-          }`}>
+          className={`text-xs ${isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
+            }`}>
           {isCurrentDeviceConnected ? 'Connected' : 'Disconnected'}
         </Text>
       </View>
@@ -1029,8 +963,7 @@ const DevicePanelController: NavigationFunctionComponent<
         // 检查当前选中设备的连接状态
         if (selectedDevice.connectionStatus !== 'connected') {
           toast.show(
-            `${
-              selectedDevice.name || 'Device'
+            `${selectedDevice.name || 'Device'
             } is not connected, please connect it first`,
             {
               type: 'warning',
@@ -1067,11 +1000,10 @@ const DevicePanelController: NavigationFunctionComponent<
       }}
       disabled={selectedDevice?.timerStatus === 'running'}>
       <Text
-        className={`text-8xl ${
-          selectedDevice?.timerStatus === 'running'
-            ? 'text-orange-500'
-            : 'text-gray-700'
-        } font-bold pt-4`}>
+        className={`text-8xl ${selectedDevice?.timerStatus === 'running'
+          ? 'text-orange-500'
+          : 'text-gray-700'
+          } font-bold pt-4`}>
         {formatTime(currentTimeValue)}
       </Text>
     </TouchableOpacity>
@@ -1324,7 +1256,7 @@ const DevicePanelController: NavigationFunctionComponent<
     });
     setCurrentTimeValue(0);
     setTimerDevices(updatedTimerDevices);
-    // 发送cancel 执行
+    // 发送 cancel 执行
     console.log('发送停止设备的命令');
     if (selectedDevice) {
       BLEManager.writeCharacteristic(
@@ -1344,15 +1276,13 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const $cancelActivity = (
     <TouchableOpacity
-      className={`items-center justify-center ${
-        getDeviceTimerValue() > 0 ? 'border-blue-500' : 'border-gray-300'
-      }`}
+      className={`items-center justify-center ${getDeviceTimerValue() > 0 ? 'border-blue-500' : 'border-gray-300'
+        }`}
       onPress={onCancelActivity}
       disabled={getDeviceTimerValue() === 0}>
       <Text
-        className={`font-semibold text-base ${
-          getDeviceTimerValue() > 0 ? 'text-blue-500' : 'text-gray-500'
-        }`}>
+        className={`font-semibold text-base ${getDeviceTimerValue() > 0 ? 'text-blue-500' : 'text-gray-500'
+          }`}>
         Cancel
       </Text>
     </TouchableOpacity>
@@ -1393,7 +1323,7 @@ const DevicePanelController: NavigationFunctionComponent<
           d.timer = null;
           d.timerStatus = 'stopped';
           d.timerValue = 0;
-          d.selected = true;
+          d.selected = false;
         }
         return d;
       });
@@ -1435,12 +1365,27 @@ const DevicePanelController: NavigationFunctionComponent<
             console.error(`设备 ${deviceId} 连接错误:`, error);
           } else {
             console.log(
-              `设备 ${device.name || deviceId} 连接状态变更为：${
-                isConnected ? '已连接' : '已断开'
+              `设备 ${device.name || deviceId} 连接状态变更为：${isConnected ? '已连接' : '已断开'
               }`,
             );
             if (!isConnected) {
               cleanupDeviceResources(deviceId, true); // 显示断开通知
+              //如果是当前设备断开，则更新最近一个已经连接的设备作为选中设备
+              if (selectedDevice?.id === deviceId) {
+                // 查找第一个已连接的设备作为新的选中设备
+                const connectedDevice = timerDevices.find(d => 
+                  d.id !== deviceId && d.connectionStatus === 'connected'
+                );
+                
+                if (connectedDevice) {
+                  // 只设置找到的第一个已连接设备为选中
+                  const updatedTimerDevices = timerDevices.map(d => ({
+                    ...d,
+                    selected: d.id === connectedDevice.id
+                  }));
+                  setTimerDevices(updatedTimerDevices);
+                }
+              }
             } else {
               // 更新连接状态
               const updatedTimerDevices = timerDevices.map(d => {
@@ -1494,7 +1439,7 @@ const DevicePanelController: NavigationFunctionComponent<
       BLEManager.stopScan();
 
       // 连接设备
-      const {connectedDevice, err} = await BLEManager.connectToDevice(
+      const { connectedDevice, err } = await BLEManager.connectToDevice(
         device.id,
       );
       if (connectedDevice) {
@@ -1573,16 +1518,14 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
     } catch (error) {
-      const msg = `Failed to ${
-        device.connectionStatus === 'connected'
+      const msg = `Failed to ${device.connectionStatus === 'connected'
+        ? 'disconnect from'
+        : 'connect to'
+        } ${device.name ?? 'Device'}`;
+      console.error(
+        `Failed to ${device.connectionStatus === 'connected'
           ? 'disconnect from'
           : 'connect to'
-      } ${device.name ?? 'Device'}`;
-      console.error(
-        `Failed to ${
-          device.connectionStatus === 'connected'
-            ? 'disconnect from'
-            : 'connect to'
         } ${device.name}:`,
         error,
       );
@@ -1685,7 +1628,7 @@ const DevicePanelController: NavigationFunctionComponent<
   }, [timerDevices]);
 
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView className="flex-1 bg-[#f5f5f5]">
         <View className={'flex flex-1 flex-col justify-between p-4'}>
           {$deviceInfo}
