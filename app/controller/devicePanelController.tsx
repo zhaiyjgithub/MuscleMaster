@@ -343,7 +343,10 @@ const DevicePanelController: NavigationFunctionComponent<
                     return d;
                   });
                   console.log('当前同步设备的', updatedTimerDevices);
-                  setCurrentTimeValue(workTime);
+                  // 更新当前选择设备的计时器值
+                  if (selectedDevice?.id === deviceId) {
+                    setCurrentTimeValue(workTime);
+                  }
                   setTimerDevices(updatedTimerDevices);
                 }
               } else if (subCommand === CommandType.DEVICE_STATUS) {
@@ -1370,22 +1373,6 @@ const DevicePanelController: NavigationFunctionComponent<
             );
             if (!isConnected) {
               cleanupDeviceResources(deviceId, true); // 显示断开通知
-              //如果是当前设备断开，则更新最近一个已经连接的设备作为选中设备
-              if (selectedDevice?.id === deviceId) {
-                // 查找第一个已连接的设备作为新的选中设备
-                const connectedDevice = timerDevices.find(d => 
-                  d.id !== deviceId && d.connectionStatus === 'connected'
-                );
-                
-                if (connectedDevice) {
-                  // 只设置找到的第一个已连接设备为选中
-                  const updatedTimerDevices = timerDevices.map(d => ({
-                    ...d,
-                    selected: d.id === connectedDevice.id
-                  }));
-                  setTimerDevices(updatedTimerDevices);
-                }
-              }
             } else {
               // 更新连接状态
               const updatedTimerDevices = timerDevices.map(d => {
