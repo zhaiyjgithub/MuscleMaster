@@ -37,7 +37,6 @@ import {
 import TimerDevice from './model/timerDevice.ts';
 import { sendTurnOffCmd } from './service/service.ts';
 import Loading from './view/loading';
-import { setShouldAnimateExitingForTag } from 'react-native-reanimated/lib/typescript/core';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
@@ -98,6 +97,10 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const [currentTimeValue, setCurrentTimeValue] = useState(0);
 
+  const getCurrentSelectedDevice = () => {
+    return timerDevices.find(device => device.selected);
+  }
+
   // 状态指示器的呼吸动画
   useEffect(() => {
     if (isConnecting) {
@@ -129,7 +132,6 @@ const DevicePanelController: NavigationFunctionComponent<
     deviceLoadingStatesRef.current[deviceId] = isLoading;
   };
 
-  const selectedDevice = timerDevices.find(device => device.selected);
   // 获取设备状态颜色
   const getDeviceStatusColor = () => {
     if (isConnecting) {
@@ -137,7 +139,8 @@ const DevicePanelController: NavigationFunctionComponent<
     } // 黄色，连接中
 
     // 检查当前选中设备的连接状态
-    if (selectedDevice && selectedDevice.connectionStatus === 'connected') {
+    const currentSelectedDevice = timerDevices.find(device => device.selected);
+    if (currentSelectedDevice && currentSelectedDevice.connectionStatus === 'connected') {
       return '#10b981';
     } // 绿色，已连接
 
@@ -343,8 +346,11 @@ const DevicePanelController: NavigationFunctionComponent<
                     return d;
                   });
                   console.log('当前同步设备的', updatedTimerDevices);
+                  
                   // 更新当前选择设备的计时器值
-                  if (selectedDevice?.id === deviceId) {
+                  const currentSelectedDevice = getCurrentSelectedDevice();
+                  console.log('当前选中的设备', currentSelectedDevice)
+                  if (currentSelectedDevice?.id === deviceId) {
                     setCurrentTimeValue(workTime);
                   }
                   setTimerDevices(updatedTimerDevices);
@@ -461,7 +467,8 @@ const DevicePanelController: NavigationFunctionComponent<
                     console.log('Successfully reply climb time');
 
                     // 确保 UI 更新
-                    if (selectedDevice?.id === deviceId) {
+                    const currentSelectedDevice = getCurrentSelectedDevice();
+                    if (currentSelectedDevice?.id === deviceId) {
                       console.log(
                         `设备 ${deviceId} 的攀爬时间已更新为 ${climbingTime}，UI 应该自动更新`,
                       );
@@ -530,11 +537,12 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 修改模式选择逻辑
   const handleModeSelect = (mode: DeviceMode, name: string) => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return;
     }
 
-    const deviceId = selectedDevice.id;
+    const deviceId = currentSelectedDevice.id;
     // 更新设备模式
     const updatedTimerDevices = timerDevices.map(d => {
       if (d.id === deviceId) {
@@ -697,7 +705,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const $modeActionSheet = (
     <ModeListActionSheet
-      selectedMode={selectedDevice?.mode ?? 'Fitness'}
+      selectedMode={getCurrentSelectedDevice()?.mode ?? 'Fitness'}
       handleModeSelect={handleModeSelect}
       ref={modeListActionSheetRef}
     />
@@ -705,14 +713,15 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // 定义时间选择回调函数
   const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       console.log('No device selected');
       return;
     }
 
     console.log(
       `Time selected: ${hours}:${minutes}:${seconds}`,
-      selectedDevice.id,
+      currentSelectedDevice.id,
     );
     // 计算总秒数
     const totalSeconds = hours * 3600 + minutes * 60 + seconds;
@@ -720,7 +729,7 @@ const DevicePanelController: NavigationFunctionComponent<
     // 确保时间大于 0
     if (totalSeconds > 0) {
       // 设置计时器保护期，以防设置时间后立即收到 CANCEL 命令
-      const deviceId = selectedDevice.id;
+      const deviceId = currentSelectedDevice.id;
 
       // 设置设备特定的时间值，但不触发额外的状态变化
       const updatedTimerDevices = timerDevices.map(d => {
@@ -735,7 +744,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
       // 设置工作时间
       BLEManager.writeCharacteristic(
-        selectedDevice.id,
+        currentSelectedDevice.id,
         BLE_UUID.SERVICE,
         BLE_UUID.CHARACTERISTIC_WRITE,
         BLECommands.setWorkTime(totalSeconds),
@@ -750,10 +759,11 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   const getDeviceTimerValue = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return 0;
     }
-    return selectedDevice.timerValue;
+    return currentSelectedDevice.timerValue;
   };
 
   const $timePickerActionSheet = (
@@ -828,7 +838,7 @@ const DevicePanelController: NavigationFunctionComponent<
     <DeviceListActionSheet
       ref={deviceListActionSheetRef}
       devices={timerDevices}
-      selectedDevice={selectedDevice}
+      selectedDevice={getCurrentSelectedDevice()}
       handleDeviceSelect={handleDeviceSelect}
     />
   );
@@ -845,7 +855,7 @@ const DevicePanelController: NavigationFunctionComponent<
   const renderDeviceStatusIndicator = () => {
     const statusColor = getDeviceStatusColor();
     const isCurrentDeviceConnected =
-      selectedDevice?.connectionStatus === 'connected';
+      getCurrentSelectedDevice()?.connectionStatus === 'connected';
     if (isConnecting) {
       return (
         <View className="flex-row items-center">
@@ -926,7 +936,7 @@ const DevicePanelController: NavigationFunctionComponent<
         <View className="flex-row items-center">
           {renderDeviceStatusIndicator()}
           <Text className="text-base font-semibold text-gray-800 ml-2">
-            {selectedDevice?.name || 'No device selected'}
+            {getCurrentSelectedDevice()?.name || 'No device selected'}
             {getDeviceVersion() && ` (${getDeviceVersion()})`}
           </Text>
         </View>
@@ -954,7 +964,8 @@ const DevicePanelController: NavigationFunctionComponent<
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() => {
         // 检查当前是否有选中的设备
-        if (!selectedDevice) {
+        const currentSelectedDevice = getCurrentSelectedDevice(); 
+        if (!currentSelectedDevice) {
           toast.show('Please select a device first', {
             type: 'warning',
             placement: 'top',
@@ -964,9 +975,9 @@ const DevicePanelController: NavigationFunctionComponent<
         }
 
         // 检查当前选中设备的连接状态
-        if (selectedDevice.connectionStatus !== 'connected') {
+        if (currentSelectedDevice?.connectionStatus !== 'connected') {
           toast.show(
-            `${selectedDevice.name || 'Device'
+            `${currentSelectedDevice?.name || 'Device'
             } is not connected, please connect it first`,
             {
               type: 'warning',
@@ -979,8 +990,8 @@ const DevicePanelController: NavigationFunctionComponent<
 
         // 检查是否已设置时间但未启动
         if (
-          selectedDevice.timerStatus === 'running' ||
-          selectedDevice.timerStatus === 'paused'
+          currentSelectedDevice?.timerStatus === 'running' ||
+          currentSelectedDevice?.timerStatus === 'paused'
         ) {
           toast.show(
             "Please click the 'Cancel' button to clear current settings before setting a new timer",
@@ -995,15 +1006,15 @@ const DevicePanelController: NavigationFunctionComponent<
 
         // 只有在计时器未运行且没有设置时间值时才允许打开时间选择器
         if (
-          selectedDevice.timerStatus === 'stopped' &&
-          selectedDevice.timerValue === 0
+          currentSelectedDevice?.timerStatus === 'stopped' &&
+          currentSelectedDevice?.timerValue === 0
         ) {
           timePickerActionSheetRef.current?.expand();
         }
       }}
-      disabled={selectedDevice?.timerStatus === 'running'}>
+      disabled={getCurrentSelectedDevice()?.timerStatus === 'running'}>
       <Text
-        className={`text-8xl ${selectedDevice?.timerStatus === 'running'
+        className={`text-8xl ${getCurrentSelectedDevice()?.timerStatus === 'running'
           ? 'text-orange-500'
           : 'text-gray-700'
           } font-bold pt-4`}>
@@ -1021,7 +1032,7 @@ const DevicePanelController: NavigationFunctionComponent<
         }}>
         <View className="border-b-2 border-blue-500">
           <Text className="font-semibold text-3xl text-blue-500">
-            {selectedDevice?.mode || 'Fitness'}
+            {getCurrentSelectedDevice()?.mode || 'Fitness'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -1029,11 +1040,12 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const onChangeIntensity = (value: number) => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return;
     }
 
-    const deviceId = selectedDevice.id;
+    const deviceId = currentSelectedDevice.id;
     // 更新设备强度
     const updatedTimerDevices = timerDevices.map(d => {
       if (d.id === deviceId) {
@@ -1059,10 +1071,11 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   const getDeviceIntensity = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return 0;
     }
-    return selectedDevice.intensity;
+    return currentSelectedDevice.intensity;
   };
   const $intensityControl = (
     <View className="flex-col border-gray-200 rounded-2xl">
@@ -1099,24 +1112,27 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const getDeviceClimbingTime = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return 0;
     }
-    return selectedDevice.climbingTime;
+    return currentSelectedDevice.climbingTime;
   };
 
   const getDeviceStopTime = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return 0;
     }
-    return selectedDevice.stopTime;
+    return currentSelectedDevice.stopTime;
   };
 
   const getDeviceRunTime = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return 0;
     }
-    return selectedDevice.runningTime;
+    return currentSelectedDevice.runningTime;
   };
 
   const $actionsSettingList = (
@@ -1128,11 +1144,12 @@ const DevicePanelController: NavigationFunctionComponent<
         onClimbTimeChange={value => {
           // Ensure value stays within 1-10 range
           if (value >= 0 && value <= 10) {
-            if (selectedDevice) {
+            const currentSelectedDevice = getCurrentSelectedDevice();
+            if (currentSelectedDevice) {
               // Update device-specific value
               // 更新设备攀爬时间
               const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === selectedDevice.id) {
+                if (d.id === currentSelectedDevice.id) {
                   d.climbingTime = value;
                 }
                 return d;
@@ -1141,7 +1158,7 @@ const DevicePanelController: NavigationFunctionComponent<
               console.log(`Sending new climb time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
-                selectedDevice.id,
+                currentSelectedDevice.id,
                 BLE_UUID.SERVICE,
                 BLE_UUID.CHARACTERISTIC_WRITE,
                 BLECommands.setClimbingTime(value),
@@ -1158,11 +1175,12 @@ const DevicePanelController: NavigationFunctionComponent<
         onStopTimeChange={value => {
           // Ensure value stays within 1-10 range
           if (value >= 0 && value <= 10) {
-            if (selectedDevice) {
+            const currentSelectedDevice = getCurrentSelectedDevice();
+            if (currentSelectedDevice) {
               // Update device-specific value
               // 更新设备停止时间
               const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === selectedDevice.id) {
+                if (d.id === currentSelectedDevice.id) {
                   d.stopTime = value;
                 }
                 return d;
@@ -1171,7 +1189,7 @@ const DevicePanelController: NavigationFunctionComponent<
               console.log(`Sending new stop time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
-                selectedDevice.id,
+                currentSelectedDevice.id,
                 BLE_UUID.SERVICE,
                 BLE_UUID.CHARACTERISTIC_WRITE,
                 BLECommands.setStopTime(value),
@@ -1188,10 +1206,11 @@ const DevicePanelController: NavigationFunctionComponent<
         onRunTimeChange={value => {
           // Ensure value stays within 1-10 range
           if (value >= 1 && value <= 10) {
-            if (selectedDevice) {
+            const currentSelectedDevice = getCurrentSelectedDevice();
+            if (currentSelectedDevice) {
               // Update device-specific value
               const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === selectedDevice.id) {
+                if (d.id === currentSelectedDevice.id) {
                   d.runningTime = value;
                 }
                 return d;
@@ -1201,7 +1220,7 @@ const DevicePanelController: NavigationFunctionComponent<
               console.log(`Sending new run time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
-                selectedDevice.id,
+                currentSelectedDevice.id,
                 BLE_UUID.SERVICE,
                 BLE_UUID.CHARACTERISTIC_WRITE,
                 BLECommands.setPeakTime(value),
@@ -1220,17 +1239,21 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const getDeviceTimerRunning = () => {
-    if (!selectedDevice) {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
       return false;
     }
-    return selectedDevice.timerStatus === 'running';
+    return currentSelectedDevice.timerStatus === 'running';
   };
 
   const getStartButtonColor = () => {
-    console.log('当前设备的状态', selectedDevice?.timerStatus);
-    if (selectedDevice?.timerStatus === 'running') {
+    const currentSelectedDevice = getCurrentSelectedDevice();
+    if (!currentSelectedDevice) {
+      return 'bg-gray-400';
+    }
+    if (currentSelectedDevice?.timerStatus === 'running') {
       return 'bg-orange-500';
-    } else if (selectedDevice?.timerStatus === 'paused') {
+    } else if (currentSelectedDevice?.timerStatus === 'paused') {
       return 'bg-green-500';
     } else {
       return 'bg-gray-400';
@@ -1248,8 +1271,9 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const onCancelActivity = () => {
+    const currentSelectedDevice = timerDevices.find(device => device.selected); 
     const updatedTimerDevices = timerDevices.map(d => {
-      if (d.id === selectedDevice?.id) {
+      if (d.id === currentSelectedDevice?.id) {
         d.timerStatus = 'stopped';
         d.timer && clearInterval(d.timer);
         d.timer = null;
@@ -1261,9 +1285,9 @@ const DevicePanelController: NavigationFunctionComponent<
     setTimerDevices(updatedTimerDevices);
     // 发送 cancel 执行
     console.log('发送停止设备的命令');
-    if (selectedDevice) {
+    if (currentSelectedDevice) {
       BLEManager.writeCharacteristic(
-        selectedDevice.id,
+        currentSelectedDevice.id,
         BLE_UUID.SERVICE,
         BLE_UUID.CHARACTERISTIC_WRITE,
         BLECommands.stopTherapy(),
