@@ -97,6 +97,10 @@ const DevicePanelController: NavigationFunctionComponent<
 
   const [currentTimeValue, setCurrentTimeValue] = useState(0);
 
+  const slog = (message: string, ...args: unknown[]) => {
+    // console.log(`[App] ${message}`, ...args);
+  }
+
   const getCurrentSelectedDevice = () => {
     return timerDevices.find(device => device.selected);
   }
@@ -152,7 +156,7 @@ const DevicePanelController: NavigationFunctionComponent<
     const { workTime, intensity, mode } = receivedParamsRef.current;
 
     if (workTime && intensity && mode) {
-      console.log('All required device parameters received, hiding loading');
+      slog('All required device parameters received, hiding loading');
       // Clear timeout if it exists
       if (initialLoadingTimeoutRef.current) {
         clearTimeout(initialLoadingTimeoutRef.current);
@@ -177,12 +181,12 @@ const DevicePanelController: NavigationFunctionComponent<
     // 如果已经有监控，先移除它，确保不会有重复的监控
     const existingSubscription = subscriptionsRef.current[`char_${deviceId}`];
     if (existingSubscription) {
-      console.log(`发现设备 ${deviceId} 已存在特性监控，先移除它`);
+      slog(`发现设备 ${deviceId} 已存在特性监控，先移除它`);
       existingSubscription.remove();
       delete subscriptionsRef.current[`char_${deviceId}`];
     }
 
-    console.log('开始监控蓝牙特性');
+    slog('开始监控蓝牙特性');
     const subscription = BLEManager.monitorCharacteristicForDevice(
       deviceId,
       BLE_UUID.SERVICE,
@@ -194,7 +198,7 @@ const DevicePanelController: NavigationFunctionComponent<
             error,
           );
         } else if (characteristic && characteristic.value) {
-          console.log(
+          slog(
             `Received value from device ${deviceId}:`,
             characteristic.value,
           );
@@ -203,7 +207,7 @@ const DevicePanelController: NavigationFunctionComponent<
           // 检查是否为有效响应
           if (parsedResponse.isValid) {
             // 判断命令类型
-            console.log('Monitored characteristic value:', parsedResponse);
+            slog('Monitored characteristic value:', parsedResponse);
             const { command, data } = parsedResponse;
             if (command === CommandType.GET_VERSION) {
               // 设置设备版本信息
@@ -245,7 +249,7 @@ const DevicePanelController: NavigationFunctionComponent<
               setTimerDevices(updatedTimerDevices);
             } else if (command === CommandType.GET_DEVICE_INFO) {
               const subCommand = data[0] as CommandType;
-              console.log('subCommand', subCommand);
+              slog('subCommand', subCommand);
               if (subCommand === CommandType.GET_INTENSITY) {
                 // 设置设备强度 返回强度：5A 02 01 09 03 05 01 32 A1
                 if (data.length >= 3) {
@@ -270,7 +274,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     BLECommands.replyIntensity(intensity),
                   )
                     .then(() => {
-                      console.log(
+                      slog(
                         'Successfully reply intensity value:',
                         intensity,
                       );
@@ -305,7 +309,7 @@ const DevicePanelController: NavigationFunctionComponent<
                       BLECommands.replyMode(modeId),
                     )
                       .then(() => {
-                        console.log('Successfully reply mode value:', modeId);
+                        slog('Successfully reply mode value:', modeId);
                       })
                       .catch(error => {
                         console.error('Error reply mode:', error);
@@ -331,13 +335,13 @@ const DevicePanelController: NavigationFunctionComponent<
                     BLECommands.replyWorkTime(workTime),
                   )
                     .then(() => {
-                      console.log('Successfully reply work time');
+                      slog('Successfully reply work time');
                     })
                     .catch(error => {
                       console.error('Error reply work time:', error);
                     });
 
-                  console.log('设备发送的倒计时时间：', workTime);
+                  slog('设备发送的倒计时时间：', workTime);
                   // 更新当前选择设备的计时器值
                   const updatedTimerDevices = timerDevices.map(d => {
                     if (d.id === deviceId) {
@@ -345,11 +349,9 @@ const DevicePanelController: NavigationFunctionComponent<
                     }
                     return d;
                   });
-                  console.log('当前同步设备的', updatedTimerDevices);
-                  
+                  slog('当前同步设备的', updatedTimerDevices)                  
                   // 更新当前选择设备的计时器值
                   const currentSelectedDevice = getCurrentSelectedDevice();
-                  console.log('当前选中的设备', currentSelectedDevice)
                   if (currentSelectedDevice?.id === deviceId) {
                     setCurrentTimeValue(workTime);
                   }
@@ -368,13 +370,13 @@ const DevicePanelController: NavigationFunctionComponent<
                     BLECommands.replyDeviceStatus(status, channel),
                   )
                     .then(() => {
-                      console.log('Successfully reply device status:', status);
+                      slog('Successfully reply device status:', status);
                     })
                     .catch(error => {
                       console.error('Error reply device status:', error);
                     });
 
-                  console.log(
+                  slog(
                     '获取设备的开关状态：channel',
                     channel,
                     'status',
@@ -401,7 +403,7 @@ const DevicePanelController: NavigationFunctionComponent<
                         d.timer && clearInterval(d.timer);
                         d.timer = setInterval(() => {
                           if (d.timerStatus !== 'running') {
-                            console.log('设备没有在启动，忽略');
+                            slog('设备没有在启动，忽略');
                             return;
                           }
                           d.timerValue -= 1;
@@ -410,11 +412,11 @@ const DevicePanelController: NavigationFunctionComponent<
                             d.timer && clearInterval(d.timer);
                             d.timer = null;
                             d.timerValue = 0;
-                            console.log('设备倒计时结束, 发送关机命令', d.id);
+                            slog('设备倒计时结束, 发送关机命令', d.id);
                             sendTurnOffCmd(d.id).then();
                           }
                           const td = timerDevices.find(d => d.selected);
-                          console.log(
+                          slog(
                             '倒计时 当前 数组选中设备',
                             td?.id,
                             '倒计时的 value',
@@ -423,7 +425,7 @@ const DevicePanelController: NavigationFunctionComponent<
                           if (td?.id === d.id) {
                             setCurrentTimeValue(d.timerValue);
                           } else {
-                            console.log('当前不是选择该设备，无需更新 UI');
+                            slog('当前不是选择该设备，无需更新 UI');
                           }
                         }, 1000);
                       }
@@ -454,7 +456,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   return d;
                 });
                 setTimerDevices(updatedTimerDevices);
-                console.log('setDeviceClimbTime', deviceId, climbingTime);
+                slog('setDeviceClimbTime', deviceId, climbingTime);
 
                 // 回复设备
                 BLEManager.writeCharacteristic(
@@ -464,12 +466,12 @@ const DevicePanelController: NavigationFunctionComponent<
                   BLECommands.replyClimbingTime(climbingTime),
                 )
                   .then(() => {
-                    console.log('Successfully reply climb time');
+                    slog('Successfully reply climb time');
 
                     // 确保 UI 更新
                     const currentSelectedDevice = getCurrentSelectedDevice();
                     if (currentSelectedDevice?.id === deviceId) {
-                      console.log(
+                      slog(
                         `设备 ${deviceId} 的攀爬时间已更新为 ${climbingTime}，UI 应该自动更新`,
                       );
                     }
@@ -495,7 +497,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   BLECommands.replyStopTime(stopTime),
                 )
                   .then(() => {
-                    console.log('Successfully reply stop time');
+                    slog('Successfully reply stop time');
                   })
                   .catch(error => {
                     console.error('Error reply stop time:', error);
@@ -519,7 +521,7 @@ const DevicePanelController: NavigationFunctionComponent<
                   BLECommands.replyPeakTime(peakTime),
                 )
                   .then(() => {
-                    console.log('Successfully reply peak time');
+                    slog('Successfully reply peak time');
                   })
                   .catch(error => {
                     console.error('Error reply peak time:', error);
@@ -562,7 +564,7 @@ const DevicePanelController: NavigationFunctionComponent<
       BLECommands.setMode(mode),
     )
       .then(() => {
-        console.log('Successfully wrote mode value:', mode);
+        slog('Successfully wrote mode value:', mode);
       })
       .catch(error => {
         console.error('Error writing mode:', error);
@@ -573,7 +575,7 @@ const DevicePanelController: NavigationFunctionComponent<
   const toggleTimer = useCallback(async () => {
     const td = timerDevices.find(d => d.selected);
     if (!td) {
-      console.log('no device');
+      slog('no device');
       return;
     }
 
@@ -581,7 +583,7 @@ const DevicePanelController: NavigationFunctionComponent<
     const isRunning = td.timerStatus === 'running';
     if (isRunning) {
       // 如果计时器正在运行，暂停它
-      console.log(
+      slog(
         `UI 触发暂停命令，当前运行状态：${isRunning}`,
         td.id,
         td.timer,
@@ -605,7 +607,7 @@ const DevicePanelController: NavigationFunctionComponent<
         BLECommands.stopTherapy(),
       )
         .then(() => {
-          console.log('Successfully stop device');
+          slog('Successfully stop device');
         })
         .catch(error => {
           console.error('Error stop device:', error);
@@ -622,13 +624,13 @@ const DevicePanelController: NavigationFunctionComponent<
               d.timer && clearInterval(d.timer);
               d.timer = null;
               d.timerValue = 0;
-              console.log('设备倒计时结束, 发送关机命令', d.id);
+              slog('设备倒计时结束, 发送关机命令', d.id);
               sendTurnOffCmd(d.id).then();
             }
 
             const cd = timerDevices.find(d => d.selected);
-            console.log('倒计时 当前 设备', cd?.id);
-            console.log(
+            slog('倒计时 当前 设备', cd?.id);
+            slog(
               '倒计时 当前 数组选中设备',
               cd?.id,
               '倒计时的 value',
@@ -637,7 +639,7 @@ const DevicePanelController: NavigationFunctionComponent<
             if (cd?.id === d.id) {
               setCurrentTimeValue(d.timerValue);
             } else {
-              console.log('当前不是选择该设备，无需更新 UI');
+              slog('当前不是选择该设备，无需更新 UI');
             }
           }, 1000);
         }
@@ -652,7 +654,7 @@ const DevicePanelController: NavigationFunctionComponent<
         BLECommands.startTherapy(),
       )
         .then(() => {
-          console.log('Successfully start device');
+          slog('Successfully start device');
         })
         .catch(error => {
           console.error('Error start device:', error);
@@ -662,24 +664,24 @@ const DevicePanelController: NavigationFunctionComponent<
 
   useNavigationComponentDidAppear(async () => {
     const initialDevice = timerDevices[0];
-    console.log('自动连接到第一个设备', initialDevice.name);
+    slog('自动连接到第一个设备', initialDevice.name);
 
     // Remove loading show from here - we'll only show it after connection succeeds
     resetReceivedParams();
     // Connect to device
-    console.log('开始连接设备...');
+    slog('开始连接设备...');
     await connectToDevice(initialDevice);
   });
 
   useEffect(() => {
-    console.log('####useEffect');
+    slog('####useEffect');
     return () => {
       // 清理所有订阅
-      console.log('清理所有订阅');
+      slog('清理所有订阅');
       Object.entries(subscriptionsRef.current).forEach(
         ([key, subscription]) => {
           if (subscription) {
-            console.log(`清理订阅：${key}`);
+            slog(`清理订阅：${key}`);
             subscription.remove();
           }
         },
@@ -700,7 +702,7 @@ const DevicePanelController: NavigationFunctionComponent<
   }, []);
 
   useNavigationComponentDidDisappear(async () => {
-    console.log('####useNavigationComponentDidDisappear');
+    slog('####useNavigationComponentDidDisappear');
   });
 
   const $modeActionSheet = (
@@ -715,11 +717,11 @@ const DevicePanelController: NavigationFunctionComponent<
   const onTimeSelected = (hours: number, minutes: number, seconds: number) => {
     const currentSelectedDevice = getCurrentSelectedDevice();
     if (!currentSelectedDevice) {
-      console.log('No device selected');
+      slog('No device selected');
       return;
     }
 
-    console.log(
+    slog(
       `Time selected: ${hours}:${minutes}:${seconds}`,
       currentSelectedDevice.id,
     );
@@ -750,7 +752,7 @@ const DevicePanelController: NavigationFunctionComponent<
         BLECommands.setWorkTime(totalSeconds),
       )
         .then(() => {
-          console.log('Successfully set work time');
+          slog('Successfully set work time');
         })
         .catch(error => {
           console.error('Error setting work time:', error);
@@ -778,7 +780,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Modify handleDeviceSelect to reset params and show loading
   const handleDeviceSelect = async (device: TimerDevice) => {
-    console.log('Selected device:', device);
+    slog('Selected device:', device);
 
     // 设置新的选中设备
     const updatedTimerDevices = timerDevices.map(d => {
@@ -787,7 +789,7 @@ const DevicePanelController: NavigationFunctionComponent<
     });
 
     setTimerDevices(updatedTimerDevices);
-    console.log('更新新设备 倒计时', device.id, device.timerValue);
+    slog('更新新设备 倒计时', device.id, device.timerValue);
     setCurrentTimeValue(device.timerValue);
     // Reset received params but don't show loading yet
     resetReceivedParams();
@@ -805,7 +807,7 @@ const DevicePanelController: NavigationFunctionComponent<
       }
 
       initialLoadingTimeoutRef.current = setTimeout(() => {
-        console.log('Loading timeout reached (5s), hiding loading');
+        slog('Loading timeout reached (5s), hiding loading');
         setIsInitialLoading(false);
         initialLoadingTimeoutRef.current = null;
       }, 5000);
@@ -1063,7 +1065,7 @@ const DevicePanelController: NavigationFunctionComponent<
       BLECommands.setIntensity(value),
     )
       .then(() => {
-        console.log('Successfully wrote intensity value:', value);
+        slog('Successfully wrote intensity value:', value);
       })
       .catch(error => {
         console.error('Error writing intensity:', error);
@@ -1155,7 +1157,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 return d;
               });
               setTimerDevices(updatedTimerDevices);
-              console.log(`Sending new climb time value to device: ${value}`);
+              slog(`Sending new climb time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
                 currentSelectedDevice.id,
@@ -1164,7 +1166,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 BLECommands.setClimbingTime(value),
               )
                 .then(() => {
-                  console.log(`Successfully wrote climb time value: ${value}`);
+                  slog(`Successfully wrote climb time value: ${value}`);
                 })
                 .catch(error => {
                   console.error(`Error writing climb time value: ${error}`);
@@ -1186,7 +1188,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 return d;
               });
               setTimerDevices(updatedTimerDevices);
-              console.log(`Sending new stop time value to device: ${value}`);
+              slog(`Sending new stop time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
                 currentSelectedDevice.id,
@@ -1195,7 +1197,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 BLECommands.setStopTime(value),
               )
                 .then(() => {
-                  console.log(`Successfully wrote stop time value: ${value}`);
+                  slog(`Successfully wrote stop time value: ${value}`);
                 })
                 .catch(error => {
                   console.error(`Error writing stop time value: ${error}`);
@@ -1217,7 +1219,7 @@ const DevicePanelController: NavigationFunctionComponent<
               });
               setTimerDevices(updatedTimerDevices);
 
-              console.log(`Sending new run time value to device: ${value}`);
+              slog(`Sending new run time value to device: ${value}`);
               // Add device command here if needed
               BLEManager.writeCharacteristic(
                 currentSelectedDevice.id,
@@ -1226,7 +1228,7 @@ const DevicePanelController: NavigationFunctionComponent<
                 BLECommands.setPeakTime(value),
               )
                 .then(() => {
-                  console.log(`Successfully wrote run time value: ${value}`);
+                  slog(`Successfully wrote run time value: ${value}`);
                 })
                 .catch(error => {
                   console.error(`Error writing run time value: ${error}`);
@@ -1284,7 +1286,7 @@ const DevicePanelController: NavigationFunctionComponent<
     setCurrentTimeValue(0);
     setTimerDevices(updatedTimerDevices);
     // 发送 cancel 执行
-    console.log('发送停止设备的命令');
+    slog('发送停止设备的命令');
     if (currentSelectedDevice) {
       BLEManager.writeCharacteristic(
         currentSelectedDevice.id,
@@ -1293,7 +1295,7 @@ const DevicePanelController: NavigationFunctionComponent<
         BLECommands.stopTherapy(),
       )
         .then(() => {
-          console.log('Successfully to stop device');
+          slog('Successfully to stop device');
         })
         .catch(error => {
           console.error(`Error writing to stop device: ${error}`);
@@ -1318,12 +1320,12 @@ const DevicePanelController: NavigationFunctionComponent<
   // 添加一个全局函数，用于完全清理设备相关的所有监控和状态
   const cleanupDeviceResources = useCallback(
     (deviceId: string, showNotification = false) => {
-      console.log(`完全清理设备 ${deviceId} 的所有资源和监控`);
+      slog(`完全清理设备 ${deviceId} 的所有资源和监控`);
 
       // 清理特性监控
       const charSubscription = subscriptionsRef.current[`char_${deviceId}`];
       if (charSubscription) {
-        console.log(`清理设备 ${deviceId} 的特性监控`);
+        slog(`清理设备 ${deviceId} 的特性监控`);
         charSubscription.remove();
         delete subscriptionsRef.current[`char_${deviceId}`];
       }
@@ -1331,14 +1333,14 @@ const DevicePanelController: NavigationFunctionComponent<
       // 清理连接监控
       const connSubscription = subscriptionsRef.current[`conn_${deviceId}`];
       if (connSubscription) {
-        console.log(`清理设备 ${deviceId} 的连接监控`);
+        slog(`清理设备 ${deviceId} 的连接监控`);
         connSubscription.remove();
         delete subscriptionsRef.current[`conn_${deviceId}`];
       }
 
       // 清理连接监控状态
       if (connectionMonitorsActive.current[`conn_${deviceId}`]) {
-        console.log(`设置设备 ${deviceId} 的连接监控状态为非活动`);
+        slog(`设置设备 ${deviceId} 的连接监控状态为非活动`);
         connectionMonitorsActive.current[`conn_${deviceId}`] = false;
       }
 
@@ -1374,15 +1376,15 @@ const DevicePanelController: NavigationFunctionComponent<
   // 为单个设备设置连接监控
   const setupConnectionMonitor = useCallback(
     async (deviceId: string) => {
-      console.log(`为设备 ${deviceId} 设置连接监控`);
+      slog(`为设备 ${deviceId} 设置连接监控`);
 
       // 找到设备
       const device = devices.find(d => d.id === deviceId);
       if (!device) {
-        console.log(`找不到设备 ID 为 ${deviceId} 的设备`);
+        slog(`找不到设备 ID 为 ${deviceId} 的设备`);
         return;
       }
-      console.log(`创建设备 ${deviceId} 的新连接监控`);
+      slog(`创建设备 ${deviceId} 的新连接监控`);
 
       // 创建设备的连接监控
       const subscription = BLEManager.monitorDeviceConnection(
@@ -1391,7 +1393,7 @@ const DevicePanelController: NavigationFunctionComponent<
           if (error) {
             console.error(`设备 ${deviceId} 连接错误:`, error);
           } else {
-            console.log(
+            slog(
               `设备 ${device.name || deviceId} 连接状态变更为：${isConnected ? '已连接' : '已断开'
               }`,
             );
@@ -1434,7 +1436,7 @@ const DevicePanelController: NavigationFunctionComponent<
     try {
       // 如果设备已经连接，不重复连接
       if (device.connectionStatus === 'connected') {
-        console.log(`设备 ${device.name} 已经连接，无需重复连接`);
+        slog(`设备 ${device.name} 已经连接，无需重复连接`);
         return;
       }
 
@@ -1454,7 +1456,7 @@ const DevicePanelController: NavigationFunctionComponent<
         device.id,
       );
       if (connectedDevice) {
-        console.log(`Successfully connected to ${device.name}`);
+        slog(`Successfully connected to ${device.name}`);
         const updatedTimerDevices = timerDevices.map(d => {
           if (d.id === device.id) {
             d.connectionStatus = 'connected';
@@ -1462,7 +1464,7 @@ const DevicePanelController: NavigationFunctionComponent<
           }
           return d;
         });
-        console.log(
+        slog(
           'connect to device updatedTimerDevices',
           updatedTimerDevices,
         );
@@ -1480,7 +1482,7 @@ const DevicePanelController: NavigationFunctionComponent<
         }
 
         initialLoadingTimeoutRef.current = setTimeout(() => {
-          console.log('Loading timeout reached (5s), hiding loading');
+          slog('Loading timeout reached (5s), hiding loading');
           setIsInitialLoading(false);
           initialLoadingTimeoutRef.current = null;
         }, 5000);
@@ -1566,7 +1568,7 @@ const DevicePanelController: NavigationFunctionComponent<
     const appStateListener = AppState.addEventListener(
       'change',
       async nextAppState => {
-        console.log('App state changed to:', nextAppState);
+        slog('App state changed to:', nextAppState);
 
         // 应用从后台返回前台
         if (
@@ -1574,7 +1576,7 @@ const DevicePanelController: NavigationFunctionComponent<
             appStateRef.current === 'inactive') &&
           nextAppState === 'active'
         ) {
-          console.log(
+          slog(
             'App returned to foreground, verifying device connections',
           );
 
@@ -1587,7 +1589,7 @@ const DevicePanelController: NavigationFunctionComponent<
           }
 
           initialLoadingTimeoutRef.current = setTimeout(() => {
-            console.log('Loading timeout reached (5s), hiding loading');
+            slog('Loading timeout reached (5s), hiding loading');
             setIsInitialLoading(false);
             initialLoadingTimeoutRef.current = null;
           }, 5000);
@@ -1602,7 +1604,7 @@ const DevicePanelController: NavigationFunctionComponent<
               BLECommands.getDeviceInfo(),
             )
               .then(() => {
-                console.log('Successfully get device info for device:', td.id);
+                slog('Successfully get device info for device:', td.id);
               })
               .catch(error => {
                 console.error(
@@ -1617,7 +1619,7 @@ const DevicePanelController: NavigationFunctionComponent<
           (nextAppState === 'background' || nextAppState === 'inactive')
         ) {
           // 应用进入后台时，确保后台服务已启动（如果有连接的设备）
-          console.log('App is going to background');
+          slog('App is going to background');
           // 停止所有计时器
           const updatedTimerDevices = timerDevices.map(d => {
             d.timer && clearInterval(d.timer);
