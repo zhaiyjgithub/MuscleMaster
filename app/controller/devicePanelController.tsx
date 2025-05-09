@@ -345,11 +345,12 @@ const DevicePanelController: NavigationFunctionComponent<
                   // 更新当前选择设备的计时器值
                   const updatedTimerDevices = timerDevices.map(d => {
                     if (d.id === deviceId) {
+                      d.timerStatus = 'stopped';
                       d.timerValue = workTime;
                     }
                     return d;
                   });
-                  slog('当前同步设备的', updatedTimerDevices)                  
+                  slog('当前同步设备的', updatedTimerDevices)
                   // 更新当前选择设备的计时器值
                   const currentSelectedDevice = getCurrentSelectedDevice();
                   if (currentSelectedDevice?.id === deviceId) {
@@ -721,6 +722,8 @@ const DevicePanelController: NavigationFunctionComponent<
       return;
     }
 
+    onCancelActivity();
+
     slog(
       `Time selected: ${hours}:${minutes}:${seconds}`,
       currentSelectedDevice.id,
@@ -965,56 +968,10 @@ const DevicePanelController: NavigationFunctionComponent<
     <TouchableOpacity
       className="p-4 flex flex-row items-center justify-center bg-white rounded-2xl"
       onPress={() => {
-        // 检查当前是否有选中的设备
-        const currentSelectedDevice = getCurrentSelectedDevice(); 
-        if (!currentSelectedDevice) {
-          toast.show('Please select a device first', {
-            type: 'warning',
-            placement: 'top',
-            duration: 3000,
-          });
-          return;
-        }
-
-        // 检查当前选中设备的连接状态
-        if (currentSelectedDevice?.connectionStatus !== 'connected') {
-          toast.show(
-            `${currentSelectedDevice?.name || 'Device'
-            } is not connected, please connect it first`,
-            {
-              type: 'warning',
-              placement: 'top',
-              duration: 3000,
-            },
-          );
-          return;
-        }
-
-        // 检查是否已设置时间但未启动
-        if (
-          currentSelectedDevice?.timerStatus === 'running' ||
-          currentSelectedDevice?.timerStatus === 'paused'
-        ) {
-          toast.show(
-            "Please click the 'Cancel' button to clear current settings before setting a new timer",
-            {
-              type: 'warning',
-              placement: 'top',
-              duration: 4000,
-            },
-          );
-          return;
-        }
-
-        // 只有在计时器未运行且没有设置时间值时才允许打开时间选择器
-        if (
-          currentSelectedDevice?.timerStatus === 'stopped' &&
-          currentSelectedDevice?.timerValue === 0
-        ) {
-          timePickerActionSheetRef.current?.expand();
-        }
+        timePickerActionSheetRef.current?.expand();
       }}
-      disabled={getCurrentSelectedDevice()?.timerStatus === 'running'}>
+      // disabled={getCurrentSelectedDevice()?.timerStatus === 'running'}
+      >
       <Text
         className={`text-8xl ${getCurrentSelectedDevice()?.timerStatus === 'running'
           ? 'text-orange-500'
@@ -1273,7 +1230,7 @@ const DevicePanelController: NavigationFunctionComponent<
   );
 
   const onCancelActivity = () => {
-    const currentSelectedDevice = timerDevices.find(device => device.selected); 
+    const currentSelectedDevice = timerDevices.find(device => device.selected);
     const updatedTimerDevices = timerDevices.map(d => {
       if (d.id === currentSelectedDevice?.id) {
         d.timerStatus = 'stopped';
@@ -1302,20 +1259,6 @@ const DevicePanelController: NavigationFunctionComponent<
         });
     }
   };
-
-  const $cancelActivity = (
-    <TouchableOpacity
-      className={`items-center justify-center ${getDeviceTimerValue() > 0 ? 'border-blue-500' : 'border-gray-300'
-        }`}
-      onPress={onCancelActivity}
-      disabled={getDeviceTimerValue() === 0}>
-      <Text
-        className={`font-semibold text-base ${getDeviceTimerValue() > 0 ? 'text-blue-500' : 'text-gray-500'
-          }`}>
-        Cancel
-      </Text>
-    </TouchableOpacity>
-  );
 
   // 添加一个全局函数，用于完全清理设备相关的所有监控和状态
   const cleanupDeviceResources = useCallback(
@@ -1656,7 +1599,6 @@ const DevicePanelController: NavigationFunctionComponent<
 
           <View className="flex-col gap-y-6">
             {$startAndPauseActivity}
-            {$cancelActivity}
           </View>
         </View>
 

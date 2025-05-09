@@ -204,7 +204,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 ScanDeviceController.options = {
   topBar: {
     title: {
-      text: 'GuGeer',
+      text: 'Duvimo',//
     },
     rightButtons: [
       {

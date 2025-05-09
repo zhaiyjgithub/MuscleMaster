@@ -104,6 +104,7 @@ export const TimePickerActionSheet = forwardRef<
           <Picker
             selectedValue={minutes}
             style={{width: '100%', height: 150}}
+            mode='dropdown'
             onValueChange={itemValue => setMinutes(itemValue)}>
             {minutesArray.map(minute => (
               <Picker.Item
@@ -120,6 +121,7 @@ export const TimePickerActionSheet = forwardRef<
           <Picker
             selectedValue={seconds}
             style={{width: '100%', height: 150}}
+            mode='dropdown'
             onValueChange={itemValue => setSeconds(itemValue)}>
             {secondsArray.map(second => (
               <Picker.Item
