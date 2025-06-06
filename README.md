@@ -77,3 +77,80 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+# MuscleMaster
+
+## Android 打包说明
+
+### 生成 Google Play Store AAB 文件
+
+我们提供了几个npm脚本来帮助您生成用于Google Play Store的AAB（Android App Bundle）文件：
+
+#### 可用脚本：
+
+1. **`npm run build-aab`** - 基础AAB构建
+   ```bash
+   npm run build-aab
+   ```
+
+2. **`npm run clean-android`** - 清理Android构建缓存
+   ```bash
+   npm run clean-android
+   ```
+
+3. **`npm run build-aab-upload`** - 清理后构建AAB（推荐用于上传）
+   ```bash
+   npm run build-aab-upload
+   ```
+
+4. **`npm run prepare-playstore`** - 完整的Play Store准备流程
+   ```bash
+   npm run prepare-playstore
+   ```
+
+#### 构建步骤：
+
+1. 确保您的签名密钥配置正确（在 `android/gradle.properties` 中）
+2. 运行构建命令：
+   ```bash
+   npm run prepare-playstore
+   ```
+3. 生成的AAB文件位置：
+   ```
+   android/app/build/outputs/bundle/release/app-release.aab
+   ```
+
+#### 签名配置：
+
+确保以下文件存在并配置正确：
+- `android/app/my-release-key.keystore` - 您的签名密钥文件
+- `android/gradle.properties` - 包含签名配置的属性
+
+#### 上传到Google Play Console：
+
+1. 登录 [Google Play Console](https://play.google.com/console)
+2. 选择您的应用
+3. 转到 "Release" > "Production"
+4. 点击 "Create new release"
+5. 上传生成的 `app-release.aab` 文件
+
+#### 注意事项：
+
+- 首次上传时，确保版本号（versionCode）是递增的
+- AAB文件包含所有架构，Google Play会为用户设备生成优化的APK
+- 构建前建议运行 `npm run clean-android` 清理缓存
+
+
+## ios 打包说明
+
+### 执行依赖安装
+
+1. **`yarn install`**
+
+## 执行 pod 依赖安装
+
+1. **`cd ios`**
+2. **`pod install`**
+
+## 执行 iOS 打包流程
+1. 打开 **MuscleMaster.xcworkspace** 进行打包

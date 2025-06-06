@@ -474,7 +474,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4TH645368Q;
+				DEVELOPMENT_TEAM = 99668XV7VA;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = MuscleMaster/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Duvimo;
@@ -506,7 +506,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4TH645368Q;
+				DEVELOPMENT_TEAM = 99668XV7VA;
 				INFOPLIST_FILE = MuscleMaster/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Duvimo;
 				LD_RUNPATH_SEARCH_PATHS = (
