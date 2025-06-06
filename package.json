@@ -8,7 +8,11 @@
     "lint": "eslint .",
     "start": "react-native start --reset-cache",
     "test": "jest",
-    "build-apk": "cd android && ./gradlew assembleRelease"
+    "build-apk": "cd android && ./gradlew assembleRelease",
+    "build-aab": "cd android && ./gradlew bundleRelease",
+    "clean-android": "cd android && ./gradlew clean",
+    "build-aab-upload": "npm run clean-android && cd android && ./gradlew bundleRelease --stacktrace",
+    "prepare-playstore": "npm run clean-android && cd android && ./gradlew bundleRelease && echo 'AAB file generated at: android/app/build/outputs/bundle/release/app-release.aab'"
   },
   "dependencies": {
     "@frsource/base64": "^1.0.132",

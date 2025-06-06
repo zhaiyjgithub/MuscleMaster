@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, ScrollView, TouchableOpacity, Text} from 'react-native';
+import {View, ScrollView} from 'react-native';
 import {Navigation, NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
@@ -9,7 +9,6 @@ import ScanFoundDeviceList, {
 } from '../components/scan-found-device/scanFoundDevice';
 import {useEffect, useState, useCallback} from 'react';
 import {BLEManager, calculateSignalStrength} from '../services/BLEManager';
-import { NativeModules, Platform, Linking } from 'react-native';
 
 const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   const [devices, setDevices] = useState<FoundDevice[]>([]);
@@ -34,7 +33,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
               d => d.id === device.id,
             );
 
-            // If device exists, return unchanged array
+            // If device exists, retuunchanged array
             if (existingDeviceIndex >= 0) {
               return prevDevices;
             }
@@ -77,13 +76,13 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   }, [isScanning]);
 
   // 等待蓝牙状态变为 PoweredOn 并开始扫描
-  const waitForBluetoothAndScan = useCallback(() => {
+  const waitForBluetoothAndScan = () => {
     // 检查当前状态，使用公共方法 getState()
     BLEManager.getState()
-      .then(state => {
+      .then(async state => {
         if (state === 'PoweredOn') {
           setBleReady(true);
-          startScanning();
+          await startScanning();
         } else {
           console.log('Bluetooth not ready, current state:', state);
         }
@@ -91,16 +90,16 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
       .catch(error => {
         console.error('Error checking Bluetooth state:', error);
       });
-  }, [startScanning]);
+  };
 
   // 组件挂载时监听蓝牙状态变化
   useEffect(() => {
     // 订阅蓝牙状态变化，使用公共方法 onStateChange()
-    const subscription = BLEManager.onStateChange(state => {
+    const subscription = BLEManager.onStateChange(async state => {
       console.log('Bluetooth state changed:', state);
       if (state === 'PoweredOn') {
         setBleReady(true);
-        startScanning();
+        await startScanning();
       } else {
         setBleReady(false);
       }
@@ -120,28 +119,28 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   }, []);
 
   // 处理重新扫描
-  const handleRescan = useCallback(() => {
+  const handleRescan = async () => {
     if (bleReady) {
       // clear all previous devices
       setDevices([]);
-      startScanning();
+      await startScanning();
     } else {
       waitForBluetoothAndScan();
     }
-  }, [bleReady, startScanning, waitForBluetoothAndScan]);
+  };
 
   // 处理开始训练按钮
-  const handleStartTraining = (device: FoundDevice) => {
-      console.log('Start training pressed', devices);
-      Navigation.push(componentId, {
-        component: {
-          name: 'DevicePanelController',
-          passProps: {
-            devices: devices,
-          },
+  const handleStartTraining = () => {
+    console.log('Start training pressed', devices);
+    Navigation.push(componentId, {
+      component: {
+        name: 'DevicePanelController',
+        passProps: {
+          devices: devices,
         },
-      });
-    }
+      },
+    });
+  };
 
   // 更新设备连接状态
   const updateDeviceConnectionStatus = useCallback(
@@ -184,7 +183,6 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
             updateDeviceServices={updateDeviceServices}
             onPress={handleStartTraining}
           />
-
         </ScrollView>
 
         {/* 固定在底部的按钮 */}
@@ -206,7 +204,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 ScanDeviceController.options = {
   topBar: {
     title: {
-      text: 'GuGeer',
+      text: 'Duvimo',//
     },
     rightButtons: [
       {
