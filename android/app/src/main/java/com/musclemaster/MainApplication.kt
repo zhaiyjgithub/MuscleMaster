@@ -1,7 +1,6 @@
 package com.musclemaster
 
 import android.app.Application
-import com.dovimo.app.BuildConfig
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -11,6 +10,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.reactnativenavigation.NavigationApplication
 import com.reactnativenavigation.react.NavigationReactNativeHost
+import com.gugger.duvimo.BuildConfig
 
 class MainApplication : NavigationApplication() {
 

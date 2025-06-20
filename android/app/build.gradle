@@ -74,9 +74,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.dovimo.app"
+    namespace "com.gugger.duvimo"
     defaultConfig {
-        applicationId "com.dovimo.app"
+        applicationId "com.gugger.duvimo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
