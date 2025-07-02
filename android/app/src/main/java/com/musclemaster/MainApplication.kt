@@ -10,7 +10,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.reactnativenavigation.NavigationApplication
 import com.reactnativenavigation.react.NavigationReactNativeHost
-import com.gugger.duvimo.BuildConfig
+import com.musclemaster.BuildConfig
 
 class MainApplication : NavigationApplication() {
 
