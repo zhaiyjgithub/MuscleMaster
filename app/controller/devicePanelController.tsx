@@ -7,26 +7,26 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Text, TouchableOpacity, View } from 'react-native';
-import { Subscription } from 'react-native-ble-plx';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationFunctionComponent } from 'react-native-navigation';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Animated, AppState, Text, TouchableOpacity, View} from 'react-native';
+import {Subscription} from 'react-native-ble-plx';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {NavigationFunctionComponent} from 'react-native-navigation';
 import {
   useNavigationComponentDidAppear,
   useNavigationComponentDidDisappear,
 } from 'react-native-navigation-hooks';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useToast } from 'react-native-toast-notifications';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useToast} from 'react-native-toast-notifications';
 import ActionsSettingList from '../components/actions-setting-list/actionsSettingList';
 import DeviceListActionSheet from '../components/device-list-action-sheet/deviceListActionSheet';
 import ModeListActionSheet, {
   Modes,
 } from '../components/mode-list-action-sheet/modeListActionSheet';
-import { FoundDevice } from '../components/scan-found-device/scanFoundDevice';
-import { TimePickerActionSheet } from '../components/time-picker-action-sheet/timePickerActionSheet';
-import { cn } from '../lib/utils';
-import { BLEManager } from '../services/BLEManager';
+import {FoundDevice} from '../components/scan-found-device/scanFoundDevice';
+import {TimePickerActionSheet} from '../components/time-picker-action-sheet/timePickerActionSheet';
+import {cn} from '../lib/utils';
+import {BLEManager} from '../services/BLEManager';
 import {
   BLE_UUID,
   BLECommands,
@@ -35,16 +35,17 @@ import {
   parseResponse,
 } from '../services/protocol';
 import TimerDevice from './model/timerDevice.ts';
-import { sendTurnOffCmd } from './service/service.ts';
+import {sendTurnOffCmd} from './service/service.ts';
 import Loading from './view/loading';
 
 export interface DevicePanelControllerProps {
   devices: FoundDevice[];
+  initialSelectedDeviceId?: string;
 }
 
 const DevicePanelController: NavigationFunctionComponent<
   DevicePanelControllerProps
-> = ({ devices }) => {
+> = ({devices, initialSelectedDeviceId}) => {
   const [isConnecting, setIsConnecting] = useState(false);
 
   // 将 deviceLoadingStates 从 state 改为 ref
@@ -77,7 +78,7 @@ const DevicePanelController: NavigationFunctionComponent<
   });
 
   const [timerDevices, setTimerDevices] = useState<TimerDevice[]>(() => {
-    return devices.map((device, index) => ({
+    return devices.map(device => ({
       id: device.id,
       name: device.name,
       timer: null,
@@ -91,19 +92,31 @@ const DevicePanelController: NavigationFunctionComponent<
       mode: '',
       intensity: 1,
       version: '',
-      selected: index === 0,
+      selected: initialSelectedDeviceId === device.id,
     }));
   });
+
+  // 监听 initialSelectedDeviceId 的变化，更新选中状态
+  useEffect(() => {
+    if (initialSelectedDeviceId) {
+      setTimerDevices(prevDevices =>
+        prevDevices.map(device => ({
+          ...device,
+          selected: device.id === initialSelectedDeviceId,
+        })),
+      );
+    }
+  }, [initialSelectedDeviceId]);
 
   const [currentTimeValue, setCurrentTimeValue] = useState(0);
 
   const slog = (message: string, ...args: unknown[]) => {
     // console.log(`[App] ${message}`, ...args);
-  }
+  };
 
   const getCurrentSelectedDevice = () => {
     return timerDevices.find(device => device.selected);
-  }
+  };
 
   // 状态指示器的呼吸动画
   useEffect(() => {
@@ -144,7 +157,10 @@ const DevicePanelController: NavigationFunctionComponent<
 
     // 检查当前选中设备的连接状态
     const currentSelectedDevice = timerDevices.find(device => device.selected);
-    if (currentSelectedDevice && currentSelectedDevice.connectionStatus === 'connected') {
+    if (
+      currentSelectedDevice &&
+      currentSelectedDevice.connectionStatus === 'connected'
+    ) {
       return '#10b981';
     } // 绿色，已连接
 
@@ -153,7 +169,7 @@ const DevicePanelController: NavigationFunctionComponent<
 
   // Function to check if all required parameters are received
   const checkAllParamsReceived = useCallback(() => {
-    const { workTime, intensity, mode } = receivedParamsRef.current;
+    const {workTime, intensity, mode} = receivedParamsRef.current;
 
     if (workTime && intensity && mode) {
       slog('All required device parameters received, hiding loading');
@@ -198,17 +214,14 @@ const DevicePanelController: NavigationFunctionComponent<
             error,
           );
         } else if (characteristic && characteristic.value) {
-          slog(
-            `Received value from device ${deviceId}:`,
-            characteristic.value,
-          );
+          slog(`Received value from device ${deviceId}:`, characteristic.value);
           const parsedResponse = parseResponse(characteristic.value);
 
           // 检查是否为有效响应
           if (parsedResponse.isValid) {
             // 判断命令类型
             slog('Monitored characteristic value:', parsedResponse);
-            const { command, data } = parsedResponse;
+            const {command, data} = parsedResponse;
             if (command === CommandType.GET_VERSION) {
               // 设置设备版本信息
               if (data.length >= 2) {
@@ -274,10 +287,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     BLECommands.replyIntensity(intensity),
                   )
                     .then(() => {
-                      slog(
-                        'Successfully reply intensity value:',
-                        intensity,
-                      );
+                      slog('Successfully reply intensity value:', intensity);
                     })
                     .catch(error => {
                       console.error('Error reply intensity:', error);
@@ -350,7 +360,7 @@ const DevicePanelController: NavigationFunctionComponent<
                     }
                     return d;
                   });
-                  slog('当前同步设备的', updatedTimerDevices)
+                  slog('当前同步设备的', updatedTimerDevices);
                   // 更新当前选择设备的计时器值
                   const currentSelectedDevice = getCurrentSelectedDevice();
                   if (currentSelectedDevice?.id === deviceId) {
@@ -546,10 +556,28 @@ const DevicePanelController: NavigationFunctionComponent<
     }
 
     const deviceId = currentSelectedDevice.id;
+
+    // 发送暂停指令
+    BLEManager.writeCharacteristic(
+      deviceId,
+      BLE_UUID.SERVICE,
+      BLE_UUID.CHARACTERISTIC_WRITE,
+      BLECommands.stopTherapy(),
+    )
+      .then(() => {
+        slog('Successfully stop device');
+      })
+      .catch(error => {
+        console.error('Error stop device:', error);
+      });
+
     // 更新设备模式
     const updatedTimerDevices = timerDevices.map(d => {
       if (d.id === deviceId) {
         d.mode = name;
+        d.timerStatus = 'paused';
+        d.timer && clearInterval(d.timer);
+        d.timer = null;
       }
       return d;
     });
@@ -664,8 +692,16 @@ const DevicePanelController: NavigationFunctionComponent<
   }, [timerDevices]);
 
   useNavigationComponentDidAppear(async () => {
-    const initialDevice = timerDevices[0];
-    slog('自动连接到第一个设备', initialDevice.name);
+    // 获取初始选中的设备，如果没有则使用第一个设备
+    const initialDevice =
+      timerDevices.find(device => device.selected) || timerDevices[0];
+
+    if (!initialDevice) {
+      slog('没有可用的设备');
+      return;
+    }
+
+    slog('自动连接到初始设备', initialDevice.name);
 
     // Remove loading show from here - we'll only show it after connection succeeds
     resetReceivedParams();
@@ -871,7 +907,7 @@ const DevicePanelController: NavigationFunctionComponent<
               borderRadius: 4,
               backgroundColor: statusColor,
               marginRight: 6,
-              transform: [{ scale: pulseAnim }],
+              transform: [{scale: pulseAnim}],
             }}
           />
           <Text className="text-yellow-500 text-xs">Connecting...</Text>
@@ -891,8 +927,9 @@ const DevicePanelController: NavigationFunctionComponent<
           }}
         />
         <Text
-          className={`text-xs ${isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
-            }`}>
+          className={`text-xs ${
+            isCurrentDeviceConnected ? 'text-green-600' : 'text-red-500'
+          }`}>
           {isCurrentDeviceConnected ? 'Connected' : 'Disconnected'}
         </Text>
       </View>
@@ -971,12 +1008,13 @@ const DevicePanelController: NavigationFunctionComponent<
         timePickerActionSheetRef.current?.expand();
       }}
       // disabled={getCurrentSelectedDevice()?.timerStatus === 'running'}
-      >
+    >
       <Text
-        className={`text-8xl ${getCurrentSelectedDevice()?.timerStatus === 'running'
-          ? 'text-orange-500'
-          : 'text-gray-700'
-          } font-bold pt-4`}>
+        className={`text-8xl ${
+          getCurrentSelectedDevice()?.timerStatus === 'running'
+            ? 'text-orange-500'
+            : 'text-gray-700'
+        } font-bold pt-4`}>
         {formatTime(currentTimeValue)}
       </Text>
     </TouchableOpacity>
@@ -1337,7 +1375,8 @@ const DevicePanelController: NavigationFunctionComponent<
             console.error(`设备 ${deviceId} 连接错误:`, error);
           } else {
             slog(
-              `设备 ${device.name || deviceId} 连接状态变更为：${isConnected ? '已连接' : '已断开'
+              `设备 ${device.name || deviceId} 连接状态变更为：${
+                isConnected ? '已连接' : '已断开'
               }`,
             );
             if (!isConnected) {
@@ -1395,7 +1434,7 @@ const DevicePanelController: NavigationFunctionComponent<
       BLEManager.stopScan();
 
       // 连接设备
-      const { connectedDevice, err } = await BLEManager.connectToDevice(
+      const {connectedDevice, err} = await BLEManager.connectToDevice(
         device.id,
       );
       if (connectedDevice) {
@@ -1407,10 +1446,7 @@ const DevicePanelController: NavigationFunctionComponent<
           }
           return d;
         });
-        slog(
-          'connect to device updatedTimerDevices',
-          updatedTimerDevices,
-        );
+        slog('connect to device updatedTimerDevices', updatedTimerDevices);
         setTimerDevices(updatedTimerDevices);
 
         // Reset received params tracking for the new connection
@@ -1474,14 +1510,16 @@ const DevicePanelController: NavigationFunctionComponent<
         }
       }
     } catch (error) {
-      const msg = `Failed to ${device.connectionStatus === 'connected'
-        ? 'disconnect from'
-        : 'connect to'
-        } ${device.name ?? 'Device'}`;
-      console.error(
-        `Failed to ${device.connectionStatus === 'connected'
+      const msg = `Failed to ${
+        device.connectionStatus === 'connected'
           ? 'disconnect from'
           : 'connect to'
+      } ${device.name ?? 'Device'}`;
+      console.error(
+        `Failed to ${
+          device.connectionStatus === 'connected'
+            ? 'disconnect from'
+            : 'connect to'
         } ${device.name}:`,
         error,
       );
@@ -1519,9 +1557,7 @@ const DevicePanelController: NavigationFunctionComponent<
             appStateRef.current === 'inactive') &&
           nextAppState === 'active'
         ) {
-          slog(
-            'App returned to foreground, verifying device connections',
-          );
+          slog('App returned to foreground, verifying device connections');
 
           // If already connected, show loading to sync parameters
           setIsInitialLoading(true);
@@ -1584,7 +1620,7 @@ const DevicePanelController: NavigationFunctionComponent<
   }, [timerDevices]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaView className="flex-1 bg-[#f5f5f5]">
         <View className={'flex flex-1 flex-col justify-between p-4'}>
           {$deviceInfo}
@@ -1597,9 +1633,7 @@ const DevicePanelController: NavigationFunctionComponent<
             </View>
           </View>
 
-          <View className="flex-col gap-y-6">
-            {$startAndPauseActivity}
-          </View>
+          <View className="flex-col gap-y-6">{$startAndPauseActivity}</View>
         </View>
 
         {$modeActionSheet}

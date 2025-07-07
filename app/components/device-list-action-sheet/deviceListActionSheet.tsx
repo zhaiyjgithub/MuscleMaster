@@ -24,8 +24,7 @@ const DeviceListActionSheet = forwardRef<
   BottomSheet,
   DeviceListActionSheetProps
 >((props, ref) => {
-  const {devices, selectedDevice, handleDeviceSelect} =
-    props;
+  const {devices, selectedDevice, handleDeviceSelect} = props;
   const bottomSheetRef = useRef<BottomSheet>(null);
   useImperativeHandle(ref, () => bottomSheetRef.current!);
 
@@ -71,6 +70,7 @@ const DeviceListActionSheet = forwardRef<
               <Text className="font-semibold text-base text-gray-800 mb-1">
                 {device.name}
               </Text>
+              <Text className="text-sm text-gray-600">{device.id}</Text>
               <View className="flex-row items-center">
                 {isLoading ? (
                   <View className="flex-row items-center">
@@ -117,11 +117,6 @@ const DeviceListActionSheet = forwardRef<
             <Text className="font-semibold text-lg">Select Device</Text>
           </View>
           {$deviceList}
-          {/* <TouchableOpacity
-            className="bg-blue-500 rounded-lg py-3.5 items-center mt-2"
-            onPress={() => bottomSheetRef.current?.close()}>
-            <Text className="text-white font-medium text-base">Confirm</Text>
-          </TouchableOpacity> */}
         </SafeAreaView>
       </BottomSheetScrollView>
     </BottomSheet>

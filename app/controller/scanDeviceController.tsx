@@ -4,8 +4,7 @@ import {Navigation, NavigationFunctionComponent} from 'react-native-navigation';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanSection from '../components/scan-section/scanSection';
 import ScanFoundDeviceList, {
-  FoundDevice,
-  ServiceInfo,
+  FoundDevice
 } from '../components/scan-found-device/scanFoundDevice';
 import {useEffect, useState, useCallback} from 'react';
 import {BLEManager, calculateSignalStrength} from '../services/BLEManager';
@@ -130,41 +129,18 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
   };
 
   // 处理开始训练按钮
-  const handleStartTraining = () => {
-    console.log('Start training pressed', devices);
+  const handleStartTraining = (device: FoundDevice) => {
+    console.log('Start training pressed', device);
     Navigation.push(componentId, {
       component: {
         name: 'DevicePanelController',
         passProps: {
           devices: devices,
+          initialSelectedDeviceId: device.id,
         },
       },
     });
   };
-
-  // 更新设备连接状态
-  const updateDeviceConnectionStatus = useCallback(
-    (deviceId: string, isConnected: boolean) => {
-      setDevices(prevDevices =>
-        prevDevices.map(device =>
-          device.id === deviceId ? {...device, connected: isConnected} : device,
-        ),
-      );
-    },
-    [],
-  );
-
-  // 更新设备服务
-  const updateDeviceServices = useCallback(
-    (deviceId: string, serviceInfos: ServiceInfo[]) => {
-      setDevices(prevDevices =>
-        prevDevices.map(device =>
-          device.id === deviceId ? {...device, serviceInfos} : device,
-        ),
-      );
-    },
-    [],
-  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#f5f5f5]">
@@ -179,8 +155,6 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 
           <ScanFoundDeviceList
             devices={devices}
-            updateConnectionStatus={updateDeviceConnectionStatus}
-            updateDeviceServices={updateDeviceServices}
             onPress={handleStartTraining}
           />
         </ScrollView>
@@ -204,7 +178,7 @@ const ScanDeviceController: NavigationFunctionComponent = ({componentId}) => {
 ScanDeviceController.options = {
   topBar: {
     title: {
-      text: 'Duvimo',//
+      text: 'Duvimo', // 设备列表
     },
     rightButtons: [
       {

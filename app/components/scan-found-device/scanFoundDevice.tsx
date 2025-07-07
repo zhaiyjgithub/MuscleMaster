@@ -221,18 +221,11 @@ export interface FoundDevice {
 }
 interface ScanFoundDeviceListProps {
   devices: FoundDevice[];
-  updateConnectionStatus?: (deviceId: string, isConnected: boolean) => void;
-  updateDeviceServices?: (
-    deviceId: string,
-    serviceInfos: ServiceInfo[],
-  ) => void;
   onPress: (device: FoundDevice) => void;
 }
 
 const ScanFoundDeviceList: React.FC<ScanFoundDeviceListProps> = ({
   devices,
-  updateConnectionStatus,
-  updateDeviceServices,
   onPress,
 }) => {
   // 跟踪正在加载的设备 ID
