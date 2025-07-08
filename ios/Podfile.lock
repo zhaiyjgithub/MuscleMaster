@@ -1226,7 +1226,7 @@ PODS:
     - React-CoreModules
     - React-RCTImage
     - React-RCTText
-  - RNCPicker (2.11.0):
+  - RNCPicker (2.11.1):
     - React-Core
   - RNGestureHandler (2.24.0):
     - DoubleConversion
@@ -1604,7 +1604,7 @@ SPEC CHECKSUMS:
   React-utils: a06061b3887c702235d2dac92dacbd93e1ea079e
   ReactCommon: f00e436b3925a7ae44dfa294b43ef360fbd8ccc4
   ReactNativeNavigation: 84cfcceb62947491beda20b96c5999c15ff5b959
-  RNCPicker: 4f6d5e8d107064be32dfc8f1bcb5a3741135db0b
+  RNCPicker: 55f4c211f69edb5c7a0faf85933e36c3621ebf64
   RNGestureHandler: 4d82e79c24b18e83040ed9d6f1a178267c5c6aa8
   RNReanimated: af4e059a8fd0fb7a9cdf5ad35ead4699598a9447
   RNSVG: e451741721b9fd3db71b06aafe9335d09a189692

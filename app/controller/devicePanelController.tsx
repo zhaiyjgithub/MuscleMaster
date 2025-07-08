@@ -457,7 +457,12 @@ const DevicePanelController: NavigationFunctionComponent<
                   }
                 }
               } else if (subCommand === CommandType.SET_CLIMBING_TIME) {
-                const climbingTime = data[1];
+                let climbingTime = data[1];
+                if (climbingTime < 0) {
+                  climbingTime = 0;
+                } else if (climbingTime > 10) {
+                  climbingTime = 10;
+                }
 
                 // 更新当前选择设备的攀爬时间
                 const updatedTimerDevices = timerDevices.map(d => {
@@ -491,7 +496,12 @@ const DevicePanelController: NavigationFunctionComponent<
                     console.error('Error reply climb time:', error);
                   });
               } else if (subCommand === CommandType.SET_STOP_TIME) {
-                const stopTime = data[1];
+                let stopTime = data[1];
+                if (stopTime < 2) {
+                  stopTime = 2;
+                } else if (stopTime > 10) {
+                  stopTime = 10;
+                }
                 // 更新设备停止时间
                 const updatedTimerDevices = timerDevices.map(d => {
                   if (d.id === deviceId) {
@@ -514,7 +524,12 @@ const DevicePanelController: NavigationFunctionComponent<
                     console.error('Error reply stop time:', error);
                   });
               } else if (subCommand === CommandType.SET_PEEK_TIME) {
-                const peakTime = data[1];
+                let peakTime = data[1];
+                if (peakTime < 1) {
+                  peakTime = 1;
+                } else if (peakTime > 10) {
+                  peakTime = 10;
+                }
                 // 更新设备运行时间
                 const updatedTimerDevices = timerDevices.map(d => {
                   if (d.id === deviceId) {
@@ -1141,96 +1156,109 @@ const DevicePanelController: NavigationFunctionComponent<
         stopTime={getDeviceStopTime()}
         runTime={getDeviceRunTime()}
         onClimbTimeChange={value => {
-          // Ensure value stays within 1-10 range
-          if (value >= 0 && value <= 10) {
-            const currentSelectedDevice = getCurrentSelectedDevice();
-            if (currentSelectedDevice) {
-              // Update device-specific value
-              // 更新设备攀爬时间
-              const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === currentSelectedDevice.id) {
-                  d.climbingTime = value;
-                }
-                return d;
+          // Ensure value stays within 0-10 range
+          let newValue = value;
+          if (newValue < 0) {
+            newValue = 0;
+          } else if (newValue > 10) {
+            newValue = 10;
+          }
+
+          const currentSelectedDevice = getCurrentSelectedDevice();
+          if (currentSelectedDevice) {
+            // Update device-specific value
+            // 更新设备攀爬时间
+            const updatedTimerDevices = timerDevices.map(d => {
+              if (d.id === currentSelectedDevice.id) {
+                d.climbingTime = newValue;
+              }
+              return d;
+            });
+            setTimerDevices(updatedTimerDevices);
+            slog(`Sending new climb time value to device: ${newValue}`);
+            // Add device command here if needed
+            BLEManager.writeCharacteristic(
+              currentSelectedDevice.id,
+              BLE_UUID.SERVICE,
+              BLE_UUID.CHARACTERISTIC_WRITE,
+              BLECommands.setClimbingTime(newValue),
+            )
+              .then(() => {
+                slog(`Successfully wrote climb time value: ${newValue}`);
+              })
+              .catch(error => {
+                console.error(`Error writing climb time value: ${error}`);
               });
-              setTimerDevices(updatedTimerDevices);
-              slog(`Sending new climb time value to device: ${value}`);
-              // Add device command here if needed
-              BLEManager.writeCharacteristic(
-                currentSelectedDevice.id,
-                BLE_UUID.SERVICE,
-                BLE_UUID.CHARACTERISTIC_WRITE,
-                BLECommands.setClimbingTime(value),
-              )
-                .then(() => {
-                  slog(`Successfully wrote climb time value: ${value}`);
-                })
-                .catch(error => {
-                  console.error(`Error writing climb time value: ${error}`);
-                });
-            }
           }
         }}
         onStopTimeChange={value => {
           // Ensure value stays within 2-10 range
-          if (value >= 2 && value <= 10) {
-            const currentSelectedDevice = getCurrentSelectedDevice();
-            if (currentSelectedDevice) {
-              // Update device-specific value
-              // 更新设备停止时间
-              const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === currentSelectedDevice.id) {
-                  d.stopTime = value;
-                }
-                return d;
+          let newValue = value;
+          if (newValue < 2) {
+            newValue = 2;
+          } else if (newValue > 10) {
+            newValue = 10;
+          }
+          const currentSelectedDevice = getCurrentSelectedDevice();
+          if (currentSelectedDevice) {
+            // Update device-specific value
+            // 更新设备停止时间
+            const updatedTimerDevices = timerDevices.map(d => {
+              if (d.id === currentSelectedDevice.id) {
+                d.stopTime = newValue;
+              }
+              return d;
+            });
+            setTimerDevices(updatedTimerDevices);
+            slog(`Sending new stop time value to device: ${newValue}`);
+            // Add device command here if needed
+            BLEManager.writeCharacteristic(
+              currentSelectedDevice.id,
+              BLE_UUID.SERVICE,
+              BLE_UUID.CHARACTERISTIC_WRITE,
+              BLECommands.setStopTime(newValue),
+            )
+              .then(() => {
+                slog(`Successfully wrote stop time value: ${newValue}`);
+              })
+              .catch(error => {
+                console.error(`Error writing stop time value: ${error}`);
               });
-              setTimerDevices(updatedTimerDevices);
-              slog(`Sending new stop time value to device: ${value}`);
-              // Add device command here if needed
-              BLEManager.writeCharacteristic(
-                currentSelectedDevice.id,
-                BLE_UUID.SERVICE,
-                BLE_UUID.CHARACTERISTIC_WRITE,
-                BLECommands.setStopTime(value),
-              )
-                .then(() => {
-                  slog(`Successfully wrote stop time value: ${value}`);
-                })
-                .catch(error => {
-                  console.error(`Error writing stop time value: ${error}`);
-                });
-            }
           }
         }}
         onRunTimeChange={value => {
           // Ensure value stays within 1-10 range
-          if (value >= 1 && value <= 10) {
-            const currentSelectedDevice = getCurrentSelectedDevice();
-            if (currentSelectedDevice) {
-              // Update device-specific value
-              const updatedTimerDevices = timerDevices.map(d => {
-                if (d.id === currentSelectedDevice.id) {
-                  d.runningTime = value;
-                }
-                return d;
-              });
-              setTimerDevices(updatedTimerDevices);
+          let newValue = value;
+          if (newValue < 1) {
+            newValue = 1;
+          } else if (newValue > 10) {
+            newValue = 10;
+          }
+          const currentSelectedDevice = getCurrentSelectedDevice();
+          if (currentSelectedDevice) {
+            // Update device-specific value
+            const updatedTimerDevices = timerDevices.map(d => {
+              if (d.id === currentSelectedDevice.id) {
+                d.runningTime = newValue;
+              }
+              return d;
+            });
+            setTimerDevices(updatedTimerDevices);
 
-              slog(`Sending new run time value to device: ${value}`);
-              // Add device command here if needed
-              BLEManager.writeCharacteristic(
-                currentSelectedDevice.id,
-                BLE_UUID.SERVICE,
-                BLE_UUID.CHARACTERISTIC_WRITE,
-                BLECommands.setPeakTime(value),
-              )
-                .then(() => {
-                  slog(`Successfully wrote run time value: ${value}`);
-                })
-                .catch(error => {
-                  console.error(`Error writing run time value: ${error}`);
-                });
-            }
+            slog(`Sending new run time value to device: ${newValue}`);
+            // Add device command here if needed
+            BLEManager.writeCharacteristic(
+              currentSelectedDevice.id,
+              BLE_UUID.SERVICE,
+              BLE_UUID.CHARACTERISTIC_WRITE,
+              BLECommands.setPeakTime(newValue),
+            )
+              .then(() => {
+                slog(`Successfully wrote run time value: ${newValue}`);
+              })
+              .catch(error => {
+                console.error(`Error writing run time value: ${error}`);
+              });
           }
         }}
       />
