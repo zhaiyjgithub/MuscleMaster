@@ -549,7 +549,7 @@ const DevicePanelController: NavigationFunctionComponent<
   };
 
   // 修改模式选择逻辑
-  const handleModeSelect = (mode: DeviceMode, name: string) => {
+  const handleModeSelect = async (mode: DeviceMode, name: string) => {
     const currentSelectedDevice = getCurrentSelectedDevice();
     if (!currentSelectedDevice) {
       return;
@@ -570,6 +570,8 @@ const DevicePanelController: NavigationFunctionComponent<
       .catch(error => {
         console.error('Error stop device:', error);
       });
+
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     // 更新设备模式
     const updatedTimerDevices = timerDevices.map(d => {
@@ -1170,8 +1172,8 @@ const DevicePanelController: NavigationFunctionComponent<
           }
         }}
         onStopTimeChange={value => {
-          // Ensure value stays within 1-10 range
-          if (value >= 0 && value <= 10) {
+          // Ensure value stays within 2-10 range
+          if (value >= 2 && value <= 10) {
             const currentSelectedDevice = getCurrentSelectedDevice();
             if (currentSelectedDevice) {
               // Update device-specific value
