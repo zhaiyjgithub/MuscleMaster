@@ -17,6 +17,7 @@
   "dependencies": {
     "@frsource/base64": "^1.0.132",
     "@gorhom/bottom-sheet": "^5",
+    "@quidone/react-native-wheel-picker": "^1.4.1",
     "@react-native-community/slider": "^4.5.6",
     "@react-native-picker/picker": "^2.11.1",
     "clsx": "^2.1.1",

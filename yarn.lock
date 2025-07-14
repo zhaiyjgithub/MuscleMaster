@@ -1519,6 +1519,13 @@
   resolved "https://registry.npmjs.org/@pkgjs/parseargs/-/parseargs-0.11.0.tgz"
   integrity sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==
 
+"@quidone/react-native-wheel-picker@^1.4.1":
+  version "1.4.1"
+  resolved "https://registry.npmjs.org/@quidone/react-native-wheel-picker/-/react-native-wheel-picker-1.4.1.tgz#9f0762465f119a574ff50090f7f460fce90e6f14"
+  integrity sha512-y0Kf3ToC01HcQ2BfNQlBuOO0i0quFfik1HO5DoCZpSlwMhFJt8UYqIc2TryRvsRxbgahBST7W17qXnVj9LDTMw==
+  dependencies:
+    "@rozhkov/react-useful-hooks" "^1.0.10"
+
 "@react-native-community/cli-clean@13.6.9":
   version "13.6.9"
   resolved "https://registry.npmjs.org/@react-native-community/cli-clean/-/cli-clean-13.6.9.tgz"
@@ -1883,6 +1890,13 @@
     lighthouse-logger "^1.0.0"
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
+
+"@rozhkov/react-useful-hooks@^1.0.10":
+  version "1.0.10"
+  resolved "https://registry.npmjs.org/@rozhkov/react-useful-hooks/-/react-useful-hooks-1.0.10.tgz#3d3a870d419d3703ce88f66174dd27e203e2bf03"
+  integrity sha512-aEDZDiqkpPJX8WqLqcnPGjXzRpCFiZmbtdr5RVUOciNbbANhdNu+oIxJv3g7ezMcgsYhgWp2/XGxU+g/ClsBew==
+  dependencies:
+    default-values "^1.0.2"
 
 "@sideway/address@^4.1.5":
   version "4.1.5"
@@ -3058,6 +3072,11 @@ deepmerge@^4.2.2, deepmerge@^4.3.0:
   version "4.3.1"
   resolved "https://registry.npmjs.org/deepmerge/-/deepmerge-4.3.1.tgz"
   integrity sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==
+
+default-values@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.npmjs.org/default-values/-/default-values-1.0.2.tgz#cf104c52185c0e60a691113ba0a3880ed4d4d2ed"
+  integrity sha512-OaZEvojjexigvv1IT6N0rKUD5Af7fG11a0jg87jySv5xzjc2+IEW9oWNvqxWLHGhShRRZ0QopCGzGjJv/aY+mw==
 
 defaults@^1.0.3:
   version "1.0.4"
