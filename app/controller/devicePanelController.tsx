@@ -586,7 +586,7 @@ const DevicePanelController: NavigationFunctionComponent<
         console.error('Error stop device:', error);
       });
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 20));
 
     // 更新设备模式
     const updatedTimerDevices = timerDevices.map(d => {

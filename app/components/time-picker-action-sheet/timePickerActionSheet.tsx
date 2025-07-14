@@ -1,11 +1,10 @@
 import BottomSheet, {
   BottomSheetBackdrop,
-  BottomSheetScrollView,
+  BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import React, {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -13,7 +12,7 @@ import React, {
 } from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {Picker} from '@react-native-picker/picker';
+import WheelPicker from '@quidone/react-native-wheel-picker';
 
 interface TimePickerActionSheetProps {
   initialHours?: number;
@@ -63,7 +62,6 @@ export const TimePickerActionSheet = forwardRef<
     return Array.from({length: max + 1}, (_, i) => i);
   };
 
-  const hoursArray = generateNumbers(23);
   const minutesArray = generateNumbers(59);
   const secondsArray = generateNumbers(59);
 
@@ -78,59 +76,43 @@ export const TimePickerActionSheet = forwardRef<
     bottomSheetRef.current?.close();
   };
 
+  const minutesData = useMemo(() => {
+    return minutesArray.map(minute => ({
+      label: `${minute}`,
+      value: minute,
+    }));
+  }, [minutesArray]);
+
+  const secondsData = useMemo(() => {
+    return secondsArray.map(second => ({
+      label: `${second}`,
+      value: second,
+    }));
+  }, [secondsArray]);
+
   const $timerPicker = (
     <View className="">
       <Text className="text-xl font-bold text-center mb-5">Time Setting</Text>
 
       <View className="flex-row justify-between mb-5">
-        {/*<View className="flex-1 items-center">*/}
-        {/*  <Text className="text-base mb-2">Hours</Text>*/}
-        {/*  <Picker*/}
-        {/*    selectedValue={hours}*/}
-        {/*    style={{width: '100%', height: 150}}*/}
-        {/*    onValueChange={itemValue => setHours(itemValue)}>*/}
-        {/*    {hoursArray.map(hour => (*/}
-        {/*      <Picker.Item*/}
-        {/*        key={`hour-${hour}`}*/}
-        {/*        label={`${hour}`}*/}
-        {/*        value={hour}*/}
-        {/*      />*/}
-        {/*    ))}*/}
-        {/*  </Picker>*/}
-        {/*</View>*/}
-
         <View className="flex-1 items-center">
           <Text className="text-base mb-2">Minutes</Text>
-          <Picker
-            selectedValue={minutes}
-            style={{width: '100%', height: 150}}
-            mode='dropdown'
-            onValueChange={itemValue => setMinutes(itemValue)}>
-            {minutesArray.map(minute => (
-              <Picker.Item
-                key={`minute-${minute}`}
-                label={`${minute}`}
-                value={minute}
-              />
-            ))}
-          </Picker>
+          <WheelPicker
+            width={80}
+            data={minutesData}
+            value={minutes}
+            onValueChanged={({item: {value}}) => setMinutes(value)}
+          />
         </View>
 
         <View className="flex-1 items-center">
           <Text className="text-base mb-2">Seconds</Text>
-          <Picker
-            selectedValue={seconds}
-            style={{width: '100%', height: 150}}
-            mode='dropdown'
-            onValueChange={itemValue => setSeconds(itemValue)}>
-            {secondsArray.map(second => (
-              <Picker.Item
-                key={`second-${second}`}
-                label={`${second}`}
-                value={second}
-              />
-            ))}
-          </Picker>
+          <WheelPicker
+            width={80}
+            data={secondsData}
+            value={seconds}
+            onValueChanged={({item: {value}}) => setSeconds(value)}
+          />
         </View>
       </View>
 
@@ -151,18 +133,19 @@ export const TimePickerActionSheet = forwardRef<
 
   return (
     <BottomSheet
-      enablePanDownToClose={true}
+      enablePanDownToClose={false}
+      enableContentPanningGesture={false}
       enableOverDrag={false}
       ref={bottomSheetRef}
       index={-1}
       backgroundStyle={{backgroundColor: 'white'}}
       backdropComponent={renderBackdrop}
       onChange={handleSheetChanges}>
-      <BottomSheetScrollView>
+      <BottomSheetView>
         <SafeAreaView className="flex flex-col p-4 bg-white">
           {$timerPicker}
         </SafeAreaView>
-      </BottomSheetScrollView>
+      </BottomSheetView>
     </BottomSheet>
   );
 });
