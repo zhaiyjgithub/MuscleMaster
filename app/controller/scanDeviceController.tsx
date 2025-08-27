@@ -184,7 +184,7 @@ ScanDeviceController.options = {
       {
         id: 'settings',
         color: 'white',
-        text: 'V0.0.2',
+        text: '1.0.3',
       },
     ],
   },

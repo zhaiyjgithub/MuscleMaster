@@ -34,6 +34,10 @@ local.properties
 *.keystore
 !debug.keystore
 
+# Keystore backup and info files
+keystore-backup/
+keystore-info.txt
+
 # node.js
 #
 node_modules/
